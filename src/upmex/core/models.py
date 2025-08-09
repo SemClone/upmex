@@ -18,6 +18,7 @@ class PackageType(Enum):
     JAR = "jar"
     RUBY_GEM = "ruby_gem"
     RUST_CRATE = "rust_crate"
+    GO_MODULE = "go_module"
     GENERIC = "generic"
     UNKNOWN = "unknown"
 

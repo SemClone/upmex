@@ -72,7 +72,8 @@ class ClearlyDefinedAPI:
             PackageType.MAVEN: "maven",
             PackageType.JAR: "maven",
             PackageType.RUBY_GEM: "gem",
-            PackageType.RUST_CRATE: "crate"
+            PackageType.RUST_CRATE: "crate",
+            PackageType.GO_MODULE: "go"
         }
         return mapping.get(package_type)
     

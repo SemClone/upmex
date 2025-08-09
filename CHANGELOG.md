@@ -27,15 +27,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Keywords and categories extraction
   - Rust edition detection
   - License detection from Cargo.toml and LICENSE files
+- **Go Module Support** (Issue #17)
+  - Full Go module package extraction support
+  - Support for .zip archives from proxy.golang.org
+  - Parse go.mod files for module metadata
+  - Extract require, indirect, and replace dependencies
+  - Infer repository URLs from module paths (GitHub, GitLab, etc.)
+  - Go version requirement extraction
+  - License detection from LICENSE files in archives
+  - Description extraction from README files
 - Package detector enhancements:
   - Ruby gem detection by .gem extension and tar structure
   - Rust crate detection by .crate extension and Cargo.toml presence
+  - Go module detection by .mod files and .zip archives with go.mod
 - API integration for new package types:
-  - ClearlyDefined support for gem and crate packages
-  - Ecosyste.ms support via rubygems.org and crates.io registries
+  - ClearlyDefined support for gem, crate, and go packages
+  - Ecosyste.ms support via rubygems.org, crates.io, and proxy.golang.org registries
 - Successfully tested with real packages:
   - Ruby: Rails 7.1.5
   - Rust: serde 1.0.210, tokio 1.41.0
+  - Go: gin v1.10.0, cobra v1.8.1
 
 ## [0.2.0] - 2025-08-09
 
