@@ -4,13 +4,13 @@ Extract metadata and license information from various package formats with a sin
 
 ## Features
 
-- 🚀 **Multi-Ecosystem Support**: Python (wheel, sdist), NPM, Java (JAR, Maven)
-- 🔍 **Native License Detection**: Multi-layer approach (regex, Dice-Sørensen, fuzzy hashing, ML)
-- 📦 **Zero External Dependencies**: Native extraction without package managers
-- ⚡ **Performance Optimized**: < 500ms for small packages, streaming for large files
-- 🔧 **Extensible**: Template-based configuration system
-- 🌐 **API Integration**: ClearlyDefined and Ecosyste.ms support
-- 🎯 **High Accuracy**: Multiple detection methods with confidence scoring
+- **Multi-Ecosystem Support**: Python (wheel, sdist), NPM, Java (JAR, Maven)
+- **Native License Detection**: Multi-layer approach (regex, Dice-Sørensen, fuzzy hashing, ML)
+- **Zero External Dependencies**: Native extraction without package managers
+- **Performance Optimized**: < 500ms for small packages, streaming for large files
+- **Extensible**: Template-based configuration system
+- **API Integration**: ClearlyDefined and Ecosyste.ms support
+- **High Accuracy**: Multiple detection methods with confidence scoring
 
 ## Installation
 
@@ -115,10 +115,10 @@ Create a `config.json`:
 
 | Ecosystem | Formats | Detection | Metadata | License |
 |-----------|---------|-----------|----------|---------|
-| Python | .whl, .tar.gz, .zip | ✅ | ✅ | ✅ |
-| NPM | .tgz, .tar.gz | ✅ | ✅ | ✅ |
-| Java | .jar, .war, .ear | ✅ | ✅ | ✅ |
-| Maven | .jar with POM | ✅ | ✅ | ✅ |
+| Python | .whl, .tar.gz, .zip | Yes | Yes | Planned |
+| NPM | .tgz, .tar.gz | Yes | Yes | Planned |
+| Java | .jar, .war, .ear | Yes | Yes | Planned |
+| Maven | .jar with POM | Yes | Yes | Planned |
 
 ## Performance
 
@@ -164,9 +164,37 @@ semantic-copycat-upmex/
 └── config/           # Default configurations
 ```
 
+## Current Status
+
+UPMEX is currently in active development (v0.1.0). The core extraction functionality is complete and working for Python, NPM, and Java packages. License detection is the next major feature being implemented.
+
+### Implemented
+- Package type detection
+- Metadata extraction for Python, NPM, and Java packages  
+- CLI interface with multiple output formats
+- Configuration system with environment variables
+- Comprehensive test coverage
+
+### In Progress
+- Regex-based license detection (Issue #1)
+- Dice-Sørensen coefficient license matching (Issue #2)
+
+### Planned
+- Fuzzy hash license detection (Issue #3)
+- ML-based license classification (Issue #4)
+- API integrations (ClearlyDefined, Ecosyste.ms)
+- Performance optimizations for large packages
+- GitHub Actions CI/CD pipeline
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+For major changes, please open an issue first to discuss what you would like to change. Please make sure to update tests as appropriate.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a detailed history of changes.
 
 ## License
 

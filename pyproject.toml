@@ -62,10 +62,11 @@ all = [
 upmex = "upmex.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/oscarvalenzuelab/semantic-copycat-upex"
-Repository = "https://github.com/oscarvalenzuelab/semantic-copycat-upex"
-Issues = "https://github.com/oscarvalenzuelab/semantic-copycat-upex/issues"
-Documentation = "https://github.com/oscarvalenzuelab/semantic-copycat-upex#readme"
+Homepage = "https://github.com/oscarvalenzuelab/semantic-copycat-upmex"
+Repository = "https://github.com/oscarvalenzuelab/semantic-copycat-upmex"
+Issues = "https://github.com/oscarvalenzuelab/semantic-copycat-upmex/issues"
+Documentation = "https://github.com/oscarvalenzuelab/semantic-copycat-upmex#readme"
+Changelog = "https://github.com/oscarvalenzuelab/semantic-copycat-upmex/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]
