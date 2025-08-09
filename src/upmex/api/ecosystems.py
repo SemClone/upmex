@@ -69,7 +69,8 @@ class EcosystemsAPI:
             PackageType.JAR: "repo.maven.apache.org",
             PackageType.RUBY_GEM: "rubygems.org",
             PackageType.RUST_CRATE: "crates.io",
-            PackageType.GO_MODULE: "proxy.golang.org"
+            PackageType.GO_MODULE: "proxy.golang.org",
+            PackageType.NUGET: "nuget.org"
         }
         return mapping.get(package_type)
     

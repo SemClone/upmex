@@ -36,17 +36,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Go version requirement extraction
   - License detection from LICENSE files in archives
   - Description extraction from README files
+- **NuGet Package Support** (Issue #16)
+  - Full `.nupkg` package extraction support
+  - XML-based .nuspec metadata parsing with namespace handling
+  - Dependency extraction with target framework annotations
+  - Support for grouped and flat dependency formats
+  - License extraction from expressions, files, and URLs
+  - Framework assembly dependency tracking
+  - Author and owner (maintainer) extraction
+  - Tags (keywords) and release notes parsing
+  - Repository URL extraction from multiple sources
+  - Modern and legacy NuGet format compatibility
 - Package detector enhancements:
   - Ruby gem detection by .gem extension and tar structure
   - Rust crate detection by .crate extension and Cargo.toml presence
   - Go module detection by .mod files and .zip archives with go.mod
+  - NuGet package detection by .nupkg extension and .nuspec presence
 - API integration for new package types:
-  - ClearlyDefined support for gem, crate, and go packages
-  - Ecosyste.ms support via rubygems.org, crates.io, and proxy.golang.org registries
+  - ClearlyDefined support for gem, crate, go, and nuget packages
+  - Ecosyste.ms support via rubygems.org, crates.io, proxy.golang.org, and nuget.org registries
 - Successfully tested with real packages:
   - Ruby: Rails 7.1.5
   - Rust: serde 1.0.210, tokio 1.41.0
   - Go: gin v1.10.0, cobra v1.8.1
+  - NuGet: Newtonsoft.Json 13.0.3, Serilog 3.1.1
 
 ## [0.2.0] - 2025-08-09
 

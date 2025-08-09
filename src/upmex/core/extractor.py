@@ -11,6 +11,7 @@ from ..extractors.java_extractor import JavaExtractor
 from ..extractors.ruby_extractor import RubyExtractor
 from ..extractors.rust_extractor import RustExtractor
 from ..extractors.go_extractor import GoExtractor
+from ..extractors.nuget_extractor import NuGetExtractor
 from ..utils.package_detector import detect_package_type
 from ..api.clearlydefined import ClearlyDefinedAPI
 from ..api.ecosystems import EcosystemsAPI
@@ -38,6 +39,7 @@ class PackageExtractor:
             PackageType.RUBY_GEM: RubyExtractor(online_mode=self.online_mode),
             PackageType.RUST_CRATE: RustExtractor(online_mode=self.online_mode),
             PackageType.GO_MODULE: GoExtractor(online_mode=self.online_mode),
+            PackageType.NUGET: NuGetExtractor(online_mode=self.online_mode),
         }
     
     def extract(self, package_path: str) -> PackageMetadata:
