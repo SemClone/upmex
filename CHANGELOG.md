@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Ruby Gem Support** (Issue #3)
+  - Full `.gem` package extraction support
+  - Custom YAML loader for Ruby-specific metadata format
+  - Extraction from both metadata.gz and data.tar.gz
+  - Dependency parsing for runtime and development dependencies
+  - Author and email extraction from gemspec
+  - License detection from gemspec and LICENSE files
+  - Repository URL extraction from metadata URIs
+  - Platform and Ruby version requirement extraction
+- Ruby gem support in package detector
+- API integration for Ruby gems:
+  - ClearlyDefined support for gem packages
+  - Ecosyste.ms support via rubygems.org registry
+- Comprehensive unit tests for Ruby gem extraction
+- Successfully tested with real packages (Rails 7.1.5)
+
 ## [0.2.0] - 2025-08-09
 
 ### Added
