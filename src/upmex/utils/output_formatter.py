@@ -21,15 +21,13 @@ class OutputFormatter:
         
         Args:
             metadata: Package metadata to format
-            format: Output format (json, yaml, text)
+            format: Output format (json, text)
             
         Returns:
             Formatted string
         """
         if format == 'json':
             return self.to_json(metadata)
-        elif format == 'yaml':
-            return self.to_yaml(metadata)
         elif format == 'text':
             return self.to_text(metadata)
         else:
@@ -49,9 +47,6 @@ class OutputFormatter:
             if self.pretty:
                 return json.dumps(data, indent=2, sort_keys=True)
             return json.dumps(data)
-        elif format == 'yaml':
-            # YAML support would require PyYAML which we removed
-            return json.dumps(data, indent=2)  # Fallback to JSON
         else:
             return str(data)
     
@@ -68,19 +63,6 @@ class OutputFormatter:
         if self.pretty:
             return json.dumps(data, indent=2, sort_keys=True)
         return json.dumps(data)
-    
-    def to_yaml(self, metadata: PackageMetadata) -> str:
-        """Convert metadata to YAML string.
-        
-        Args:
-            metadata: Package metadata
-            
-        Returns:
-            YAML-like string (actually formatted JSON since we don't have PyYAML)
-        """
-        # Since we removed PyYAML, return formatted JSON
-        data = metadata.to_dict()
-        return json.dumps(data, indent=2, sort_keys=True)
     
     def to_text(self, metadata: PackageMetadata) -> str:
         """Convert metadata to human-readable text.

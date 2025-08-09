@@ -1,9 +1,12 @@
 """Data models for package metadata."""
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Union
 from datetime import datetime
 from enum import Enum
+
+# Special constant for fields where data cannot be determined
+NO_ASSERTION = "NO-ASSERTION"
 
 
 class PackageType(Enum):

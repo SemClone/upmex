@@ -54,17 +54,18 @@ def cli(ctx, config, verbose, quiet):
 @cli.command()
 @click.argument('package_path', type=click.Path(exists=True))
 @click.option('--output', '-o', type=click.Path(), help='Output file path')
-@click.option('--format', '-f', type=click.Choice(['json', 'yaml', 'text']), default='json', help='Output format')
+@click.option('--format', '-f', type=click.Choice(['json', 'text']), default='json', help='Output format')
 @click.option('--pretty', '-p', is_flag=True, help='Pretty print output')
 @click.option('--api', type=click.Choice(['clearlydefined', 'ecosystems', 'all', 'none']), default='none', help='API enrichment')
 @click.option('--no-cache', is_flag=True, help='Disable caching')
+@click.option('--online', is_flag=True, help='Enable online mode to fetch missing metadata (e.g., parent POMs)')
 @click.pass_context
-def extract(ctx, package_path, output, format, pretty, api, no_cache):
+def extract(ctx, package_path, output, format, pretty, api, no_cache, online):
     """Extract metadata from a package file.
     
     Examples:
         upmex extract package.whl
-        upmex extract --format yaml package.tgz
+        upmex extract --format text package.tgz
         upmex extract --api clearlydefined package.jar
     """
     config = ctx.obj['config']
@@ -75,12 +76,16 @@ def extract(ctx, package_path, output, format, pretty, api, no_cache):
         config.set('extraction.cache_enabled', False)
     
     try:
-        # Create extractor
-        extractor = PackageExtractor(config.to_dict())
+        # Create extractor with online mode
+        extractor_config = config.to_dict()
+        extractor_config['online_mode'] = online
+        extractor = PackageExtractor(extractor_config)
         
         # Extract metadata
         if verbose:
             click.echo(f"Extracting metadata from: {package_path}")
+            if online:
+                click.echo("Online mode enabled - will fetch missing metadata")
         
         metadata = extractor.extract(package_path)
         
@@ -200,7 +205,7 @@ def info(ctx, output_json):
         ],
         "detection_methods": ["regex", "dice_sorensen"],
         "api_integrations": ["clearlydefined", "ecosystems"],
-        "output_formats": ["json", "yaml", "text"]
+        "output_formats": ["json", "text"]
     }
     
     if output_json:

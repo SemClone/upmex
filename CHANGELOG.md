@@ -8,11 +8,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- License detection implementation (in progress)
-  - Regex-based pattern matching (Issue #1)
-  - Dice-Sørensen coefficient matching (Issue #2)
-  - Fuzzy hash detection (Issue #3)
-  - ML-based classification (Issue #4)
+- Online mode (--online flag) for enhanced metadata extraction
+  - Maven parent POM fetching from Maven Central
+  - ClearlyDefined API integration for license information
+  - Ecosyste.ms API integration for metadata enrichment
+  - POM header comment parsing for license and author data
+- NO-ASSERTION constant for fields where data cannot be determined
+- Standardized metadata output across all package types
+- Improved author parsing with consistent name/email separation
+- Repository URL extraction for Python packages
+- Developer extraction from Maven POMs
+
+### Changed
+- Standardized author format across all extractors (dict with name/email)
+- Maven extractor now fetches parent POMs in online mode
+- Python extractor now extracts repository from Project-URL metadata
+- Default mode is offline (no external API calls)
+
+### Fixed
+- Maven package name extraction now uses parent groupId when needed
+- Author email parsing for combined "Name <email>" format
+- Repository URL extraction for all package types
+
+### Removed
+- YAML output format (was broken due to missing PyYAML dependency)
 
 ## [0.1.0] - 2025-08-09
 
@@ -32,6 +51,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Output format support (JSON, YAML, text)
 - Configuration system with environment variable support
 - Comprehensive test suite
+
+### Tested
+- Successfully tested extraction against real packages:
+  - Python: requests-2.32.4 (wheel) - full metadata extraction
+  - NPM: express-5.1.0 (tgz) - complete package.json parsing
+  - Maven: guava-33.4.0-jre (JAR) - POM metadata extraction
+- Verified all core metadata fields are properly extracted:
+  - Package name, version, description
+  - Authors, maintainers, homepage
+  - Dependencies (runtime and dev)
+  - Keywords, classifiers, repository info
 
 ### Changed
 - Renamed project from `package-metadata-extractor` to `semantic-copycat-upmex`

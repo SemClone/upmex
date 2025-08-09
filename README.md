@@ -5,12 +5,12 @@ Extract metadata and license information from various package formats with a sin
 ## Features
 
 - **Multi-Ecosystem Support**: Python (wheel, sdist), NPM, Java (JAR, Maven)
-- **Native License Detection**: Multi-layer approach (regex, Dice-Sørensen, fuzzy hashing, ML)
-- **Zero External Dependencies**: Native extraction without package managers
-- **Performance Optimized**: < 500ms for small packages, streaming for large files
-- **Extensible**: Template-based configuration system
-- **API Integration**: ClearlyDefined and Ecosyste.ms support
-- **High Accuracy**: Multiple detection methods with confidence scoring
+- **Offline/Online Modes**: Default offline mode with optional online enrichment
+- **NO-ASSERTION Handling**: Clear indication when data cannot be determined
+- **Parent POM Fetching**: Automatic retrieval of Maven parent metadata in online mode
+- **API Integration**: ClearlyDefined and Ecosyste.ms support in online mode
+- **Standardized Output**: Consistent JSON structure across all package types
+- **Native Extraction**: No dependency on package managers
 
 ## Installation
 
@@ -51,8 +51,11 @@ print(json.dumps(metadata.to_dict(), indent=2))
 ## CLI Usage
 
 ```bash
-# Basic extraction
+# Basic extraction (offline mode - default)
 upmex extract package.whl
+
+# Online mode - fetches parent POMs and queries APIs
+upmex extract --online package.jar
 
 # With pretty JSON output
 upmex extract --pretty package.whl
@@ -113,12 +116,12 @@ Create a `config.json`:
 
 ## Supported Package Types
 
-| Ecosystem | Formats | Detection | Metadata | License |
-|-----------|---------|-----------|----------|---------|
-| Python | .whl, .tar.gz, .zip | Yes | Yes | Planned |
-| NPM | .tgz, .tar.gz | Yes | Yes | Planned |
-| Java | .jar, .war, .ear | Yes | Yes | Planned |
-| Maven | .jar with POM | Yes | Yes | Planned |
+| Ecosystem | Formats | Detection | Metadata | Online Mode | Tested |
+|-----------|---------|-----------|----------|-------------|--------|
+| Python | .whl, .tar.gz, .zip | ✓ | ✓ | API enrichment | ✓ |
+| NPM | .tgz, .tar.gz | ✓ | ✓ | API enrichment | ✓ |
+| Java | .jar, .war, .ear | ✓ | ✓ | Parent POM fetch | ✓ |
+| Maven | .jar with POM | ✓ | ✓ | Parent POM fetch | ✓ |
 
 ## Performance
 
@@ -166,14 +169,25 @@ semantic-copycat-upmex/
 
 ## Current Status
 
-UPMEX is currently in active development (v0.1.0). The core extraction functionality is complete and working for Python, NPM, and Java packages. License detection is the next major feature being implemented.
+UPMEX v0.1.0 is fully functional with core extraction capabilities and online enrichment features.
 
-### Implemented
-- Package type detection
-- Metadata extraction for Python, NPM, and Java packages  
-- CLI interface with multiple output formats
-- Configuration system with environment variables
-- Comprehensive test coverage
+### Implemented Features
+- Package type detection for all supported formats
+- Offline extraction mode (default) with NO-ASSERTION for missing data
+- Online mode with:
+  - Maven parent POM fetching from Maven Central
+  - ClearlyDefined API integration for license data
+  - Ecosyste.ms API integration for metadata enrichment
+  - POM header comment parsing for license/author info
+- Standardized output across all package types
+- CLI interface with JSON and text output formats
+- Configuration system with environment variables and JSON files
+- Comprehensive test suite with 33 passing tests
+
+### Tested Packages
+- Python: requests-2.32.4 (wheel format) - full metadata extraction
+- NPM: express-5.1.0 (tgz format) - complete package.json parsing
+- Maven: guava-33.4.0-jre (JAR format) - POM extraction with parent fetching
 
 ### In Progress
 - Regex-based license detection (Issue #1)

@@ -5,11 +5,15 @@ import json
 from pathlib import Path
 from typing import Dict, Any
 from .base import BaseExtractor
-from ..core.models import PackageMetadata, PackageType
+from ..core.models import PackageMetadata, PackageType, NO_ASSERTION
 
 
 class NpmExtractor(BaseExtractor):
     """Extractor for NPM packages."""
+    
+    def __init__(self, online_mode: bool = False):
+        """Initialize NPM extractor."""
+        super().__init__(online_mode)
     
     def extract(self, package_path: str) -> PackageMetadata:
         """Extract metadata from NPM package."""
@@ -39,12 +43,26 @@ class NpmExtractor(BaseExtractor):
                         elif isinstance(repo, str):
                             metadata.repository = repo
                         
-                        # Extract author
+                        # Extract author - standardize format
                         author = data.get('author')
                         if isinstance(author, dict):
+                            # Already in dict format with name/email
                             metadata.authors.append(author)
                         elif isinstance(author, str):
-                            metadata.authors.append({'name': author})
+                            # Parse string format "Name <email>"
+                            if '<' in author and '>' in author:
+                                parts = author.rsplit(' <', 1)
+                                if len(parts) == 2:
+                                    name = parts[0].strip()
+                                    email = parts[1].rstrip('>').strip()
+                                    metadata.authors.append({
+                                        'name': name,
+                                        'email': email
+                                    })
+                                else:
+                                    metadata.authors.append({'name': author})
+                            else:
+                                metadata.authors.append({'name': author})
                         
                         # Extract maintainers
                         maintainers = data.get('maintainers', [])

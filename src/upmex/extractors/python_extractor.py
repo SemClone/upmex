@@ -7,11 +7,15 @@ import email
 from pathlib import Path
 from typing import Dict, Any, Optional
 from .base import BaseExtractor
-from ..core.models import PackageMetadata, PackageType
+from ..core.models import PackageMetadata, PackageType, NO_ASSERTION
 
 
 class PythonExtractor(BaseExtractor):
     """Extractor for Python packages (wheel and sdist)."""
+    
+    def __init__(self, online_mode: bool = False):
+        """Initialize Python extractor."""
+        super().__init__(online_mode)
     
     def extract(self, package_path: str) -> PackageMetadata:
         """Extract metadata from Python package."""
@@ -61,14 +65,41 @@ class PythonExtractor(BaseExtractor):
                             metadata.description = msg.get('Summary')
                             metadata.homepage = msg.get('Home-page')
                             
-                            # Extract authors
+                            # Extract repository from Project-URL
+                            project_urls = msg.get_all('Project-URL') or []
+                            for url in project_urls:
+                                if 'repository' in url.lower() or 'source' in url.lower() or 'github' in url.lower():
+                                    # Format: "Repository, https://github.com/..."
+                                    if ', ' in url:
+                                        _, repo_url = url.split(', ', 1)
+                                        metadata.repository = repo_url
+                                        break
+                            
+                            # Extract authors - parse the Author-email field properly
                             author = msg.get('Author')
                             author_email = msg.get('Author-email')
                             if author or author_email:
-                                metadata.authors.append({
-                                    'name': author,
-                                    'email': author_email
-                                })
+                                # Parse name and email if combined
+                                if author_email and '<' in author_email and '>' in author_email:
+                                    # Format: "Name <email>"
+                                    parts = author_email.rsplit(' <', 1)
+                                    if len(parts) == 2:
+                                        parsed_name = parts[0].strip()
+                                        parsed_email = parts[1].rstrip('>').strip()
+                                        metadata.authors.append({
+                                            'name': parsed_name,
+                                            'email': parsed_email
+                                        })
+                                    else:
+                                        metadata.authors.append({
+                                            'name': author,
+                                            'email': author_email
+                                        })
+                                else:
+                                    metadata.authors.append({
+                                        'name': author,
+                                        'email': author_email
+                                    })
                             
                             # Extract dependencies
                             requires = msg.get_all('Requires-Dist') or []
@@ -80,7 +111,11 @@ class PythonExtractor(BaseExtractor):
                             # Extract keywords
                             keywords = msg.get('Keywords')
                             if keywords:
-                                metadata.keywords = [k.strip() for k in keywords.split(',')]
+                                # Split by comma or space and clean up
+                                if ',' in keywords:
+                                    metadata.keywords = [k.strip() for k in keywords.split(',') if k.strip()]
+                                else:
+                                    metadata.keywords = [k.strip() for k in keywords.split() if k.strip()]
                         
                         break
         except Exception as e:
