@@ -70,7 +70,8 @@ class ClearlyDefinedAPI:
             PackageType.PYTHON_SDIST: "pypi",
             PackageType.NPM: "npm",
             PackageType.MAVEN: "maven",
-            PackageType.JAR: "maven"
+            PackageType.JAR: "maven",
+            PackageType.RUBY_GEM: "gem"
         }
         return mapping.get(package_type)
     

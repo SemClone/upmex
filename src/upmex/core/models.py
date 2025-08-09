@@ -16,6 +16,7 @@ class PackageType(Enum):
     NPM = "npm"
     MAVEN = "maven"
     JAR = "jar"
+    RUBY_GEM = "ruby_gem"
     GENERIC = "generic"
     UNKNOWN = "unknown"
 
