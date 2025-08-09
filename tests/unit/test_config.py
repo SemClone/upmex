@@ -4,7 +4,7 @@ import os
 import json
 import pytest
 from pathlib import Path
-from package_metadata_extractor.config import Config
+from upmex.config import Config
 
 
 class TestConfig:

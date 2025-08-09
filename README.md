@@ -1,6 +1,6 @@
-# Package Metadata Extractor
+# UPMEX - Universal Package Metadata Extractor
 
-A comprehensive package metadata extraction tool supporting multiple ecosystems with native license detection capabilities.
+Extract metadata and license information from various package formats with a single tool.
 
 ## Features
 
@@ -16,8 +16,8 @@ A comprehensive package metadata extraction tool supporting multiple ecosystems 
 
 ```bash
 # Install from source
-git clone https://github.com/oscarvalenzuelab/semantic-copycat-upex.git
-cd semantic-copycat-upex
+git clone https://github.com/oscarvalenzuelab/semantic-copycat-upmex.git
+cd semantic-copycat-upmex
 pip install -e .
 
 # Install with all features
@@ -30,7 +30,7 @@ pip install -e ".[dev]"
 ## Quick Start
 
 ```python
-from package_metadata_extractor import PackageExtractor
+from upmex import PackageExtractor
 
 # Create extractor
 extractor = PackageExtractor()
@@ -48,20 +48,26 @@ import json
 print(json.dumps(metadata.to_dict(), indent=2))
 ```
 
-## CLI Usage (Coming Soon)
+## CLI Usage
 
 ```bash
 # Basic extraction
-package-metadata-extractor extract package.whl
+upmex extract package.whl
 
-# With API enrichment
-package-metadata-extractor extract --api clearlydefined package.whl
+# With pretty JSON output
+upmex extract --pretty package.whl
 
-# Batch processing
-package-metadata-extractor batch packages.txt --output results.json
+# Output to file
+upmex extract package.whl -o metadata.json
 
-# License detection only
-package-metadata-extractor license package.tar.gz
+# Text format output
+upmex extract --format text package.tar.gz
+
+# Detect package type
+upmex detect package.jar
+
+# Extract license information
+upmex license package.tgz
 ```
 
 ## Configuration
@@ -131,7 +137,7 @@ pip install -e ".[dev]"
 pytest tests/
 
 # Run with coverage
-pytest tests/ --cov=package_metadata_extractor
+pytest tests/ --cov=upmex
 
 # Format code
 black src/ tests/
@@ -146,8 +152,8 @@ mypy src/
 ## Project Structure
 
 ```
-semantic-copycat-upex/
-├── src/package_metadata_extractor/
+semantic-copycat-upmex/
+├── src/upmex/
 │   ├── core/           # Core models and orchestrator
 │   ├── extractors/     # Package-specific extractors
 │   ├── detectors/      # License detection engines

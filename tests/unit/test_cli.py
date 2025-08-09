@@ -4,8 +4,8 @@ import json
 import pytest
 from pathlib import Path
 from click.testing import CliRunner
-from package_metadata_extractor.cli import cli
-from package_metadata_extractor.core.models import PackageMetadata, PackageType
+from upmex.cli import cli
+from upmex.core.models import PackageMetadata, PackageType
 
 
 class TestCLI:
@@ -47,7 +47,7 @@ License: MIT
         """Test info command."""
         result = runner.invoke(cli, ['info'])
         assert result.exit_code == 0
-        assert 'Package Metadata Extractor' in result.output
+        assert 'UPMEX' in result.output
         assert 'python_wheel' in result.output
         assert 'npm' in result.output
     
@@ -128,74 +128,6 @@ License: MIT
         assert result.exit_code == 0
         # Note: Our sample doesn't have license detection yet
         # This will show "No license information found" for now
-    
-    def test_batch_command(self, runner, sample_package, temp_dir):
-        """Test batch command."""
-        # Create input file with package list
-        input_file = temp_dir / 'packages.txt'
-        input_file.write_text(f"{sample_package}\n{sample_package}\n")
-        
-        output_file = temp_dir / 'results.json'
-        
-        result = runner.invoke(cli, ['batch', str(input_file), '-o', str(output_file)])
-        assert result.exit_code == 0
-        assert 'Processing 2 packages' in result.output
-        assert 'Processed: 2 successful' in result.output
-        
-        # Check output
-        data = json.loads(output_file.read_text())
-        assert len(data['packages']) == 2
-        assert data['summary']['total'] == 2
-        assert data['summary']['successful'] == 2
-    
-    def test_batch_command_with_progress(self, runner, sample_package, temp_dir):
-        """Test batch command with progress bar."""
-        input_file = temp_dir / 'packages.txt'
-        input_file.write_text(sample_package)
-        
-        result = runner.invoke(cli, ['batch', str(input_file), '--progress'])
-        assert result.exit_code == 0
-        assert 'Processing 1 packages' in result.output
-    
-    def test_batch_command_jsonl_format(self, runner, sample_package, temp_dir):
-        """Test batch command with JSONL output."""
-        input_file = temp_dir / 'packages.txt'
-        input_file.write_text(sample_package)
-        
-        output_file = temp_dir / 'results.jsonl'
-        
-        result = runner.invoke(cli, ['batch', str(input_file), '-o', str(output_file), '--format', 'jsonl'])
-        assert result.exit_code == 0
-        
-        # Check JSONL output
-        lines = output_file.read_text().strip().split('\n')
-        assert len(lines) == 1
-        data = json.loads(lines[0])
-        assert data['name'] == 'test-package'
-    
-    def test_batch_continue_on_error(self, runner, sample_package, temp_dir):
-        """Test batch command with continue-on-error."""
-        input_file = temp_dir / 'packages.txt'
-        input_file.write_text(f"{sample_package}\nnonexistent.whl\n{sample_package}")
-        
-        output_file = temp_dir / 'results.json'
-        
-        result = runner.invoke(cli, ['batch', str(input_file), '-o', str(output_file), '--continue-on-error'])
-        assert result.exit_code == 0
-        assert 'Processed: 2 successful, 1 failed' in result.output
-        
-        data = json.loads(output_file.read_text())
-        assert len(data['packages']) == 2
-        assert len(data['errors']) == 1
-    
-    def test_batch_empty_input(self, runner, temp_dir):
-        """Test batch command with empty input file."""
-        input_file = temp_dir / 'empty.txt'
-        input_file.write_text("")
-        
-        result = runner.invoke(cli, ['batch', str(input_file)])
-        assert result.exit_code == 1
-        assert 'No packages found' in result.output
     
     def test_cli_with_config_file(self, runner, sample_package, temp_dir):
         """Test CLI with custom config file."""

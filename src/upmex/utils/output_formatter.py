@@ -1,9 +1,7 @@
 """Output formatting utilities for various formats."""
 
 import json
-import csv
-import io
-from typing import Any, Dict, List
+from typing import Any, Dict
 from ..core.models import PackageMetadata
 
 
@@ -150,52 +148,3 @@ class OutputFormatter:
         lines.append(f"Schema Version: {metadata.schema_version}")
         
         return '\n'.join(lines)
-    
-    def to_csv(self, metadata_list: List[Dict[str, Any]]) -> str:
-        """Convert list of metadata to CSV format.
-        
-        Args:
-            metadata_list: List of metadata dictionaries
-            
-        Returns:
-            CSV string
-        """
-        if not metadata_list:
-            return ""
-        
-        # Flatten nested structures for CSV
-        flattened = []
-        for metadata in metadata_list:
-            flat = {
-                'name': metadata.get('name', ''),
-                'version': metadata.get('version', ''),
-                'package_type': metadata.get('package_type', ''),
-                'description': metadata.get('description', ''),
-                'homepage': metadata.get('homepage', ''),
-                'repository': metadata.get('repository', ''),
-                'license': '',
-                'author': '',
-                'file_size': metadata.get('file_size', ''),
-                'file_hash': metadata.get('file_hash', ''),
-            }
-            
-            # Extract first license
-            if metadata.get('licenses'):
-                first_license = metadata['licenses'][0]
-                flat['license'] = first_license.get('spdx_id') or first_license.get('name', '')
-            
-            # Extract first author
-            if metadata.get('authors'):
-                first_author = metadata['authors'][0]
-                flat['author'] = first_author.get('name', '')
-            
-            flattened.append(flat)
-        
-        # Write CSV
-        output = io.StringIO()
-        if flattened:
-            writer = csv.DictWriter(output, fieldnames=flattened[0].keys())
-            writer.writeheader()
-            writer.writerows(flattened)
-        
-        return output.getvalue()

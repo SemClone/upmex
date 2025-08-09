@@ -2,7 +2,7 @@
 
 import pytest
 from datetime import datetime
-from package_metadata_extractor.core.models import (
+from upmex.core.models import (
     PackageMetadata,
     LicenseInfo,
     PackageType,

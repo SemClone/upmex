@@ -5,8 +5,8 @@ import zipfile
 import tarfile
 import json
 from pathlib import Path
-from package_metadata_extractor.utils.package_detector import detect_package_type
-from package_metadata_extractor.core.models import PackageType
+from upmex.utils.package_detector import detect_package_type
+from upmex.core.models import PackageType
 
 
 class TestPackageDetection:

@@ -1,4 +1,4 @@
-"""Package Metadata Extractor - Multi-ecosystem package analysis tool."""
+"""UPMEX - Universal Package Metadata Extractor."""
 
 __version__ = "0.1.0"
 __author__ = "Oscar Valenzuela B."

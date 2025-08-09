@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "package-metadata-extractor"
+name = "semantic-copycat-upmex"
 version = "0.1.0"
-description = "A comprehensive package metadata extractor supporting multiple ecosystems with native license detection"
+description = "Universal Package Metadata Extractor - Extract metadata from various package formats"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
@@ -55,12 +55,11 @@ ml = [
     "numpy>=1.21.0",
 ]
 all = [
-    "package-metadata-extractor[dev,ml]",
+    "semantic-copycat-upmex[dev,ml]",
 ]
 
 [project.scripts]
-package-metadata-extractor = "package_metadata_extractor.cli:main"
-pme = "package_metadata_extractor.cli:main"
+upmex = "upmex.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/oscarvalenzuelab/semantic-copycat-upex"
@@ -72,7 +71,7 @@ Documentation = "https://github.com/oscarvalenzuelab/semantic-copycat-upex#readm
 where = ["src"]
 
 [tool.setuptools.package-data]
-package_metadata_extractor = ["templates/**/*.json"]
+upmex = ["templates/**/*.json"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
