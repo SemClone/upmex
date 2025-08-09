@@ -28,14 +28,26 @@ def detect_package_type(package_path: str) -> PackageType:
     if path.suffix == '.crate':
         return PackageType.RUST_CRATE
     
+    if path.suffix == '.mod' or path.name == 'go.mod':
+        return PackageType.GO_MODULE
+    
     if path.suffix in ['.jar', '.war', '.ear']:
         # Check if it's a Maven package
         if _is_maven_package(package_path):
             return PackageType.MAVEN
         return PackageType.JAR
     
+    # Check for archive formats
+    if path.name.endswith('.zip'):
+        # Check for Go module (zip with go.mod)
+        if _is_go_module(package_path):
+            return PackageType.GO_MODULE
+        
+        if _is_python_sdist(package_path):
+            return PackageType.PYTHON_SDIST
+    
     # Check for Python sdist
-    if path.name.endswith(('.tar.gz', '.tgz', '.tar.bz2', '.zip')):
+    if path.name.endswith(('.tar.gz', '.tgz', '.tar.bz2')):
         # Check for Rust crate (tar.gz with Cargo.toml)
         if _is_rust_crate(package_path):
             return PackageType.RUST_CRATE
@@ -124,6 +136,20 @@ def _is_rust_crate(archive_path: str) -> bool:
             for member in tf.getmembers():
                 # Rust crates contain Cargo.toml
                 if 'Cargo.toml' in member.name:
+                    return True
+    except:
+        pass
+    return False
+
+
+def _is_go_module(archive_path: str) -> bool:
+    """Check if an archive is a Go module."""
+    import zipfile
+    try:
+        with zipfile.ZipFile(archive_path, 'r') as zf:
+            for name in zf.namelist():
+                # Go modules contain go.mod
+                if name.endswith('go.mod'):
                     return True
     except:
         pass
