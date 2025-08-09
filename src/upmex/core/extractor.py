@@ -8,6 +8,8 @@ from .models import PackageMetadata, PackageType, NO_ASSERTION
 from ..extractors.python_extractor import PythonExtractor
 from ..extractors.npm_extractor import NpmExtractor
 from ..extractors.java_extractor import JavaExtractor
+from ..extractors.ruby_extractor import RubyExtractor
+from ..extractors.rust_extractor import RustExtractor
 from ..utils.package_detector import detect_package_type
 from ..api.clearlydefined import ClearlyDefinedAPI
 from ..api.ecosystems import EcosystemsAPI
@@ -32,6 +34,8 @@ class PackageExtractor:
             PackageType.NPM: NpmExtractor(online_mode=self.online_mode),
             PackageType.MAVEN: JavaExtractor(online_mode=self.online_mode),
             PackageType.JAR: JavaExtractor(online_mode=self.online_mode),
+            PackageType.RUBY_GEM: RubyExtractor(online_mode=self.online_mode),
+            PackageType.RUST_CRATE: RustExtractor(online_mode=self.online_mode),
         }
     
     def extract(self, package_path: str) -> PackageMetadata:
