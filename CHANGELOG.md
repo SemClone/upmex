@@ -17,12 +17,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - License detection from gemspec and LICENSE files
   - Repository URL extraction from metadata URIs
   - Platform and Ruby version requirement extraction
-- Ruby gem support in package detector
-- API integration for Ruby gems:
-  - ClearlyDefined support for gem packages
-  - Ecosyste.ms support via rubygems.org registry
-- Comprehensive unit tests for Ruby gem extraction
-- Successfully tested with real packages (Rails 7.1.5)
+- **Rust Crate Support** (Issue #4)
+  - Full `.crate` package extraction support
+  - Cargo.toml parsing with TOML library
+  - Support for Cargo.toml.orig when available
+  - Dependency extraction (normal, dev, build dependencies)
+  - Target-specific dependency parsing with platform annotations
+  - Author email parsing from "Name <email>" format
+  - Keywords and categories extraction
+  - Rust edition detection
+  - License detection from Cargo.toml and LICENSE files
+- Package detector enhancements:
+  - Ruby gem detection by .gem extension and tar structure
+  - Rust crate detection by .crate extension and Cargo.toml presence
+- API integration for new package types:
+  - ClearlyDefined support for gem and crate packages
+  - Ecosyste.ms support via rubygems.org and crates.io registries
+- Successfully tested with real packages:
+  - Ruby: Rails 7.1.5
+  - Rust: serde 1.0.210, tokio 1.41.0
 
 ## [0.2.0] - 2025-08-09
 
