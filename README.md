@@ -165,9 +165,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 MIT License - see LICENSE file for details.
-
-## Author
-
-**Oscar Valenzuela B.**  
-Email: oscar.valenzuela.b@gmail.com  
-GitHub: [@oscarvalenzuelab](https://github.com/oscarvalenzuelab)
