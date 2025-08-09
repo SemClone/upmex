@@ -67,7 +67,8 @@ class EcosystemsAPI:
             PackageType.NPM: "npmjs.org",
             PackageType.MAVEN: "repo.maven.apache.org",
             PackageType.JAR: "repo.maven.apache.org",
-            PackageType.RUBY_GEM: "rubygems.org"
+            PackageType.RUBY_GEM: "rubygems.org",
+            PackageType.RUST_CRATE: "crates.io"
         }
         return mapping.get(package_type)
     

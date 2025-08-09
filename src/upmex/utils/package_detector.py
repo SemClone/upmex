@@ -25,6 +25,9 @@ def detect_package_type(package_path: str) -> PackageType:
     if path.suffix == '.gem':
         return PackageType.RUBY_GEM
     
+    if path.suffix == '.crate':
+        return PackageType.RUST_CRATE
+    
     if path.suffix in ['.jar', '.war', '.ear']:
         # Check if it's a Maven package
         if _is_maven_package(package_path):
@@ -33,6 +36,10 @@ def detect_package_type(package_path: str) -> PackageType:
     
     # Check for Python sdist
     if path.name.endswith(('.tar.gz', '.tgz', '.tar.bz2', '.zip')):
+        # Check for Rust crate (tar.gz with Cargo.toml)
+        if _is_rust_crate(package_path):
+            return PackageType.RUST_CRATE
+        
         # Check for Ruby gem (can be .tar format)
         if _is_ruby_gem(package_path):
             return PackageType.RUBY_GEM
@@ -105,6 +112,19 @@ def _is_ruby_gem(archive_path: str) -> bool:
             # Ruby gems contain metadata.gz and data.tar.gz
             if 'metadata.gz' in members and 'data.tar.gz' in members:
                 return True
+    except:
+        pass
+    return False
+
+
+def _is_rust_crate(archive_path: str) -> bool:
+    """Check if an archive is a Rust crate."""
+    try:
+        with tarfile.open(archive_path, 'r:gz') as tf:
+            for member in tf.getmembers():
+                # Rust crates contain Cargo.toml
+                if 'Cargo.toml' in member.name:
+                    return True
     except:
         pass
     return False

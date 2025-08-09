@@ -17,6 +17,7 @@ class PackageType(Enum):
     MAVEN = "maven"
     JAR = "jar"
     RUBY_GEM = "ruby_gem"
+    RUST_CRATE = "rust_crate"
     GENERIC = "generic"
     UNKNOWN = "unknown"
 
