@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from .base import BaseExtractor
 from ..core.models import PackageMetadata, PackageType, NO_ASSERTION
+from ..utils.license_detector import LicenseDetector
 
 
 class PythonExtractor(BaseExtractor):
@@ -16,6 +17,7 @@ class PythonExtractor(BaseExtractor):
     def __init__(self, online_mode: bool = False):
         """Initialize Python extractor."""
         super().__init__(online_mode)
+        self.license_detector = LicenseDetector()
     
     def extract(self, package_path: str) -> PackageMetadata:
         """Extract metadata from Python package."""
@@ -107,6 +109,28 @@ class PythonExtractor(BaseExtractor):
                             
                             # Extract classifiers
                             metadata.classifiers = msg.get_all('Classifier') or []
+                            
+                            # Extract license using regex detection
+                            license_text = msg.get('License')
+                            if license_text:
+                                license_info = self.license_detector.detect_license_from_text(
+                                    license_text, 
+                                    filename='METADATA'
+                                )
+                                if license_info:
+                                    metadata.licenses = [license_info]
+                            
+                            # Also check classifiers for license info
+                            if not metadata.licenses and metadata.classifiers:
+                                for classifier in metadata.classifiers:
+                                    if 'License ::' in classifier:
+                                        license_info = self.license_detector.detect_license_from_text(
+                                            classifier,
+                                            filename='METADATA'
+                                        )
+                                        if license_info:
+                                            metadata.licenses = [license_info]
+                                            break
                             
                             # Extract keywords
                             keywords = msg.get('Keywords')

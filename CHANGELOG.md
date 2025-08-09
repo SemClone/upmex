@@ -7,7 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-08-09
+
 ### Added
+- **License Detection System** (Issues #1, #2)
+  - Regex-based license detection for 24+ SPDX identifiers
+  - Dice-Sørensen coefficient for fuzzy license matching
+  - Confidence scoring and detection method tracking
+  - Multi-license detection support
+  - Integration with all package extractors
+- **License Detection Module** (`src/upmex/utils/license_detector.py`)
+  - Pattern matching for metadata fields
+  - SPDX normalization
+  - License file detection
+- **Dice-Sørensen Implementation** (`src/upmex/utils/dice_sorensen.py`)
+  - N-gram based text similarity
+  - Bigram and unigram matching strategies
+  - Pre-computed license snippet database
+- **Comprehensive Test Suite**
+  - 95+ tests covering all functionality
+  - Unit tests for license detection algorithms
+  - Integration tests for package extraction
+  - End-to-end tests for CLI commands
 - Online mode (--online flag) for enhanced metadata extraction
   - Maven parent POM fetching from Maven Central
   - ClearlyDefined API integration for license information
@@ -75,7 +96,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Batch command from CLI
 
 ### Security
-- Added pre-commit hook to prevent commits with restricted words
 - Path validation for safe extraction
 - Resource limits for large packages
 

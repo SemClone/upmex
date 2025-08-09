@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from .base import BaseExtractor
 from ..core.models import PackageMetadata, PackageType, NO_ASSERTION
+from ..utils.license_detector import LicenseDetector
 
 
 class JavaExtractor(BaseExtractor):
@@ -17,6 +18,7 @@ class JavaExtractor(BaseExtractor):
         """Initialize Java extractor."""
         super().__init__(online_mode)
         self.maven_central_url = "https://repo1.maven.org/maven2"
+        self.license_detector = LicenseDetector()
     
     def extract(self, package_path: str) -> PackageMetadata:
         """Extract metadata from Java package."""
@@ -126,6 +128,19 @@ class JavaExtractor(BaseExtractor):
                                         metadata.repository = parent_metadata['repository']
                                     if not metadata.homepage and parent_metadata.get('homepage'):
                                         metadata.homepage = parent_metadata['homepage']
+                    
+                    # Extract license using regex detection
+                    licenses_elem = root.find('.//maven:licenses', ns) or root.find('.//licenses')
+                    if licenses_elem is not None:
+                        for license_elem in licenses_elem.findall('./maven:license', ns) or licenses_elem.findall('./license'):
+                            license_name = license_elem.findtext('maven:name', '', ns) or license_elem.findtext('name', '')
+                            if license_name:
+                                license_info = self.license_detector.detect_license_from_text(
+                                    license_name,
+                                    filename='pom.xml'
+                                )
+                                if license_info:
+                                    metadata.licenses.append(license_info)
                     
                     # Extract dependencies
                     runtime_deps = []

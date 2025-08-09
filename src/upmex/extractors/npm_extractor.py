@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, Any
 from .base import BaseExtractor
 from ..core.models import PackageMetadata, PackageType, NO_ASSERTION
+from ..utils.license_detector import LicenseDetector
 
 
 class NpmExtractor(BaseExtractor):
@@ -14,6 +15,7 @@ class NpmExtractor(BaseExtractor):
     def __init__(self, online_mode: bool = False):
         """Initialize NPM extractor."""
         super().__init__(online_mode)
+        self.license_detector = LicenseDetector()
     
     def extract(self, package_path: str) -> PackageMetadata:
         """Extract metadata from NPM package."""
@@ -79,6 +81,43 @@ class NpmExtractor(BaseExtractor):
                         
                         # Extract keywords
                         metadata.keywords = data.get('keywords', [])
+                        
+                        # Extract license using regex detection
+                        license_data = data.get('license') or data.get('licenses')
+                        if license_data:
+                            if isinstance(license_data, str):
+                                license_info = self.license_detector.detect_license_from_text(
+                                    license_data,
+                                    filename='package.json'
+                                )
+                                if license_info:
+                                    metadata.licenses = [license_info]
+                            elif isinstance(license_data, dict):
+                                license_type = license_data.get('type')
+                                if license_type:
+                                    license_info = self.license_detector.detect_license_from_text(
+                                        license_type,
+                                        filename='package.json'
+                                    )
+                                    if license_info:
+                                        metadata.licenses = [license_info]
+                            elif isinstance(license_data, list) and license_data:
+                                # Handle multiple licenses
+                                for lic in license_data:
+                                    if isinstance(lic, str):
+                                        license_text = lic
+                                    elif isinstance(lic, dict):
+                                        license_text = lic.get('type')
+                                    else:
+                                        continue
+                                    
+                                    if license_text:
+                                        license_info = self.license_detector.detect_license_from_text(
+                                            license_text,
+                                            filename='package.json'
+                                        )
+                                        if license_info:
+                                            metadata.licenses.append(license_info)
                         
                         # Store raw metadata
                         metadata.raw_metadata = data

@@ -5,12 +5,17 @@ Extract metadata and license information from various package formats with a sin
 ## Features
 
 - **Multi-Ecosystem Support**: Python (wheel, sdist), NPM, Java (JAR, Maven)
+- **License Detection**: 
+  - Regex-based detection for 24+ SPDX identifiers
+  - Dice-Sørensen coefficient for fuzzy matching
+  - Confidence scoring and multi-license support
 - **Offline/Online Modes**: Default offline mode with optional online enrichment
 - **NO-ASSERTION Handling**: Clear indication when data cannot be determined
 - **Parent POM Fetching**: Automatic retrieval of Maven parent metadata in online mode
 - **API Integration**: ClearlyDefined and Ecosyste.ms support in online mode
 - **Standardized Output**: Consistent JSON structure across all package types
 - **Native Extraction**: No dependency on package managers
+- **Comprehensive Testing**: 95+ tests with full coverage
 
 ## Installation
 
@@ -69,8 +74,8 @@ upmex extract --format text package.tar.gz
 # Detect package type
 upmex detect package.jar
 
-# Extract license information
-upmex license package.tgz
+# Extract license information with confidence scores
+upmex license package.tgz --confidence
 ```
 
 ## Configuration
@@ -169,29 +174,37 @@ semantic-copycat-upmex/
 
 ## Current Status
 
-UPMEX v0.1.0 is fully functional with core extraction capabilities and online enrichment features.
+UPMEX v0.2.0 is feature-complete with advanced license detection and comprehensive testing.
 
 ### Implemented Features
 - Package type detection for all supported formats
+- **License Detection System**:
+  - ✅ Regex-based detection for 24+ SPDX identifiers (Issue #1)
+  - ✅ Dice-Sørensen coefficient for fuzzy matching (Issue #2)
+  - Confidence scoring and detection method tracking
+  - Multi-license detection support
 - Offline extraction mode (default) with NO-ASSERTION for missing data
 - Online mode with:
   - Maven parent POM fetching from Maven Central
-  - ClearlyDefined API integration for license data
-  - Ecosyste.ms API integration for metadata enrichment
+  - ClearlyDefined API integration for license data (Issue #6)
+  - Ecosyste.ms API integration for metadata enrichment (Issue #7)
   - POM header comment parsing for license/author info
 - Standardized output across all package types
 - CLI interface with JSON and text output formats
 - Configuration system with environment variables and JSON files
-- Comprehensive test suite with 33 passing tests
+- **Comprehensive test suite with 95+ tests** (Issue #9)
 
 ### Tested Packages
 - Python: requests-2.32.4 (wheel format) - full metadata extraction
 - NPM: express-5.1.0 (tgz format) - complete package.json parsing
 - Maven: guava-33.4.0-jre (JAR format) - POM extraction with parent fetching
 
-### In Progress
-- Regex-based license detection (Issue #1)
-- Dice-Sørensen coefficient license matching (Issue #2)
+### Completed Issues
+- ✅ Issue #1: Regex-based license detection
+- ✅ Issue #2: Dice-Sørensen coefficient
+- ✅ Issue #6: ClearlyDefined API integration
+- ✅ Issue #7: Ecosyste.ms API integration
+- ✅ Issue #9: Comprehensive test suite
 
 ### Planned
 - Fuzzy hash license detection (Issue #3)
