@@ -1,3 +1,0 @@
-This is a clean test file.
-It contains no blocked words.
-Just regular content for testing.
