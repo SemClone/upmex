@@ -8,6 +8,7 @@ from .models import PackageMetadata, PackageType, NO_ASSERTION
 from ..extractors.python_extractor import PythonExtractor
 from ..extractors.npm_extractor import NpmExtractor
 from ..extractors.java_extractor import JavaExtractor
+from ..extractors.gradle_extractor import GradleExtractor
 from ..extractors.ruby_extractor import RubyExtractor
 from ..extractors.rust_extractor import RustExtractor
 from ..extractors.go_extractor import GoExtractor
@@ -36,6 +37,7 @@ class PackageExtractor:
             PackageType.NPM: NpmExtractor(online_mode=self.online_mode),
             PackageType.MAVEN: JavaExtractor(online_mode=self.online_mode),
             PackageType.JAR: JavaExtractor(online_mode=self.online_mode),
+            PackageType.GRADLE: GradleExtractor(online_mode=self.online_mode),
             PackageType.RUBY_GEM: RubyExtractor(online_mode=self.online_mode),
             PackageType.RUST_CRATE: RustExtractor(online_mode=self.online_mode),
             PackageType.GO_MODULE: GoExtractor(online_mode=self.online_mode),

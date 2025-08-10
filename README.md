@@ -4,7 +4,7 @@ Extract metadata and license information from various package formats with a sin
 
 ## Features
 
-- **Multi-Ecosystem Support**: Python (wheel, sdist), NPM, Java (JAR, Maven), Ruby Gems, Rust Crates, Go Modules, NuGet
+- **Multi-Ecosystem Support**: Python (wheel, sdist), NPM, Java (JAR, Maven), Gradle, Ruby Gems, Rust Crates, Go Modules, NuGet
 - **License Detection**: 
   - Regex-based detection for 24+ SPDX identifiers
   - Dice-Sørensen coefficient for fuzzy matching
@@ -127,6 +127,7 @@ Create a `config.json`:
 | NPM | .tgz, .tar.gz | ✓ | ✓ | API enrichment | ✓ |
 | Java | .jar, .war, .ear | ✓ | ✓ | Parent POM fetch | ✓ |
 | Maven | .jar with POM | ✓ | ✓ | Parent POM fetch | ✓ |
+| Gradle | build.gradle(.kts) | ✓ | ✓ | API enrichment | ✓ |
 | Ruby | .gem | ✓ | ✓ | API enrichment | ✓ |
 | Rust | .crate | ✓ | ✓ | API enrichment | ✓ |
 | Go | .zip, .mod, go.mod | ✓ | ✓ | API enrichment | ✓ |

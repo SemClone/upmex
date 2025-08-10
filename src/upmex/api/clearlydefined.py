@@ -71,6 +71,7 @@ class ClearlyDefinedAPI:
             PackageType.NPM: "npm",
             PackageType.MAVEN: "maven",
             PackageType.JAR: "maven",
+            PackageType.GRADLE: "maven",  # Gradle projects often resolve from Maven repos
             PackageType.RUBY_GEM: "gem",
             PackageType.RUST_CRATE: "crate",
             PackageType.GO_MODULE: "go",

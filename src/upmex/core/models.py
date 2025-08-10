@@ -16,6 +16,7 @@ class PackageType(Enum):
     NPM = "npm"
     MAVEN = "maven"
     JAR = "jar"
+    GRADLE = "gradle"
     RUBY_GEM = "ruby_gem"
     RUST_CRATE = "rust_crate"
     GO_MODULE = "go_module"

@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Gradle Build File Support** (Issue #20)
+  - Full support for `build.gradle` and `build.gradle.kts` files
+  - Support for both Groovy DSL and Kotlin DSL syntax
+  - Metadata extraction: name, version, group, description
+  - Dependency parsing for implementation, api, runtime, and test scopes
+  - License detection from publishing/pom configuration blocks
+  - Author/developer extraction from publishing metadata
+  - Repository URL extraction from SCM configuration
+  - Homepage URL extraction from publishing configuration
+  - Keywords extraction from project metadata
+  - Compatible with Gradle projects and multi-module builds
 - **Ruby Gem Support** (Issue #3)
   - Full `.gem` package extraction support
   - Custom YAML loader for Ruby-specific metadata format
