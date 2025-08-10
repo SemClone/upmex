@@ -18,6 +18,10 @@ def detect_package_type(package_path: str) -> PackageType:
     """
     path = Path(package_path)
     
+    # Check for Gradle build files
+    if path.name in ['build.gradle', 'build.gradle.kts', 'settings.gradle', 'settings.gradle.kts']:
+        return PackageType.GRADLE
+    
     # Check by extension first
     if path.suffix == '.whl':
         return PackageType.PYTHON_WHEEL
