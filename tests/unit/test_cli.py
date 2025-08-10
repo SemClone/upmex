@@ -41,7 +41,7 @@ License: MIT
         """Test version option."""
         result = runner.invoke(cli, ['--version'])
         assert result.exit_code == 0
-        assert '1.1.2' in result.output
+        assert '1.1.3' in result.output
     
     def test_info_command(self, runner):
         """Test info command."""
@@ -56,7 +56,7 @@ License: MIT
         result = runner.invoke(cli, ['info', '--json'])
         assert result.exit_code == 0
         data = json.loads(result.output)
-        assert data['version'] == '1.1.2'
+        assert data['version'] == '1.1.3'
         assert 'supported_packages' in data
     
     def test_detect_command(self, runner, sample_package):

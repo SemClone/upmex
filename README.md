@@ -213,9 +213,19 @@ semantic-copycat-upmex/
 └── config/           # Default configurations
 ```
 
+## Architecture
+
+The project follows a modular architecture with clear separation of concerns:
+
+- **BaseExtractor**: Abstract base class providing common functionality for all extractors
+- **Utility Modules**: Reusable components for author parsing and archive extraction
+- **Package Extractors**: Specialized extractors for each package format, inheriting from BaseExtractor
+- **License Detector**: Sophisticated multi-layer license detection engine
+- **API Clients**: Optional external API integrations for metadata enrichment
+
 ## Release Status
 
-**UPMEX v1.1.2** - Released 2025-08-10
+**UPMEX v1.1.3** - Released 2025-08-10
 
 ### Supported Features
 - **13 Package Ecosystems**: Python, NPM, Java/Maven, Gradle, CocoaPods, Conda, Perl/CPAN, Conan C/C++, Ruby, Rust, Go, NuGet
