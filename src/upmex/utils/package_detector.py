@@ -26,6 +26,10 @@ def detect_package_type(package_path: str) -> PackageType:
     if path.suffix == '.podspec' or path.name.endswith('.podspec.json'):
         return PackageType.COCOAPODS
     
+    # Check for Conan files
+    if path.name in ['conanfile.py', 'conanfile.txt']:
+        return PackageType.CONAN
+    
     # Check for Conda packages
     if path.suffix == '.conda':
         return PackageType.CONDA
@@ -74,6 +78,14 @@ def detect_package_type(package_path: str) -> PackageType:
         # Check for Ruby gem (can be .tar format)
         if _is_ruby_gem(package_path):
             return PackageType.RUBY_GEM
+        
+        # Check for Perl package (tar.gz with META.json or META.yml)
+        if _is_perl_package(package_path):
+            return PackageType.PERL
+        
+        # Check for Conan package (tar.gz with conanfile.py or conaninfo.txt)
+        if _is_conan_package(package_path):
+            return PackageType.CONAN
         
         if _is_python_sdist(package_path):
             return PackageType.PYTHON_SDIST
@@ -182,6 +194,35 @@ def _is_conda_package(archive_path: str) -> bool:
             # Conda packages contain info/index.json
             for member in tar.getmembers():
                 if member.name == 'info/index.json':
+                    return True
+    except:
+        pass
+    return False
+
+
+def _is_perl_package(archive_path: str) -> bool:
+    """Check if an archive is a Perl/CPAN package."""
+    try:
+        with tarfile.open(archive_path, 'r:*') as tf:
+            for member in tf.getmembers():
+                # Perl packages contain META.json or META.yml
+                if 'META.json' in member.name or 'META.yml' in member.name:
+                    return True
+                # Also check for MYMETA files
+                if 'MYMETA.json' in member.name or 'MYMETA.yml' in member.name:
+                    return True
+    except:
+        pass
+    return False
+
+
+def _is_conan_package(archive_path: str) -> bool:
+    """Check if an archive is a Conan C/C++ package."""
+    try:
+        with tarfile.open(archive_path, 'r:*') as tf:
+            for member in tf.getmembers():
+                # Conan packages contain conanfile.py, conanfile.txt, or conaninfo.txt
+                if any(name in member.name for name in ['conanfile.py', 'conanfile.txt', 'conaninfo.txt', 'conanmanifest.txt']):
                     return True
     except:
         pass

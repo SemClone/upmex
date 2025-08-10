@@ -11,6 +11,8 @@ from ..extractors.java_extractor import JavaExtractor
 from ..extractors.gradle_extractor import GradleExtractor
 from ..extractors.cocoapods_extractor import CocoaPodsExtractor
 from ..extractors.conda_extractor import CondaExtractor
+from ..extractors.conan_extractor import ConanExtractor
+from ..extractors.perl_extractor import PerlExtractor
 from ..extractors.ruby_extractor import RubyExtractor
 from ..extractors.rust_extractor import RustExtractor
 from ..extractors.go_extractor import GoExtractor
@@ -42,6 +44,8 @@ class PackageExtractor:
             PackageType.GRADLE: GradleExtractor(online_mode=self.online_mode),
             PackageType.COCOAPODS: CocoaPodsExtractor(online_mode=self.online_mode),
             PackageType.CONDA: CondaExtractor(online_mode=self.online_mode),
+            PackageType.CONAN: ConanExtractor(),
+            PackageType.PERL: PerlExtractor(),
             PackageType.RUBY_GEM: RubyExtractor(online_mode=self.online_mode),
             PackageType.RUST_CRATE: RustExtractor(online_mode=self.online_mode),
             PackageType.GO_MODULE: GoExtractor(online_mode=self.online_mode),
