@@ -1,23 +1,17 @@
-"""Python package extractor for wheel and sdist formats."""
+"""Python package extractor for wheel and sdist formats - REFACTORED."""
 
-import zipfile
-import tarfile
 import json
 import email
 from pathlib import Path
 from typing import Dict, Any, Optional
 from .base import BaseExtractor
 from ..core.models import PackageMetadata, PackageType, NO_ASSERTION
-from ..utils.license_detector import LicenseDetector
 
 
 class PythonExtractor(BaseExtractor):
     """Extractor for Python packages (wheel and sdist)."""
     
-    def __init__(self, online_mode: bool = False):
-        """Initialize Python extractor."""
-        super().__init__(online_mode)
-        self.license_detector = LicenseDetector()
+    # No need for __init__ anymore - BaseExtractor handles it
     
     def extract(self, package_path: str) -> PackageMetadata:
         """Extract metadata from Python package."""
@@ -41,107 +35,26 @@ class PythonExtractor(BaseExtractor):
     
     def _extract_wheel(self, wheel_path: str) -> PackageMetadata:
         """Extract metadata from a wheel file."""
-        metadata = PackageMetadata(
-            name="unknown",
-            package_type=PackageType.PYTHON_WHEEL
-        )
+        metadata = self.create_metadata(package_type=PackageType.PYTHON_WHEEL)
         
         try:
-            with zipfile.ZipFile(wheel_path, 'r') as zf:
-                # Look for METADATA file
-                for name in zf.namelist():
-                    if name.endswith('/METADATA') or name.endswith('/metadata.json'):
-                        content = zf.read(name)
-                        
-                        if name.endswith('.json'):
-                            # Handle metadata.json format
-                            data = json.loads(content)
-                            metadata.name = data.get('name', 'unknown')
-                            metadata.version = data.get('version')
-                            metadata.description = data.get('summary')
-                        else:
-                            # Parse METADATA file (email format)
-                            msg = email.message_from_string(content.decode('utf-8'))
-                            metadata.name = msg.get('Name', 'unknown')
-                            metadata.version = msg.get('Version')
-                            metadata.description = msg.get('Summary')
-                            metadata.homepage = msg.get('Home-page')
-                            
-                            # Extract repository from Project-URL
-                            project_urls = msg.get_all('Project-URL') or []
-                            for url in project_urls:
-                                if 'repository' in url.lower() or 'source' in url.lower() or 'github' in url.lower():
-                                    # Format: "Repository, https://github.com/..."
-                                    if ', ' in url:
-                                        _, repo_url = url.split(', ', 1)
-                                        metadata.repository = repo_url
-                                        break
-                            
-                            # Extract authors - parse the Author-email field properly
-                            author = msg.get('Author')
-                            author_email = msg.get('Author-email')
-                            if author or author_email:
-                                # Parse name and email if combined
-                                if author_email and '<' in author_email and '>' in author_email:
-                                    # Format: "Name <email>"
-                                    parts = author_email.rsplit(' <', 1)
-                                    if len(parts) == 2:
-                                        parsed_name = parts[0].strip()
-                                        parsed_email = parts[1].rstrip('>').strip()
-                                        metadata.authors.append({
-                                            'name': parsed_name,
-                                            'email': parsed_email
-                                        })
-                                    else:
-                                        metadata.authors.append({
-                                            'name': author,
-                                            'email': author_email
-                                        })
-                                else:
-                                    metadata.authors.append({
-                                        'name': author,
-                                        'email': author_email
-                                    })
-                            
-                            # Extract dependencies
-                            requires = msg.get_all('Requires-Dist') or []
-                            metadata.dependencies['runtime'] = requires
-                            
-                            # Extract classifiers
-                            metadata.classifiers = msg.get_all('Classifier') or []
-                            
-                            # Extract license using regex detection
-                            license_text = msg.get('License')
-                            if license_text:
-                                license_info = self.license_detector.detect_license_from_text(
-                                    license_text, 
-                                    filename='METADATA'
-                                )
-                                if license_info:
-                                    metadata.licenses = [license_info]
-                            
-                            # Also check classifiers for license info
-                            if not metadata.licenses and metadata.classifiers:
-                                for classifier in metadata.classifiers:
-                                    if 'License ::' in classifier:
-                                        license_info = self.license_detector.detect_license_from_text(
-                                            classifier,
-                                            filename='METADATA'
-                                        )
-                                        if license_info:
-                                            metadata.licenses = [license_info]
-                                            break
-                            
-                            # Extract keywords
-                            keywords = msg.get('Keywords')
-                            if keywords:
-                                # Split by comma or space and clean up
-                                if ',' in keywords:
-                                    metadata.keywords = [k.strip() for k in keywords.split(',') if k.strip()]
-                                else:
-                                    metadata.keywords = [k.strip() for k in keywords.split() if k.strip()]
-                        
-                        break
+            # Use base class archive extraction
+            files = self.extract_archive_files(wheel_path, ['METADATA', 'metadata.json'])
+            
+            # Find and process metadata file
+            for filename, content in files.items():
+                if filename.endswith('/METADATA') or filename == 'METADATA':
+                    self._process_metadata_file(metadata, content)
+                    break
+                elif filename.endswith('/metadata.json') or filename == 'metadata.json':
+                    self._process_json_metadata(metadata, content)
+                    break
+            
+            # Try to find license files
+            detected_licenses = self.find_and_detect_licenses(archive_path=wheel_path)
+            if detected_licenses:
+                metadata.licenses.extend(detected_licenses)
+                
         except Exception as e:
             print(f"Error extracting wheel metadata: {e}")
         
@@ -149,56 +62,116 @@ class PythonExtractor(BaseExtractor):
     
     def _extract_sdist(self, sdist_path: str) -> PackageMetadata:
         """Extract metadata from a source distribution."""
-        metadata = PackageMetadata(
-            name="unknown",
-            package_type=PackageType.PYTHON_SDIST
-        )
+        metadata = self.create_metadata(package_type=PackageType.PYTHON_SDIST)
         
         try:
-            # Determine archive type and extract
-            if sdist_path.endswith('.tar.gz') or sdist_path.endswith('.tgz'):
-                with tarfile.open(sdist_path, 'r:gz') as tf:
-                    metadata = self._extract_from_tarfile(tf, metadata)
-            elif sdist_path.endswith('.zip'):
-                with zipfile.ZipFile(sdist_path, 'r') as zf:
-                    metadata = self._extract_from_zipfile(zf, metadata)
+            # Use base class archive extraction
+            files = self.extract_archive_files(sdist_path, ['PKG-INFO', 'setup.cfg', 'pyproject.toml'])
+            
+            # Process PKG-INFO if found
+            for filename, content in files.items():
+                if 'PKG-INFO' in filename:
+                    self._process_metadata_file(metadata, content)
+                    break
+            
+            # Try to find license files
+            detected_licenses = self.find_and_detect_licenses(archive_path=sdist_path)
+            if detected_licenses:
+                metadata.licenses.extend(detected_licenses)
+                
         except Exception as e:
             print(f"Error extracting sdist metadata: {e}")
         
         return metadata
     
-    def _extract_from_tarfile(self, tf: tarfile.TarFile, metadata: PackageMetadata) -> PackageMetadata:
-        """Extract metadata from tar archive."""
-        for member in tf.getmembers():
-            if 'PKG-INFO' in member.name or 'setup.cfg' in member.name:
-                content = tf.extractfile(member).read().decode('utf-8')
-                
-                if 'PKG-INFO' in member.name:
-                    msg = email.message_from_string(content)
-                    metadata.name = msg.get('Name', metadata.name)
-                    metadata.version = msg.get('Version')
-                    metadata.description = msg.get('Summary')
-                    metadata.homepage = msg.get('Home-page')
-                
-                if metadata.name != "unknown":
-                    break
-        
-        return metadata
+    def _process_metadata_file(self, metadata: PackageMetadata, content: bytes):
+        """Process METADATA or PKG-INFO file content."""
+        try:
+            # Parse email format
+            msg = email.message_from_string(content.decode('utf-8'))
+            
+            metadata.name = msg.get('Name', NO_ASSERTION)
+            metadata.version = msg.get('Version', NO_ASSERTION)
+            metadata.description = msg.get('Summary', NO_ASSERTION)
+            metadata.homepage = msg.get('Home-page', NO_ASSERTION)
+            
+            # Extract repository from Project-URL
+            project_urls = msg.get_all('Project-URL') or []
+            for url in project_urls:
+                if any(term in url.lower() for term in ['repository', 'source', 'github']):
+                    if ', ' in url:
+                        _, repo_url = url.split(', ', 1)
+                        metadata.repository = repo_url
+                        break
+            
+            # Use base class author parsing
+            author = msg.get('Author')
+            author_email = msg.get('Author-email')
+            
+            if author_email and '<' in author_email:
+                # "Name <email>" format
+                parsed = self.parse_author(author_email)
+                if parsed:
+                    metadata.authors.append(parsed)
+            elif author or author_email:
+                # Separate fields
+                author_dict = {}
+                if author:
+                    author_dict['name'] = author
+                if author_email:
+                    author_dict['email'] = author_email
+                if author_dict:
+                    metadata.authors.append(author_dict)
+            
+            # Extract dependencies
+            requires = msg.get_all('Requires-Dist') or []
+            if requires:
+                metadata.dependencies['runtime'] = requires
+            
+            # Extract classifiers
+            metadata.classifiers = msg.get_all('Classifier') or []
+            
+            # Detect license from text
+            license_text = msg.get('License')
+            if license_text:
+                detected = self.detect_licenses_from_text(license_text, 'METADATA')
+                if detected:
+                    metadata.licenses.extend(detected)
+            
+            # Also check classifiers for license info
+            if not metadata.licenses and metadata.classifiers:
+                for classifier in metadata.classifiers:
+                    if 'License ::' in classifier:
+                        detected = self.detect_licenses_from_text(classifier, 'METADATA')
+                        if detected:
+                            metadata.licenses.extend(detected)
+                            break
+            
+            # Extract keywords
+            keywords = msg.get('Keywords')
+            if keywords:
+                if ',' in keywords:
+                    metadata.keywords = [k.strip() for k in keywords.split(',') if k.strip()]
+                else:
+                    metadata.keywords = [k.strip() for k in keywords.split() if k.strip()]
+                    
+        except Exception as e:
+            print(f"Error processing metadata file: {e}")
     
-    def _extract_from_zipfile(self, zf: zipfile.ZipFile, metadata: PackageMetadata) -> PackageMetadata:
-        """Extract metadata from zip archive."""
-        for name in zf.namelist():
-            if 'PKG-INFO' in name or 'setup.cfg' in name:
-                content = zf.read(name).decode('utf-8')
-                
-                if 'PKG-INFO' in name:
-                    msg = email.message_from_string(content)
-                    metadata.name = msg.get('Name', metadata.name)
-                    metadata.version = msg.get('Version')
-                    metadata.description = msg.get('Summary')
-                    metadata.homepage = msg.get('Home-page')
-                
-                if metadata.name != "unknown":
-                    break
-        
-        return metadata
+    def _process_json_metadata(self, metadata: PackageMetadata, content: bytes):
+        """Process metadata.json format."""
+        try:
+            data = json.loads(content)
+            metadata.name = data.get('name', NO_ASSERTION)
+            metadata.version = data.get('version', NO_ASSERTION)
+            metadata.description = data.get('summary', NO_ASSERTION)
+            metadata.homepage = data.get('home_page', NO_ASSERTION)
+            
+            # Parse authors
+            if 'author' in data:
+                parsed = self.parse_author(data['author'])
+                if parsed:
+                    metadata.authors.append(parsed)
+                    
+        except Exception as e:
+            print(f"Error processing JSON metadata: {e}")

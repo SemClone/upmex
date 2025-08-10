@@ -1,12 +1,28 @@
 """Base extractor class for all package types."""
 
+import os
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any
-from ..core.models import PackageMetadata
+from typing import Optional, Dict, Any, List, Union
+from pathlib import Path
+
+from ..core.models import PackageMetadata, LicenseInfo, LicenseConfidenceLevel, NO_ASSERTION
+from ..utils.license_detector import LicenseDetector
+from ..utils.author_parser import parse_author_string, parse_author_list
+from ..utils.archive_utils import find_file_in_archive, extract_from_tar, extract_from_zip
 
 
 class BaseExtractor(ABC):
     """Abstract base class for package extractors."""
+    
+    # Common license file patterns
+    LICENSE_FILE_PATTERNS = [
+        'LICENSE', 'LICENSE.txt', 'LICENSE.md', 'LICENSE.rst',
+        'LICENCE', 'LICENCE.txt', 'LICENCE.md',
+        'COPYING', 'COPYING.txt', 'COPYING.md',
+        'COPYRIGHT', 'COPYRIGHT.txt',
+        'NOTICE', 'NOTICE.txt',
+        'license', 'licence', 'copying'
+    ]
     
     def __init__(self, online_mode: bool = False):
         """Initialize extractor.
@@ -15,6 +31,7 @@ class BaseExtractor(ABC):
             online_mode: Whether to fetch additional data from online sources
         """
         self.online_mode = online_mode
+        self.license_detector = LicenseDetector()
     
     @abstractmethod
     def extract(self, package_path: str) -> PackageMetadata:
@@ -39,3 +56,162 @@ class BaseExtractor(ABC):
             True if this extractor can handle the package
         """
         pass
+    
+    def parse_author(self, author: Union[str, Dict]) -> Optional[Dict[str, str]]:
+        """Parse author string using common utility.
+        
+        Args:
+            author: Author string or dict
+            
+        Returns:
+            Parsed author dictionary
+        """
+        return parse_author_string(author)
+    
+    def parse_authors(self, authors: Union[str, List, Dict]) -> List[Dict[str, str]]:
+        """Parse multiple authors using common utility.
+        
+        Args:
+            authors: Author(s) in various formats
+            
+        Returns:
+            List of parsed author dictionaries
+        """
+        return parse_author_list(authors)
+    
+    def detect_licenses_from_text(self, 
+                                 text: str, 
+                                 filename: Optional[str] = None) -> List[LicenseInfo]:
+        """Detect licenses from text content.
+        
+        Args:
+            text: Text content to analyze
+            filename: Optional filename for context
+            
+        Returns:
+            List of detected licenses
+        """
+        licenses = []
+        
+        if not text:
+            return licenses
+        
+        # Use license detector
+        detected = self.license_detector.detect_license_from_text(text, filename=filename)
+        
+        if detected:
+            # detected is a single LicenseInfo object, not a list
+            licenses.append(detected)
+        
+        return licenses
+    
+    def detect_licenses_from_file(self, file_path: str) -> List[LicenseInfo]:
+        """Detect licenses from a file.
+        
+        Args:
+            file_path: Path to the file
+            
+        Returns:
+            List of detected licenses
+        """
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+            return self.detect_licenses_from_text(content, os.path.basename(file_path))
+        except Exception:
+            return []
+    
+    def find_and_detect_licenses(self, 
+                                archive_path: Optional[str] = None,
+                                directory_path: Optional[str] = None) -> List[LicenseInfo]:
+        """Find and detect licenses from common license files.
+        
+        Args:
+            archive_path: Path to archive to search
+            directory_path: Path to directory to search
+            
+        Returns:
+            List of detected licenses
+        """
+        licenses = []
+        
+        # Search in archive
+        if archive_path and os.path.exists(archive_path):
+            license_files = find_file_in_archive(
+                archive_path, 
+                self.LICENSE_FILE_PATTERNS,
+                return_first=False
+            )
+            
+            if license_files:
+                for filename, content in license_files.items():
+                    try:
+                        text = content.decode('utf-8', errors='ignore')
+                        detected = self.detect_licenses_from_text(text, filename)
+                        licenses.extend(detected)
+                    except Exception:
+                        continue
+        
+        # Search in directory
+        if directory_path and os.path.exists(directory_path):
+            for pattern in self.LICENSE_FILE_PATTERNS:
+                file_path = os.path.join(directory_path, pattern)
+                if os.path.exists(file_path) and os.path.isfile(file_path):
+                    detected = self.detect_licenses_from_file(file_path)
+                    licenses.extend(detected)
+        
+        # Deduplicate licenses by SPDX ID
+        unique_licenses = {}
+        for license_info in licenses:
+            if license_info.spdx_id:
+                key = license_info.spdx_id
+                if key not in unique_licenses or license_info.confidence > unique_licenses[key].confidence:
+                    unique_licenses[key] = license_info
+        
+        return list(unique_licenses.values())
+    
+    def create_metadata(self, 
+                       name: str = NO_ASSERTION,
+                       version: str = NO_ASSERTION,
+                       package_type: Any = None) -> PackageMetadata:
+        """Create a PackageMetadata object with defaults.
+        
+        Args:
+            name: Package name
+            version: Package version  
+            package_type: Package type enum
+            
+        Returns:
+            PackageMetadata object
+        """
+        return PackageMetadata(
+            name=name,
+            version=version,
+            package_type=package_type
+        )
+    
+    def extract_archive_files(self, 
+                            archive_path: str,
+                            target_patterns: Optional[List[str]] = None) -> Dict[str, bytes]:
+        """Extract files from an archive.
+        
+        Args:
+            archive_path: Path to archive
+            target_patterns: Optional patterns to filter files
+            
+        Returns:
+            Dictionary of filename to content
+        """
+        path = Path(archive_path)
+        
+        # Determine archive type and extract
+        if path.suffix in ['.gz', '.tgz', '.bz2', '.xz'] or '.tar' in path.name:
+            return extract_from_tar(archive_path, target_patterns)
+        elif path.suffix in ['.zip', '.whl', '.nupkg', '.jar']:
+            return extract_from_zip(archive_path, target_patterns)
+        else:
+            # Try both
+            try:
+                return extract_from_tar(archive_path, target_patterns)
+            except:
+                return extract_from_zip(archive_path, target_patterns)
