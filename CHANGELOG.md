@@ -5,9 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.2] - 2025-08-10
 
 ### Added
+- **Perl/CPAN Package Support** (Issue #21)
+  - Full support for `.tar.gz` and `.zip` Perl packages
+  - Parse `META.json` and `META.yml` metadata files
+  - Support for `MYMETA.json` and `MYMETA.yml` (build-time metadata)
+  - Extract dependencies with phase (runtime, test, configure) and relationship info
+  - Map Perl license strings to SPDX identifiers
+  - Author parsing with email extraction
+  - License file detection (LICENSE, COPYING, ARTISTIC, GPL)
+- **Conan C/C++ Package Support** (Issue #22)
+  - Support for `conanfile.py` (Python-based recipes) and `conanfile.txt` (INI-style)
+  - Parse `conaninfo.txt` for package metadata
+  - Extract from `.tgz` package archives
+  - AST-based and regex-based parsing for Python files
+  - Dependencies with version constraints and tool_requires
+  - Multi-license support with comma-separated values
+  - Topics extraction as keywords
 - **Conda Package Support** (Issue #23)
   - Full support for `.conda` (new zip-based format) and `.tar.bz2` (traditional format) packages
   - Parse `info/index.json` for core package metadata
@@ -92,12 +108,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - ClearlyDefined support for gem, crate, go, and nuget packages
   - Ecosyste.ms support via rubygems.org, crates.io, proxy.golang.org, and nuget.org registries
 - Successfully tested with real packages:
+  - Perl: Moose 2.2207 (177 dependencies extracted)
+  - Conan: zlib example with full metadata
   - Conda: numpy 1.21.5, pandas 1.5.3 (from Anaconda repository)
   - CocoaPods: Alamofire 5.10.2, SDWebImage 5.21.1, FirebaseCore 12.2.0
   - Ruby: Rails 7.1.5
   - Rust: serde 1.0.210, tokio 1.41.0
   - Go: gin v1.10.0, cobra v1.8.1
   - NuGet: Newtonsoft.Json 13.0.3, Serilog 3.1.1
+
+### Fixed
+- urllib3 LibreSSL warning suppression on macOS systems
+  - Added warning filters at module initialization
+  - Prevents NotOpenSSLWarning from appearing in CLI output
+  - Ensures clean user experience on systems with LibreSSL
+
+### Changed
+- Version updated to 1.1.2
+- Updated development status to stable
 
 ## [0.2.0] - 2025-08-09
 

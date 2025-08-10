@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "semantic-copycat-upmex"
-version = "0.2.0"
+version = "1.1.2"
 description = "Universal Package Metadata Extractor - Extract metadata from various package formats"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -20,7 +20,7 @@ keywords = [
     "python", "npm", "maven", "jar", "wheel", "pypi"
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
