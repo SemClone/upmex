@@ -1,5 +1,16 @@
 """Command-line interface for UPMEX."""
 
+# Suppress urllib3 SSL warning on macOS with LibreSSL - must be before any imports
+import warnings
+warnings.filterwarnings('ignore', message='urllib3 v2 only supports OpenSSL')
+
+# Additional suppression methods
+try:
+    import urllib3
+    urllib3.disable_warnings()
+except ImportError:
+    pass
+
 import sys
 import json
 import click
