@@ -22,6 +22,10 @@ def detect_package_type(package_path: str) -> PackageType:
     if path.name in ['build.gradle', 'build.gradle.kts', 'settings.gradle', 'settings.gradle.kts']:
         return PackageType.GRADLE
     
+    # Check for CocoaPods podspec files
+    if path.suffix == '.podspec' or path.name.endswith('.podspec.json'):
+        return PackageType.COCOAPODS
+    
     # Check by extension first
     if path.suffix == '.whl':
         return PackageType.PYTHON_WHEEL

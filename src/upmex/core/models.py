@@ -17,6 +17,7 @@ class PackageType(Enum):
     MAVEN = "maven"
     JAR = "jar"
     GRADLE = "gradle"
+    COCOAPODS = "cocoapods"
     RUBY_GEM = "ruby_gem"
     RUST_CRATE = "rust_crate"
     GO_MODULE = "go_module"

@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **CocoaPods Support** (Issue #24)
+  - Full support for `.podspec` (Ruby DSL) and `.podspec.json` files
+  - Support for both Ruby DSL and JSON podspec formats
+  - Metadata extraction: name, version, summary, description
+  - Platform requirements parsing (iOS, macOS, tvOS, watchOS, visionOS)
+  - Dependency parsing with version requirements
+  - License detection from podspec configuration and external files
+  - Author and maintainer extraction from podspec metadata
+  - Repository URL extraction from source configuration
+  - Homepage URL extraction from podspec
+  - Framework and library dependencies
+  - Keywords extraction from platforms and frameworks
+  - Compatible with all CocoaPods project types
 - **Gradle Build File Support** (Issue #20)
   - Full support for `build.gradle` and `build.gradle.kts` files
   - Support for both Groovy DSL and Kotlin DSL syntax
@@ -67,6 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - ClearlyDefined support for gem, crate, go, and nuget packages
   - Ecosyste.ms support via rubygems.org, crates.io, proxy.golang.org, and nuget.org registries
 - Successfully tested with real packages:
+  - CocoaPods: Alamofire 5.10.2, SDWebImage 5.21.1, FirebaseCore 12.2.0
   - Ruby: Rails 7.1.5
   - Rust: serde 1.0.210, tokio 1.41.0
   - Go: gin v1.10.0, cobra v1.8.1
