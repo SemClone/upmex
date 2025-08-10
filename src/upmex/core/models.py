@@ -19,6 +19,8 @@ class PackageType(Enum):
     GRADLE = "gradle"
     COCOAPODS = "cocoapods"
     CONDA = "conda"
+    CONAN = "conan"
+    PERL = "perl"
     RUBY_GEM = "ruby_gem"
     RUST_CRATE = "rust_crate"
     GO_MODULE = "go_module"
