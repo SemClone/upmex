@@ -69,6 +69,7 @@ class EcosystemsAPI:
             PackageType.JAR: "repo.maven.apache.org",
             PackageType.GRADLE: "repo.maven.apache.org",  # Gradle projects resolve from Maven repos
             PackageType.COCOAPODS: "trunk.cocoapods.org",
+            PackageType.CONDA: "anaconda.org",
             PackageType.RUBY_GEM: "rubygems.org",
             PackageType.RUST_CRATE: "crates.io",
             PackageType.GO_MODULE: "proxy.golang.org",

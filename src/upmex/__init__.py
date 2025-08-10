@@ -4,6 +4,10 @@ __version__ = "0.2.0"
 __author__ = "Oscar Valenzuela B."
 __email__ = "oscar.valenzuela.b@gmail.com"
 
+# Suppress urllib3 SSL warning on macOS with LibreSSL
+import warnings
+warnings.filterwarnings('ignore', message='urllib3 v2 only supports OpenSSL')
+
 from .core.extractor import PackageExtractor
 from .core.models import PackageMetadata, LicenseInfo
 

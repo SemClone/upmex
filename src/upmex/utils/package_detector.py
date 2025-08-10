@@ -26,6 +26,10 @@ def detect_package_type(package_path: str) -> PackageType:
     if path.suffix == '.podspec' or path.name.endswith('.podspec.json'):
         return PackageType.COCOAPODS
     
+    # Check for Conda packages
+    if path.suffix == '.conda':
+        return PackageType.CONDA
+    
     # Check by extension first
     if path.suffix == '.whl':
         return PackageType.PYTHON_WHEEL
@@ -57,8 +61,12 @@ def detect_package_type(package_path: str) -> PackageType:
         if _is_python_sdist(package_path):
             return PackageType.PYTHON_SDIST
     
-    # Check for Python sdist
+    # Check for Python sdist or Conda packages
     if path.name.endswith(('.tar.gz', '.tgz', '.tar.bz2')):
+        # Check for Conda package (.tar.bz2 with info/index.json)
+        if path.name.endswith('.tar.bz2') and _is_conda_package(package_path):
+            return PackageType.CONDA
+        
         # Check for Rust crate (tar.gz with Cargo.toml)
         if _is_rust_crate(package_path):
             return PackageType.RUST_CRATE
@@ -161,6 +169,19 @@ def _is_go_module(archive_path: str) -> bool:
             for name in zf.namelist():
                 # Go modules contain go.mod
                 if name.endswith('go.mod'):
+                    return True
+    except:
+        pass
+    return False
+
+
+def _is_conda_package(archive_path: str) -> bool:
+    """Check if a .tar.bz2 file is a Conda package."""
+    try:
+        with tarfile.open(archive_path, 'r:bz2') as tar:
+            # Conda packages contain info/index.json
+            for member in tar.getmembers():
+                if member.name == 'info/index.json':
                     return True
     except:
         pass

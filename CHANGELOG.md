@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Conda Package Support** (Issue #23)
+  - Full support for `.conda` (new zip-based format) and `.tar.bz2` (traditional format) packages
+  - Parse `info/index.json` for core package metadata
+  - Parse `info/recipe/meta.yaml` or `info/recipe.json` for detailed build information
+  - Metadata extraction: name, version, build string, build number
+  - Dependency parsing: runtime, build, host dependencies with version constraints
+  - License detection from package metadata
+  - Author/maintainer extraction from recipe maintainers
+  - Platform and architecture information (subdir)
+  - Channel and feature tracking
+  - Homepage and repository URL extraction
+  - Support for both conda-forge and Anaconda repository packages
 - **CocoaPods Support** (Issue #24)
   - Full support for `.podspec` (Ruby DSL) and `.podspec.json` files
   - Support for both Ruby DSL and JSON podspec formats
@@ -80,6 +92,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - ClearlyDefined support for gem, crate, go, and nuget packages
   - Ecosyste.ms support via rubygems.org, crates.io, proxy.golang.org, and nuget.org registries
 - Successfully tested with real packages:
+  - Conda: numpy 1.21.5, pandas 1.5.3 (from Anaconda repository)
   - CocoaPods: Alamofire 5.10.2, SDWebImage 5.21.1, FirebaseCore 12.2.0
   - Ruby: Rails 7.1.5
   - Rust: serde 1.0.210, tokio 1.41.0
