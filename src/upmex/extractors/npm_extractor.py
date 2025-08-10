@@ -1,128 +1,36 @@
-"""NPM package extractor."""
+"""NPM package extractor - REFACTORED."""
 
-import tarfile
 import json
 from pathlib import Path
 from typing import Dict, Any
 from .base import BaseExtractor
 from ..core.models import PackageMetadata, PackageType, NO_ASSERTION
-from ..utils.license_detector import LicenseDetector
 
 
 class NpmExtractor(BaseExtractor):
     """Extractor for NPM packages."""
     
-    def __init__(self, online_mode: bool = False):
-        """Initialize NPM extractor."""
-        super().__init__(online_mode)
-        self.license_detector = LicenseDetector()
+    # No __init__ needed - BaseExtractor handles it
     
     def extract(self, package_path: str) -> PackageMetadata:
         """Extract metadata from NPM package."""
-        metadata = PackageMetadata(
-            name="unknown",
-            package_type=PackageType.NPM
-        )
+        metadata = self.create_metadata(package_type=PackageType.NPM)
         
         try:
-            with tarfile.open(package_path, 'r:gz') as tf:
-                # Look for package.json
-                for member in tf.getmembers():
-                    if member.name.endswith('package.json'):
-                        content = tf.extractfile(member).read()
-                        data = json.loads(content)
-                        
-                        # Extract basic metadata
-                        metadata.name = data.get('name', 'unknown')
-                        metadata.version = data.get('version')
-                        metadata.description = data.get('description')
-                        metadata.homepage = data.get('homepage')
-                        
-                        # Extract repository
-                        repo = data.get('repository')
-                        if isinstance(repo, dict):
-                            metadata.repository = repo.get('url')
-                        elif isinstance(repo, str):
-                            metadata.repository = repo
-                        
-                        # Extract author - standardize format
-                        author = data.get('author')
-                        if isinstance(author, dict):
-                            # Already in dict format with name/email
-                            metadata.authors.append(author)
-                        elif isinstance(author, str):
-                            # Parse string format "Name <email>"
-                            if '<' in author and '>' in author:
-                                parts = author.rsplit(' <', 1)
-                                if len(parts) == 2:
-                                    name = parts[0].strip()
-                                    email = parts[1].rstrip('>').strip()
-                                    metadata.authors.append({
-                                        'name': name,
-                                        'email': email
-                                    })
-                                else:
-                                    metadata.authors.append({'name': author})
-                            else:
-                                metadata.authors.append({'name': author})
-                        
-                        # Extract maintainers
-                        maintainers = data.get('maintainers', [])
-                        if isinstance(maintainers, list):
-                            metadata.maintainers.extend(maintainers)
-                        
-                        # Extract dependencies
-                        if 'dependencies' in data:
-                            metadata.dependencies['runtime'] = list(data['dependencies'].keys())
-                        if 'devDependencies' in data:
-                            metadata.dependencies['dev'] = list(data['devDependencies'].keys())
-                        if 'peerDependencies' in data:
-                            metadata.dependencies['peer'] = list(data['peerDependencies'].keys())
-                        
-                        # Extract keywords
-                        metadata.keywords = data.get('keywords', [])
-                        
-                        # Extract license using regex detection
-                        license_data = data.get('license') or data.get('licenses')
-                        if license_data:
-                            if isinstance(license_data, str):
-                                license_info = self.license_detector.detect_license_from_text(
-                                    license_data,
-                                    filename='package.json'
-                                )
-                                if license_info:
-                                    metadata.licenses = [license_info]
-                            elif isinstance(license_data, dict):
-                                license_type = license_data.get('type')
-                                if license_type:
-                                    license_info = self.license_detector.detect_license_from_text(
-                                        license_type,
-                                        filename='package.json'
-                                    )
-                                    if license_info:
-                                        metadata.licenses = [license_info]
-                            elif isinstance(license_data, list) and license_data:
-                                # Handle multiple licenses
-                                for lic in license_data:
-                                    if isinstance(lic, str):
-                                        license_text = lic
-                                    elif isinstance(lic, dict):
-                                        license_text = lic.get('type')
-                                    else:
-                                        continue
-                                    
-                                    if license_text:
-                                        license_info = self.license_detector.detect_license_from_text(
-                                            license_text,
-                                            filename='package.json'
-                                        )
-                                        if license_info:
-                                            metadata.licenses.append(license_info)
-                        
-                        # Store raw metadata
-                        metadata.raw_metadata = data
-                        
-                        break
+            # Use base class archive extraction
+            files = self.extract_archive_files(package_path, ['package.json'])
+            
+            # Find and process package.json
+            for filename, content in files.items():
+                if 'package.json' in filename:
+                    self._process_package_json(metadata, content)
+                    break
+            
+            # Try to find license files
+            detected_licenses = self.find_and_detect_licenses(archive_path=package_path)
+            if detected_licenses:
+                metadata.licenses.extend(detected_licenses)
+                
         except Exception as e:
             print(f"Error extracting NPM metadata: {e}")
         
@@ -132,3 +40,91 @@ class NpmExtractor(BaseExtractor):
         """Check if this is an NPM package."""
         path = Path(package_path)
         return path.suffix in ['.tgz'] or path.name.endswith('.tar.gz')
+    
+    def _process_package_json(self, metadata: PackageMetadata, content: bytes):
+        """Process package.json content."""
+        try:
+            data = json.loads(content)
+            
+            # Extract basic metadata
+            metadata.name = data.get('name', NO_ASSERTION)
+            metadata.version = data.get('version', NO_ASSERTION)
+            metadata.description = data.get('description', NO_ASSERTION)
+            metadata.homepage = data.get('homepage', NO_ASSERTION)
+            
+            # Extract repository
+            repo = data.get('repository')
+            if isinstance(repo, dict):
+                metadata.repository = repo.get('url', NO_ASSERTION)
+            elif isinstance(repo, str):
+                metadata.repository = repo
+            
+            # Use base class author parsing
+            author = data.get('author')
+            if author:
+                parsed = self.parse_author(author)
+                if parsed:
+                    metadata.authors.append(parsed)
+            
+            # Extract maintainers
+            maintainers = data.get('maintainers', [])
+            if isinstance(maintainers, list):
+                for maintainer in maintainers:
+                    parsed = self.parse_author(maintainer)
+                    if parsed:
+                        metadata.maintainers.append(parsed)
+            
+            # Extract dependencies
+            if 'dependencies' in data:
+                metadata.dependencies['runtime'] = list(data['dependencies'].keys())
+            if 'devDependencies' in data:
+                metadata.dependencies['dev'] = list(data['devDependencies'].keys())
+            if 'peerDependencies' in data:
+                metadata.dependencies['peer'] = list(data['peerDependencies'].keys())
+            
+            # Extract keywords
+            metadata.keywords = data.get('keywords', [])
+            
+            # Extract license
+            self._extract_license(metadata, data)
+            
+            # Store raw metadata
+            metadata.raw_metadata = data
+            
+        except Exception as e:
+            print(f"Error processing package.json: {e}")
+    
+    def _extract_license(self, metadata: PackageMetadata, data: Dict):
+        """Extract license information from package.json."""
+        license_data = data.get('license') or data.get('licenses')
+        
+        if not license_data:
+            return
+        
+        if isinstance(license_data, str):
+            # Simple string license
+            detected = self.detect_licenses_from_text(license_data, 'package.json')
+            if detected:
+                metadata.licenses.extend(detected)
+                
+        elif isinstance(license_data, dict):
+            # Dict with 'type' field
+            license_type = license_data.get('type')
+            if license_type:
+                detected = self.detect_licenses_from_text(license_type, 'package.json')
+                if detected:
+                    metadata.licenses.extend(detected)
+                    
+        elif isinstance(license_data, list):
+            # Multiple licenses
+            for lic in license_data:
+                license_text = None
+                if isinstance(lic, str):
+                    license_text = lic
+                elif isinstance(lic, dict):
+                    license_text = lic.get('type')
+                
+                if license_text:
+                    detected = self.detect_licenses_from_text(license_text, 'package.json')
+                    if detected:
+                        metadata.licenses.extend(detected)

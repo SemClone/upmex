@@ -11,7 +11,6 @@ import logging
 
 from .base import BaseExtractor
 from ..core.models import NO_ASSERTION, PackageMetadata, PackageType
-from ..utils.license_detector import LicenseDetector
 
 logger = logging.getLogger(__name__)
 
@@ -19,10 +18,7 @@ logger = logging.getLogger(__name__)
 class RustExtractor(BaseExtractor):
     """Extract metadata from Rust crate packages."""
 
-    def __init__(self, online_mode: bool = False):
-        """Initialize the Rust crate extractor."""
-        super().__init__(online_mode)
-        self.license_detector = LicenseDetector()
+    # __init__ removed - using BaseExtractor
 
     def extract(self, package_path: str) -> PackageMetadata:
         """Extract metadata from a Rust crate package.
@@ -100,13 +96,9 @@ class RustExtractor(BaseExtractor):
                                 for author in authors:
                                     if isinstance(author, str):
                                         # Parse "Name <email>" format
-                                        if '<' in author and '>' in author:
-                                            name_part = author[:author.index('<')].strip()
-                                            email_part = author[author.index('<')+1:author.index('>')].strip()
-                                            metadata.authors.append({
-                                                'name': name_part,
-                                                'email': email_part
-                                            })
+                                        parsed = self.parse_author(author)
+                                        if parsed:
+                                            metadata.authors.append(parsed)
                                         else:
                                             metadata.authors.append({
                                                 'name': author,
@@ -134,19 +126,12 @@ class RustExtractor(BaseExtractor):
                         # Extract license
                         if package.get('license'):
                             license_text = package['license']
-                            license_info = self.license_detector.detect_license_from_text(
+                            license_infos = self.detect_licenses_from_text(
                                 license_text,
                                 filename='Cargo.toml'
                             )
-                            if license_info:
-                                from ..core.models import LicenseInfo, LicenseConfidenceLevel
-                                metadata.licenses.append(LicenseInfo(
-                                    spdx_id=license_info.spdx_id,
-                                    confidence=license_info.confidence,
-                                    confidence_level=LicenseConfidenceLevel(license_info.confidence_level),
-                                    detection_method=license_info.detection_method,
-                                    file_path=license_info.file_path
-                                ))
+                            if license_infos:
+                                metadata.licenses.extend(license_infos)
                         
                         # Extract dependencies
                         for dep_type in ['dependencies', 'dev-dependencies', 'build-dependencies']:
@@ -209,19 +194,12 @@ class RustExtractor(BaseExtractor):
                         license_file = crate_tar.extractfile(license_member)
                         if license_file:
                             license_content = license_file.read().decode('utf-8', errors='ignore')
-                            license_info = self.license_detector.detect_license_from_text(
+                            license_infos = self.detect_licenses_from_text(
                                 license_content,
                                 filename=license_member.name
                             )
-                            if license_info:
-                                from ..core.models import LicenseInfo, LicenseConfidenceLevel
-                                metadata.licenses.append(LicenseInfo(
-                                    spdx_id=license_info.spdx_id,
-                                    confidence=license_info.confidence,
-                                    confidence_level=LicenseConfidenceLevel(license_info.confidence_level),
-                                    detection_method=license_info.detection_method,
-                                    file_path=license_info.file_path
-                                ))
+                            if license_infos:
+                                metadata.licenses.extend(license_infos)
                                 break  # Use first detected license
 
         except Exception as e:

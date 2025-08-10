@@ -9,7 +9,6 @@ import logging
 
 from .base import BaseExtractor
 from ..core.models import NO_ASSERTION, PackageMetadata, PackageType
-from ..utils.license_detector import LicenseDetector
 
 logger = logging.getLogger(__name__)
 
@@ -17,10 +16,7 @@ logger = logging.getLogger(__name__)
 class GoExtractor(BaseExtractor):
     """Extract metadata from Go module packages."""
 
-    def __init__(self, online_mode: bool = False):
-        """Initialize the Go module extractor."""
-        super().__init__(online_mode)
-        self.license_detector = LicenseDetector()
+    # __init__ removed - using BaseExtractor
 
     def extract(self, package_path: str) -> PackageMetadata:
         """Extract metadata from a Go module package.
@@ -80,19 +76,12 @@ class GoExtractor(BaseExtractor):
                     if license_files:
                         for license_file in license_files:
                             license_content = zip_file.read(license_file).decode('utf-8', errors='ignore')
-                            license_info = self.license_detector.detect_license_from_text(
+                            license_infos = self.detect_licenses_from_text(
                                 license_content,
                                 filename=license_file
                             )
-                            if license_info:
-                                from ..core.models import LicenseInfo, LicenseConfidenceLevel
-                                metadata.licenses.append(LicenseInfo(
-                                    spdx_id=license_info.spdx_id,
-                                    confidence=license_info.confidence,
-                                    confidence_level=LicenseConfidenceLevel(license_info.confidence_level),
-                                    detection_method=license_info.detection_method,
-                                    file_path=license_info.file_path
-                                ))
+                            if license_infos:
+                                metadata.licenses.extend(license_infos)
                                 break
             
             elif package_path.suffix == '.mod' or package_path.name == 'go.mod':
@@ -106,19 +95,12 @@ class GoExtractor(BaseExtractor):
                     license_path = parent_dir / license_name
                     if license_path.exists():
                         license_content = license_path.read_text(encoding='utf-8', errors='ignore')
-                        license_info = self.license_detector.detect_license_from_text(
+                        license_infos = self.detect_licenses_from_text(
                             license_content,
                             filename=license_name
                         )
-                        if license_info:
-                            from ..core.models import LicenseInfo, LicenseConfidenceLevel
-                            metadata.licenses.append(LicenseInfo(
-                                spdx_id=license_info.spdx_id,
-                                confidence=license_info.confidence,
-                                confidence_level=LicenseConfidenceLevel(license_info.confidence_level),
-                                detection_method=license_info.detection_method,
-                                file_path=license_info.file_path
-                            ))
+                        if license_infos:
+                            metadata.licenses.extend(license_infos)
                         break
 
         except Exception as e:

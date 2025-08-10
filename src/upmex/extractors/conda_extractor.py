@@ -10,20 +10,12 @@ from typing import Dict, Any, List, Optional
 import yaml
 from .base import BaseExtractor
 from ..core.models import PackageMetadata, PackageType, NO_ASSERTION
-from ..utils.license_detector import LicenseDetector
 
 
 class CondaExtractor(BaseExtractor):
     """Extract metadata from Conda packages."""
     
-    def __init__(self, online_mode: bool = False):
-        """Initialize Conda extractor.
-        
-        Args:
-            online_mode: Whether to fetch additional metadata from APIs
-        """
-        super().__init__(online_mode)
-        self.license_detector = LicenseDetector()
+    # __init__ removed - using BaseExtractor
     
     def can_extract(self, package_path: str) -> bool:
         """Check if this extractor can handle the package.
@@ -247,9 +239,9 @@ class CondaExtractor(BaseExtractor):
         licenses = []
         license_info = index_json.get('license') or (recipe.get('about', {}).get('license') if recipe else None)
         if license_info:
-            detected = self.license_detector.detect_license_from_text(license_info)
+            detected = self.detect_licenses_from_text(license_info)
             if detected:
-                licenses.append(detected)
+                licenses.extend(detected)
         
         # Extract authors/maintainers
         authors = []

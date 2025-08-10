@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3] - 2025-08-10
+
+### Changed
+- **Major Code Refactoring** - Eliminated significant code duplication across all extractors
+  - Enhanced BaseExtractor with common functionality for license detection, author parsing, and archive extraction
+  - Created reusable utility modules: author_parser.py for consistent author string parsing
+  - Created archive_utils.py for common archive extraction operations
+  - All 11 extractors now use consistent patterns and share common functionality
+  - Reduced codebase size by approximately 30-40% while maintaining full functionality
+  - Improved maintainability and consistency across all package format extractors
+
+### Fixed
+- Fixed indentation issues in Rust extractor that prevented proper parsing
+- Updated all extractors to correctly handle list returns from detect_licenses_from_text method
+- Fixed Java extractor missing maven_central_url attribute for online mode
+- Corrected test assertions to match current version numbering
+
 ## [1.1.2] - 2025-08-10
 
 ### Added
