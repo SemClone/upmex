@@ -9,7 +9,6 @@ import logging
 
 from .base import BaseExtractor
 from ..core.models import NO_ASSERTION, PackageMetadata, PackageType
-from ..utils.license_detector import LicenseDetector
 
 logger = logging.getLogger(__name__)
 
@@ -17,10 +16,7 @@ logger = logging.getLogger(__name__)
 class NuGetExtractor(BaseExtractor):
     """Extract metadata from NuGet packages."""
 
-    def __init__(self, online_mode: bool = False):
-        """Initialize the NuGet extractor."""
-        super().__init__(online_mode)
-        self.license_detector = LicenseDetector()
+    # __init__ removed - using BaseExtractor
 
     def extract(self, package_path: str) -> PackageMetadata:
         """Extract metadata from a NuGet package.
@@ -63,7 +59,7 @@ class NuGetExtractor(BaseExtractor):
                 if not metadata.licenses and license_files:
                     for license_file in license_files:
                         license_content = zip_file.read(license_file).decode('utf-8', errors='ignore')
-                        license_info = self.license_detector.detect_license_from_text(
+                        license_info = self.detect_licenses_from_text(
                             license_content,
                             filename=license_file
                         )
@@ -164,19 +160,12 @@ class NuGetExtractor(BaseExtractor):
                         # SPDX expression
                         license_text = license_elem.text
                         if license_text:
-                            license_info = self.license_detector.detect_license_from_text(
+                            license_infos = self.detect_licenses_from_text(
                                 license_text,
                                 filename='.nuspec'
                             )
-                            if license_info:
-                                from ..core.models import LicenseInfo, LicenseConfidenceLevel
-                                metadata.licenses.append(LicenseInfo(
-                                    spdx_id=license_info.spdx_id,
-                                    confidence=license_info.confidence,
-                                    confidence_level=LicenseConfidenceLevel(license_info.confidence_level),
-                                    detection_method=license_info.detection_method,
-                                    file_path=license_info.file_path
-                                ))
+                            if license_infos:
+                                metadata.licenses.extend(license_infos)
                     elif license_type == 'file':
                         # License is in a file
                         license_file = license_elem.text
@@ -193,7 +182,7 @@ class NuGetExtractor(BaseExtractor):
                             parts = license_url.split('/')
                             if parts:
                                 license_id = parts[-1].upper()
-                                license_info = self.license_detector.detect_license_from_text(
+                                license_info = self.detect_licenses_from_text(
                                     license_id,
                                     filename='licenseUrl'
                                 )

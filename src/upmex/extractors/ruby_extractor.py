@@ -12,7 +12,6 @@ import re
 
 from .base import BaseExtractor
 from ..core.models import NO_ASSERTION, PackageMetadata, PackageType
-from ..utils.license_detector import LicenseDetector
 
 logger = logging.getLogger(__name__)
 
@@ -39,10 +38,7 @@ RubyYAMLLoader.add_multi_constructor('!ruby/', ruby_object_constructor)
 class RubyExtractor(BaseExtractor):
     """Extract metadata from Ruby gem packages."""
 
-    def __init__(self, online_mode: bool = False):
-        """Initialize the Ruby gem extractor."""
-        super().__init__(online_mode)
-        self.license_detector = LicenseDetector()
+    # __init__ removed - using BaseExtractor
 
     def extract(self, package_path: str) -> PackageMetadata:
         """Extract metadata from a Ruby gem package.
@@ -162,19 +158,12 @@ class RubyExtractor(BaseExtractor):
                             license_text = gemspec['license']
                         
                         if license_text:
-                            license_info = self.license_detector.detect_license_from_text(
+                            license_infos = self.detect_licenses_from_text(
                                 license_text, 
                                 filename='metadata.gz'
                             )
-                            if license_info:
-                                from ..core.models import LicenseInfo, LicenseConfidenceLevel
-                                metadata.licenses.append(LicenseInfo(
-                                    spdx_id=license_info.spdx_id,
-                                    confidence=license_info.confidence,
-                                    confidence_level=LicenseConfidenceLevel(license_info.confidence_level),
-                                    detection_method=license_info.detection_method,
-                                    file_path=license_info.file_path
-                                ))
+                            if license_infos:
+                                metadata.licenses.extend(license_infos)
                         
                         # Extract dependencies
                         if gemspec.get('dependencies'):
@@ -237,19 +226,12 @@ class RubyExtractor(BaseExtractor):
                                             license_file = data_tar.extractfile(member)
                                             if license_file:
                                                 license_content = license_file.read().decode('utf-8', errors='ignore')
-                                                license_info = self.license_detector.detect_license_from_text(
+                                                license_infos = self.detect_licenses_from_text(
                                                     license_content,
                                                     filename=member.name
                                                 )
-                                                if license_info:
-                                                    from ..core.models import LicenseInfo, LicenseConfidenceLevel
-                                                    metadata.licenses.append(LicenseInfo(
-                                                        spdx_id=license_info.spdx_id,
-                                                        confidence=license_info.confidence,
-                                                        confidence_level=LicenseConfidenceLevel(license_info.confidence_level),
-                                                        detection_method=license_info.detection_method,
-                                                        file_path=license_info.file_path
-                                                    ))
+                                                if license_infos:
+                                                    metadata.licenses.extend(license_infos)
                                                 break
 
         except Exception as e:

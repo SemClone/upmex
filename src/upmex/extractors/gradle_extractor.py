@@ -6,23 +6,16 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List
 from .base import BaseExtractor
 from ..core.models import PackageMetadata, PackageType, NO_ASSERTION
-from ..utils.license_detector import LicenseDetector
 
 
 class GradleExtractor(BaseExtractor):
     """Extractor for Gradle build files."""
     
-    def __init__(self, online_mode: bool = False):
-        """Initialize Gradle extractor."""
-        super().__init__(online_mode)
-        self.license_detector = LicenseDetector()
+    # __init__ removed - using BaseExtractor
     
     def extract(self, file_path: str) -> PackageMetadata:
         """Extract metadata from Gradle build file."""
-        metadata = PackageMetadata(
-            name="unknown",
-            package_type=PackageType.GRADLE
-        )
+        metadata = self.create_metadata(package_type=PackageType.GRADLE)
         
         try:
             path = Path(file_path)
@@ -66,7 +59,7 @@ class GradleExtractor(BaseExtractor):
             # Extract license
             license_info = self._extract_license(content, is_kotlin_dsl)
             if license_info:
-                metadata.licenses = [license_info]
+                    metadata.licenses.extend(license_info)
             
             # Extract keywords/tags from labels or tags
             metadata.keywords = self._extract_keywords(content, is_kotlin_dsl)
@@ -280,7 +273,7 @@ class GradleExtractor(BaseExtractor):
             match = re.search(pattern, content, re.MULTILINE | re.DOTALL)
             if match:
                 license_text = match.group(1)
-                return self.license_detector.detect_license_from_text(
+                return self.detect_licenses_from_text(
                     license_text,
                     filename='build.gradle'
                 )

@@ -8,24 +8,19 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from .base import BaseExtractor
 from ..core.models import PackageMetadata, PackageType, NO_ASSERTION
-from ..utils.license_detector import LicenseDetector
 
 
 class JavaExtractor(BaseExtractor):
     """Extractor for Java JAR and Maven packages."""
     
     def __init__(self, online_mode: bool = False):
-        """Initialize Java extractor."""
+        """Initialize the Java extractor."""
         super().__init__(online_mode)
         self.maven_central_url = "https://repo1.maven.org/maven2"
-        self.license_detector = LicenseDetector()
     
     def extract(self, package_path: str) -> PackageMetadata:
         """Extract metadata from Java package."""
-        metadata = PackageMetadata(
-            name="unknown",
-            package_type=PackageType.JAR
-        )
+        metadata = self.create_metadata(package_type=PackageType.JAR)
         
         try:
             with zipfile.ZipFile(package_path, 'r') as zf:
@@ -59,10 +54,7 @@ class JavaExtractor(BaseExtractor):
                     # Handle namespace
                     ns = {'maven': 'http://maven.apache.org/POM/4.0.0'}
                     
-                    metadata = PackageMetadata(
-                        name="unknown",
-                        package_type=PackageType.MAVEN
-                    )
+                    metadata = self.create_metadata(package_type=PackageType.MAVEN)
                     
                     # Extract basic info - check parent if not found directly
                     group_id = root.findtext('./maven:groupId', '', ns) or root.findtext('./groupId', '')
@@ -135,12 +127,12 @@ class JavaExtractor(BaseExtractor):
                         for license_elem in licenses_elem.findall('./maven:license', ns) or licenses_elem.findall('./license'):
                             license_name = license_elem.findtext('maven:name', '', ns) or license_elem.findtext('name', '')
                             if license_name:
-                                license_info = self.license_detector.detect_license_from_text(
+                                license_infos = self.detect_licenses_from_text(
                                     license_name,
                                     filename='pom.xml'
                                 )
-                                if license_info:
-                                    metadata.licenses.append(license_info)
+                                if license_infos:
+                                    metadata.licenses.extend(license_infos)
                     
                     # Extract dependencies
                     runtime_deps = []
@@ -177,10 +169,7 @@ class JavaExtractor(BaseExtractor):
     
     def _extract_manifest_metadata(self, zf: zipfile.ZipFile) -> PackageMetadata:
         """Extract metadata from MANIFEST.MF file."""
-        metadata = PackageMetadata(
-            name="unknown",
-            package_type=PackageType.JAR
-        )
+        metadata = self.create_metadata(package_type=PackageType.JAR)
         
         try:
             if 'META-INF/MANIFEST.MF' in zf.namelist():

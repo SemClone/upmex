@@ -7,20 +7,12 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 from .base import BaseExtractor
 from ..core.models import PackageMetadata, PackageType, NO_ASSERTION
-from ..utils.license_detector import LicenseDetector
 
 
 class CocoaPodsExtractor(BaseExtractor):
     """Extract metadata from CocoaPods .podspec or .podspec.json files."""
     
-    def __init__(self, online_mode: bool = False):
-        """Initialize CocoaPods extractor.
-        
-        Args:
-            online_mode: Whether to fetch additional metadata from APIs
-        """
-        super().__init__(online_mode)
-        self.license_detector = LicenseDetector()
+    # __init__ removed - using BaseExtractor
     
     def can_extract(self, package_path: str) -> bool:
         """Check if this extractor can handle the package.
@@ -318,9 +310,9 @@ class CocoaPodsExtractor(BaseExtractor):
                 license_type = license_data.get('type')
                 license_file = license_data.get('file')
                 if license_type:
-                    detected = self.license_detector.detect_license_from_text(license_type)
+                    detected = self.detect_licenses_from_text(license_type)
                     if detected:
-                        licenses.append(detected)
+                        licenses.extend(detected)
                 elif license_file:
                     # Try to read license file if it exists
                     license_file_path = Path(file_path).parent / license_file
@@ -328,15 +320,15 @@ class CocoaPodsExtractor(BaseExtractor):
                         try:
                             with open(license_file_path, 'r', encoding='utf-8') as f:
                                 license_content = f.read()
-                                detected = self.license_detector.detect_license_from_text(license_content)
+                                detected = self.detect_licenses_from_text(license_content)
                                 if detected:
-                                    licenses.append(detected)
+                                    licenses.extend(detected)
                         except Exception:
                             pass
             elif isinstance(license_data, str):
-                detected = self.license_detector.detect_license_from_text(license_data)
+                detected = self.detect_licenses_from_text(license_data)
                 if detected:
-                    licenses.append(detected)
+                    licenses.extend(detected)
         
         # If no license found, try to find LICENSE files
         if not licenses:
@@ -347,9 +339,9 @@ class CocoaPodsExtractor(BaseExtractor):
                     try:
                         with open(license_path, 'r', encoding='utf-8') as f:
                             license_content = f.read()
-                            detected = self.license_detector.detect_license_from_text(license_content)
+                            detected = self.detect_licenses_from_text(license_content)
                             if detected:
-                                licenses.append(detected)
+                                licenses.extend(detected)
                                 break
                     except Exception:
                         continue
