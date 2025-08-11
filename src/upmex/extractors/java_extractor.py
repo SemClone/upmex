@@ -28,7 +28,6 @@ class JavaExtractor(BaseExtractor):
                 pom_metadata = self._extract_maven_metadata(zf)
                 if pom_metadata:
                     metadata = pom_metadata
-                    metadata.package_type = PackageType.MAVEN
                 else:
                     # Fallback to MANIFEST.MF
                     metadata = self._extract_manifest_metadata(zf)
@@ -96,14 +95,45 @@ class JavaExtractor(BaseExtractor):
                     for dev in developers:
                         dev_name = dev.findtext('maven:name', None, ns) or dev.findtext('name')
                         dev_email = dev.findtext('maven:email', None, ns) or dev.findtext('email')
+                        dev_id = dev.findtext('maven:id', None, ns) or dev.findtext('id')
+                        dev_org = dev.findtext('maven:organization', None, ns) or dev.findtext('organization')
+                        
+                        # Use id or organization as fallback for name
+                        if not dev_name:
+                            if dev_org:
+                                dev_name = dev_org
+                            elif dev_id:
+                                dev_name = dev_id
+                        
                         if dev_name or dev_email:
                             metadata.authors.append({
-                                'name': dev_name,
-                                'email': dev_email
+                                'name': dev_name or NO_ASSERTION,
+                                'email': dev_email or NO_ASSERTION
                             })
                     
+                    # Extract license from embedded POM first
+                    licenses_elem = root.find('.//maven:licenses', ns) or root.find('.//licenses')
+                    if licenses_elem is not None:
+                        license_elems = licenses_elem.findall('./maven:license', ns) or licenses_elem.findall('./license')
+                        for license_elem in license_elems:
+                            license_name = license_elem.findtext('maven:name', '', ns) or license_elem.findtext('name', '')
+                            if license_name:
+                                license_infos = self.detect_licenses_from_text(
+                                    license_name,
+                                    filename='pom.xml'
+                                )
+                                if license_infos:
+                                    metadata.licenses.extend(license_infos)
+                    
+                    # Check if we have real data or just NO-ASSERTION placeholders
+                    has_real_authors = metadata.authors and any(
+                        author.get('name') != NO_ASSERTION or author.get('email') != NO_ASSERTION 
+                        for author in metadata.authors
+                    )
+                    has_real_repository = metadata.repository and metadata.repository != NO_ASSERTION
+                    
                     # If missing critical data and online mode is enabled, fetch parent POM
-                    if self.online_mode and (not metadata.authors or not metadata.repository):
+                    if self.online_mode and (not has_real_authors or not has_real_repository or not metadata.licenses):
                         parent = root.find('./maven:parent', ns) or root.find('./parent')
                         if parent is not None:
                             parent_group = parent.findtext('maven:groupId', '', ns) or parent.findtext('groupId', '')
@@ -113,26 +143,27 @@ class JavaExtractor(BaseExtractor):
                             if parent_group and parent_artifact and parent_version:
                                 parent_metadata = self._fetch_parent_pom(parent_group, parent_artifact, parent_version)
                                 if parent_metadata:
-                                    # Merge missing data from parent
-                                    if not metadata.authors and parent_metadata.get('authors'):
+                                    parent_pom_url = f"https://repo1.maven.org/maven2/{parent_group.replace('.', '/')}/{parent_artifact}/{parent_version}/{parent_artifact}-{parent_version}.pom"
+                                    
+                                    # Only replace NO-ASSERTION values, don't overwrite real data
+                                    if not metadata.description and parent_metadata.get('description'):
+                                        metadata.description = parent_metadata['description']
+                                        metadata.provenance['description'] = f"parent_pom:{parent_pom_url}"
+                                    if not has_real_authors and parent_metadata.get('authors'):
                                         metadata.authors = parent_metadata['authors']
-                                    if not metadata.repository and parent_metadata.get('repository'):
+                                        metadata.provenance['authors'] = f"parent_pom:{parent_pom_url}"
+                                    if not metadata.maintainers and parent_metadata.get('maintainers'):
+                                        metadata.maintainers = parent_metadata['maintainers']
+                                        metadata.provenance['maintainers'] = f"parent_pom:{parent_pom_url}"
+                                    if not has_real_repository and parent_metadata.get('repository'):
                                         metadata.repository = parent_metadata['repository']
+                                        metadata.provenance['repository'] = f"parent_pom:{parent_pom_url}"
                                     if not metadata.homepage and parent_metadata.get('homepage'):
                                         metadata.homepage = parent_metadata['homepage']
-                    
-                    # Extract license using regex detection
-                    licenses_elem = root.find('.//maven:licenses', ns) or root.find('.//licenses')
-                    if licenses_elem is not None:
-                        for license_elem in licenses_elem.findall('./maven:license', ns) or licenses_elem.findall('./license'):
-                            license_name = license_elem.findtext('maven:name', '', ns) or license_elem.findtext('name', '')
-                            if license_name:
-                                license_infos = self.detect_licenses_from_text(
-                                    license_name,
-                                    filename='pom.xml'
-                                )
-                                if license_infos:
-                                    metadata.licenses.extend(license_infos)
+                                        metadata.provenance['homepage'] = f"parent_pom:{parent_pom_url}"
+                                    if not metadata.licenses and parent_metadata.get('licenses'):
+                                        metadata.licenses = parent_metadata['licenses']
+                                        metadata.provenance['licenses'] = f"parent_pom:{parent_pom_url}"
                     
                     # Extract dependencies
                     runtime_deps = []
@@ -231,31 +262,115 @@ class JavaExtractor(BaseExtractor):
                             repo_url = repo_url.split(':', 2)[-1]
                         parent_data['repository'] = repo_url
                 
-                # Extract developers
+                # Extract developers (as both authors and maintainers)
                 developers = []
+                maintainers = []
                 for dev in root.findall('.//maven:developer', ns) or root.findall('.//developer'):
                     dev_name = dev.findtext('maven:name', None, ns) or dev.findtext('name')
                     dev_email = dev.findtext('maven:email', None, ns) or dev.findtext('email')
+                    dev_id = dev.findtext('maven:id', None, ns) or dev.findtext('id')
+                    dev_org = dev.findtext('maven:organization', None, ns) or dev.findtext('organization')
+                    dev_role = dev.find('maven:roles/maven:role', ns) or dev.find('roles/role')
+                    role_text = dev_role.text if dev_role is not None else None
+                    
+                    # Use id or organization as fallback for name
+                    if not dev_name:
+                        if dev_org:
+                            dev_name = dev_org
+                        elif dev_id:
+                            dev_name = dev_id
+                    
                     if dev_name or dev_email:
-                        developers.append({
+                        dev_info = {
                             'name': dev_name or NO_ASSERTION,
                             'email': dev_email or NO_ASSERTION
-                        })
+                        }
+                        developers.append(dev_info)
+                        
+                        # Also add as maintainer with organization info
+                        maintainer_info = dev_info.copy()
+                        if dev_org:
+                            maintainer_info['organization'] = dev_org
+                        if role_text:
+                            maintainer_info['role'] = role_text
+                        maintainers.append(maintainer_info)
+                
                 if developers:
                     parent_data['authors'] = developers
+                if maintainers:
+                    parent_data['maintainers'] = maintainers
+                
+                # Also extract contributors as additional maintainers
+                for contrib in root.findall('.//maven:contributor', ns) or root.findall('.//contributor'):
+                    contrib_name = contrib.findtext('maven:name', None, ns) or contrib.findtext('name')
+                    contrib_email = contrib.findtext('maven:email', None, ns) or contrib.findtext('email')
+                    contrib_org = contrib.findtext('maven:organization', None, ns) or contrib.findtext('organization')
+                    
+                    if contrib_name or contrib_email:
+                        maintainer_info = {
+                            'name': contrib_name or NO_ASSERTION,
+                            'email': contrib_email or NO_ASSERTION
+                        }
+                        if contrib_org:
+                            maintainer_info['organization'] = contrib_org
+                        maintainer_info['role'] = 'contributor'
+                        
+                        if 'maintainers' not in parent_data:
+                            parent_data['maintainers'] = []
+                        parent_data['maintainers'].append(maintainer_info)
+                
+                # Extract description
+                description = root.findtext('.//maven:description', None, ns) or root.findtext('.//description')
+                if description:
+                    parent_data['description'] = description
                 
                 # Extract homepage
                 homepage = root.findtext('.//maven:url', None, ns) or root.findtext('.//url')
                 if homepage:
                     parent_data['homepage'] = homepage
                 
+                # Extract licenses
+                licenses = []
+                licenses_elem = root.find('.//maven:licenses', ns) or root.find('.//licenses')
+                if licenses_elem is not None:
+                    license_elems = licenses_elem.findall('maven:license', ns)  # Remove ./ prefix
+                    if not license_elems:
+                        license_elems = licenses_elem.findall('license')  # Try without namespace
+                    
+                    for license_elem in license_elems:
+                        license_name = license_elem.findtext('maven:name', '', ns) or license_elem.findtext('name', '')
+                        if license_name:
+                            # Use the same license detection as in main extraction
+                            try:
+                                license_infos = self.detect_licenses_from_text(
+                                    license_name,
+                                    filename='parent_pom.xml'
+                                )
+                                if license_infos:
+                                    # Update detection method to clarify source
+                                    for info in license_infos:
+                                        info.detection_method = 'parent_pom_regex'
+                                        info.file_path = f"parent:{artifact_id}-{version}.pom"
+                                    licenses.extend(license_infos)
+                            except Exception as lic_err:
+                                print(f"Error detecting license '{license_name}': {lic_err}")
+                
+                if licenses:
+                    parent_data['licenses'] = licenses
+                
                 # Also check for license/author info in header comments
                 header_data = self._parse_pom_header(response.text)
                 if header_data:
                     if 'authors' in header_data and not parent_data.get('authors'):
                         parent_data['authors'] = header_data['authors']
-                    if 'license' in header_data:
-                        parent_data['license'] = header_data['license']
+                    if 'license' in header_data and not parent_data.get('licenses'):
+                        # Convert header license text to proper format
+                        license_infos = self.detect_licenses_from_text(
+                            header_data['license'],
+                            filename='pom.xml'
+                        )
+                        if license_infos:
+                            parent_data['licenses'] = license_infos
                 
                 return parent_data
                 

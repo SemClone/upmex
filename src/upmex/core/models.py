@@ -56,6 +56,7 @@ class PackageMetadata:
     name: str
     version: Optional[str] = None
     package_type: PackageType = PackageType.UNKNOWN
+    purl: Optional[str] = None
     description: Optional[str] = None
     homepage: Optional[str] = None
     repository: Optional[str] = None
@@ -66,37 +67,73 @@ class PackageMetadata:
     keywords: List[str] = field(default_factory=list)
     classifiers: List[str] = field(default_factory=list)
     file_size: Optional[int] = None
-    file_hash: Optional[str] = None
+    file_hash: Optional[str] = None  # SHA-1
+    file_hash_md5: Optional[str] = None  # MD5
+    fuzzy_hash: Optional[str] = None  # TLSH or LSH
     extraction_timestamp: datetime = field(default_factory=datetime.utcnow)
     schema_version: str = "1.0.0"
     raw_metadata: Dict[str, Any] = field(default_factory=dict)
+    provenance: Dict[str, str] = field(default_factory=dict)  # Track data sources
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert metadata to dictionary format."""
+        """Convert metadata to dictionary format with organized structure."""
         return {
-            "name": self.name,
-            "version": self.version,
-            "package_type": self.package_type.value,
-            "description": self.description,
-            "homepage": self.homepage,
-            "repository": self.repository,
-            "authors": self.authors,
-            "maintainers": self.maintainers,
-            "licenses": [
-                {
-                    "spdx_id": lic.spdx_id,
-                    "name": lic.name,
-                    "confidence": lic.confidence,
-                    "confidence_level": lic.confidence_level.value,
-                    "detection_method": lic.detection_method,
-                    "file_path": lic.file_path,
-                } for lic in self.licenses
-            ],
+            # Package identification
+            "package": {
+                "name": self.name,
+                "version": self.version,
+                "type": self.package_type.value,
+                "purl": self.purl,
+            },
+            
+            # Package metadata
+            "metadata": {
+                "description": self.description,
+                "homepage": self.homepage,
+                "repository": self.repository,
+                "keywords": self.keywords,
+                "classifiers": self.classifiers,
+            },
+            
+            # People
+            "people": {
+                "authors": self.authors,
+                "maintainers": self.maintainers,
+            },
+            
+            # Licensing
+            "licensing": {
+                "declared_licenses": [
+                    {
+                        "spdx_id": lic.spdx_id,
+                        "name": lic.name,
+                        "confidence": lic.confidence,
+                        "confidence_level": lic.confidence_level.value,
+                        "source": lic.detection_method,
+                        "file": lic.file_path,
+                    } for lic in self.licenses
+                ],
+            },
+            
+            # Dependencies
             "dependencies": self.dependencies,
-            "keywords": self.keywords,
-            "classifiers": self.classifiers,
-            "file_size": self.file_size,
-            "file_hash": self.file_hash,
-            "extraction_timestamp": self.extraction_timestamp.isoformat(),
-            "schema_version": self.schema_version,
+            
+            # File information
+            "file_info": {
+                "size": self.file_size,
+                "hashes": {
+                    "sha1": self.file_hash,
+                    "md5": self.file_hash_md5,
+                    "fuzzy": self.fuzzy_hash,
+                }
+            },
+            
+            # Extraction metadata
+            "extraction_info": {
+                "timestamp": self.extraction_timestamp.isoformat(),
+                "schema_version": self.schema_version,
+            },
+            
+            # Data provenance for attestation
+            "provenance": self.provenance
         }

@@ -71,7 +71,8 @@ class PackageExtractor:
         
         # Get file metadata
         file_size = path.stat().st_size
-        file_hash = self._calculate_hash(package_path)
+        file_hash = self._calculate_hash(package_path, algorithm="sha1")
+        file_hash_md5 = self._calculate_hash(package_path, algorithm="md5")
         
         # Extract metadata using appropriate extractor
         if package_type in self.extractors:
@@ -87,12 +88,20 @@ class PackageExtractor:
         # Add file metadata
         metadata.file_size = file_size
         metadata.file_hash = file_hash
+        metadata.file_hash_md5 = file_hash_md5
+        metadata.fuzzy_hash = self._calculate_fuzzy_hash(package_path)
         metadata.package_type = package_type
+        
+        # Generate PURL (Package URL)
+        metadata.purl = self._generate_purl(metadata)
+        
+        # Normalize description
+        if metadata.description:
+            metadata.description = self._normalize_text(metadata.description)
         
         # Enrich with APIs if online mode is enabled
         if self.online_mode:
             self._enrich_with_apis(metadata)
-        
         return metadata
     
     def _enrich_with_apis(self, metadata: PackageMetadata) -> None:
@@ -143,12 +152,70 @@ class PackageExtractor:
                 # Fill in missing fields
                 if not metadata.description and eco_metadata.get('description'):
                     metadata.description = eco_metadata['description']
+                    metadata.provenance['description'] = 'ecosystems_api'
                 
                 if metadata.repository == NO_ASSERTION and eco_metadata.get('repository'):
                     metadata.repository = eco_metadata['repository']
+                    metadata.provenance['repository'] = 'ecosystems_api'
                 
                 if not metadata.keywords and eco_metadata.get('keywords'):
                     metadata.keywords = eco_metadata['keywords']
+                    metadata.provenance['keywords'] = 'ecosystems_api'
+                
+                # Add maintainers if missing
+                if not metadata.maintainers and eco_metadata.get('maintainers'):
+                    maintainers = eco_metadata['maintainers']
+                    # Format maintainers properly
+                    formatted_maintainers = []
+                    for m in maintainers:
+                        if isinstance(m, dict):
+                            # Extract relevant fields from Ecosyste.ms format
+                            maintainer = {}
+                            # Try different fields for name
+                            if m.get('name'):
+                                maintainer['name'] = m['name']
+                            elif m.get('login'):
+                                maintainer['name'] = m['login']
+                            elif m.get('uuid'):
+                                maintainer['name'] = m['uuid']
+                            
+                            if m.get('email'):
+                                maintainer['email'] = m['email']
+                            
+                            # Add additional fields if present
+                            if 'uuid' in m:
+                                maintainer['id'] = m['uuid']
+                            
+                            if maintainer.get('name') or maintainer.get('email'):
+                                formatted_maintainers.append(maintainer)
+                        elif isinstance(m, str):
+                            formatted_maintainers.append({'name': m, 'email': NO_ASSERTION})
+                    
+                    if formatted_maintainers:
+                        metadata.maintainers = formatted_maintainers
+                        metadata.provenance['maintainers'] = 'ecosystems_api'
+                
+                # Add license info if missing
+                if not metadata.licenses and eco_metadata.get('licenses'):
+                    from .models import LicenseInfo
+                    licenses = eco_metadata['licenses']
+                    if isinstance(licenses, str):
+                        licenses = [licenses]
+                    
+                    for license_str in licenses:
+                        # Use the same license detection as in extractors
+                        from ..extractors.base import BaseExtractor
+                        temp_extractor = type('TempExtractor', (BaseExtractor,), {
+                            'extract': lambda self, path: None,
+                            'can_extract': lambda self, path: False
+                        })()
+                        
+                        license_infos = temp_extractor.detect_licenses_from_text(
+                            license_str,
+                            filename='ecosystems_api'
+                        )
+                        if license_infos:
+                            metadata.licenses.extend(license_infos)
                 
         except Exception as e:
             print(f"Error enriching with APIs: {e}")
@@ -168,3 +235,135 @@ class PackageExtractor:
             for chunk in iter(lambda: f.read(8192), b''):
                 hash_func.update(chunk)
         return hash_func.hexdigest()
+    
+    def _calculate_fuzzy_hash(self, file_path: str) -> Optional[str]:
+        """Calculate TLSH or LSH fuzzy hash for similarity detection.
+        
+        Args:
+            file_path: Path to the file
+            
+        Returns:
+            Fuzzy hash string or None
+        """
+        try:
+            # Try TLSH first (preferred)
+            import tlsh
+            with open(file_path, 'rb') as f:
+                data = f.read()
+            hash_value = tlsh.hash(data)
+            if hash_value and hash_value != 'TNULL':
+                return f"tlsh:{hash_value}"
+        except (ImportError, Exception):
+            pass
+        
+        try:
+            # Try ssdeep as second option
+            import ssdeep
+            return f"ssdeep:{ssdeep.hash_from_file(file_path)}"
+        except ImportError:
+            pass
+        
+        # Fallback to a simple LSH implementation
+        try:
+            import hashlib
+            # Create a simple LSH using MinHash approach
+            with open(file_path, 'rb') as f:
+                # Read file in chunks and create partial hashes
+                chunks = []
+                chunk_size = 4096
+                for i in range(20):  # First 20 chunks for better coverage
+                    chunk = f.read(chunk_size)
+                    if not chunk:
+                        break
+                    # Use different hash functions for LSH
+                    h1 = hashlib.sha1(chunk).hexdigest()[:6]
+                    h2 = hashlib.md5(chunk).hexdigest()[:6]
+                    chunks.append(f"{h1}{h2}")
+                
+                if chunks:
+                    # Create a simple LSH signature
+                    return f"lsh:{'-'.join(chunks[:10])}"  # Limit to 10 for readability
+        except Exception:
+            pass
+        
+        return None
+    
+    def _generate_purl(self, metadata: PackageMetadata) -> Optional[str]:
+        """Generate Package URL (PURL) for the package.
+        
+        Args:
+            metadata: Package metadata
+            
+        Returns:
+            PURL string or None
+        """
+        if not metadata.name:
+            return None
+        
+        # Map package type to PURL type
+        purl_type_map = {
+            PackageType.PYTHON_WHEEL: "pypi",
+            PackageType.PYTHON_SDIST: "pypi",
+            PackageType.NPM: "npm",
+            PackageType.MAVEN: "maven",
+            PackageType.JAR: "maven",
+            PackageType.GRADLE: "maven",
+            PackageType.COCOAPODS: "cocoapods",
+            PackageType.CONDA: "conda",
+            PackageType.CONAN: "conan",
+            PackageType.PERL: "cpan",
+            PackageType.RUBY_GEM: "gem",
+            PackageType.RUST_CRATE: "cargo",
+            PackageType.GO_MODULE: "golang",
+            PackageType.NUGET: "nuget"
+        }
+        
+        purl_type = purl_type_map.get(metadata.package_type)
+        if not purl_type:
+            return None
+        
+        # Build PURL
+        purl = f"pkg:{purl_type}/"
+        
+        # Handle namespace for Maven packages
+        if metadata.package_type in [PackageType.MAVEN, PackageType.JAR, PackageType.GRADLE]:
+            if ':' in metadata.name:
+                parts = metadata.name.split(':', 1)
+                namespace = parts[0].replace('.', '/')
+                name = parts[1]
+                purl += f"{namespace}/{name}"
+            else:
+                purl += metadata.name
+        # Handle scoped NPM packages
+        elif metadata.package_type == PackageType.NPM and metadata.name.startswith('@'):
+            if '/' in metadata.name:
+                parts = metadata.name.split('/', 1)
+                namespace = parts[0][1:]  # Remove @
+                name = parts[1]
+                purl += f"{namespace}/{name}"
+            else:
+                purl += metadata.name
+        else:
+            purl += metadata.name
+        
+        # Add version if available
+        if metadata.version:
+            purl += f"@{metadata.version}"
+        
+        return purl
+    
+    def _normalize_text(self, text: str) -> str:
+        """Normalize text by removing extra whitespace and newlines.
+        
+        Args:
+            text: Text to normalize
+            
+        Returns:
+            Normalized text
+        """
+        import re
+        # Replace multiple whitespace with single space
+        text = re.sub(r'\s+', ' ', text)
+        # Strip leading and trailing whitespace
+        text = text.strip()
+        return text

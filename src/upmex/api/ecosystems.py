@@ -37,15 +37,24 @@ class EcosystemsAPI:
             if not registry:
                 return None
             
-            # Make API request
-            url = f"{self.base_url}/registries/{registry}/packages/{name}"
-            if version:
-                url = f"{url}/versions/{version}"
+            # Get package-level info first for maintainers
+            package_url = f"{self.base_url}/registries/{registry}/packages/{name}"
+            package_response = requests.get(package_url, headers=self.headers, timeout=10)
             
-            response = requests.get(url, headers=self.headers, timeout=10)
-            
-            if response.status_code == 200:
-                return response.json()
+            if package_response.status_code == 200:
+                package_data = package_response.json()
+                
+                # If version requested, get version-specific data and merge
+                if version:
+                    version_url = f"{package_url}/versions/{version}"
+                    version_response = requests.get(version_url, headers=self.headers, timeout=10)
+                    if version_response.status_code == 200:
+                        version_data = version_response.json()
+                        # Merge version data into package data, keeping maintainers from package level
+                        version_data['maintainers'] = package_data.get('maintainers', [])
+                        return version_data
+                
+                return package_data
             
         except Exception as e:
             print(f"Error fetching from Ecosyste.ms: {e}")

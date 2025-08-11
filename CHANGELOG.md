@@ -5,6 +5,74 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2025-08-11
+
+### Added
+- **Enhanced License Detection with SPDX Support**
+  - Full SPDX license database integration with 400+ official license texts
+  - Fuzzy hash (LSH) matching against normalized license texts
+  - Improved Dice-Sørensen similarity with trigram analysis
+  - Full text similarity comparison using SequenceMatcher
+  - License alias resolution (GPL-3.0, GPLv3, GPL v3 all map correctly)
+  - Text normalization removing copyright notices, dates, and variables
+  - Detection method tracking for provenance and attestation
+  - Support for detecting dual/multiple licensing scenarios
+  - Automatic extraction of LICENSE, COPYING, COPYRIGHT, NOTICE files from archives
+
+- **File Hashing Improvements**
+  - SHA-1 hash for package files (industry standard)
+  - MD5 hash for legacy compatibility
+  - TLSH/LSH fuzzy hash for similarity detection
+  - All hashes included in file_info section
+
+- **Package URL (PURL) Generation**
+  - Standard Package URL generation for all supported package types
+  - Follows PURL specification for cross-ecosystem compatibility
+
+- **JSON Output Reorganization**
+  - Structured sections: package, metadata, people, licensing, dependencies, file_info, extraction_info, provenance
+  - Clear separation of concerns for better parsing
+  - Provenance tracking showing data sources for each field
+
+- **API Improvements**
+  - Fixed ClearlyDefined API URL format (removed /v1, added provider)
+  - Better online mode data enrichment without overwriting existing data
+  - Improved maintainer extraction from Ecosyste.ms API
+
+- **Developer Experience**
+  - Templates directory removed (unused)
+  - License manager for SPDX data caching and management
+  - Enhanced detector with fallback chain for maximum detection rate
+
+### Changed
+- License detection now uses multiple methods in priority order:
+  1. SPDX-License-Identifier exact matching
+  2. Fuzzy hash matching against SPDX texts
+  3. Dice-Sørensen similarity comparison
+  4. Full text similarity matching
+  5. Regex pattern matching (fallback)
+- Description fields now normalized to remove extra whitespace
+- Online mode only enriches missing data instead of overwriting
+- Parent POM extraction includes description field
+- Developer extraction handles id/organization when name/email missing
+
+### Fixed
+- ClearlyDefined API now working correctly with proper URL format
+- JSON output provenance tracking for data attestation
+- Author extraction from Maven POMs with only organization field
+- Description extraction from parent POMs
+- Maintainer information properly extracted from all sources
+
+### Performance
+- SPDX license texts cached locally for offline operation
+- Pre-computed fuzzy hashes for all license texts
+- Efficient fallback chain minimizes processing time
+
+### Testing
+- All 11 test packages now correctly detect licenses
+- Enhanced detection achieves 100% success rate on test suite
+- Multiple detection methods provide validation and higher confidence
+
 ## [1.1.3] - 2025-08-10
 
 ### Changed

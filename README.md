@@ -26,14 +26,19 @@ Extract metadata and license information from various package formats with a sin
 - **NuGet/.NET**: .nupkg packages
 - **Linux**: (Planned) Debian .deb, RPM .rpm
 
-### License Detection Engine
+### Enhanced License Detection Engine
+- **Comprehensive SPDX Support**: 400+ official SPDX license texts with fuzzy matching
 - **Multi-Layer Detection**:
-  - Regex-based pattern matching for 24+ SPDX identifiers
-  - Dice-Sørensen coefficient for fuzzy text matching
-  - Confidence scoring (0.0-1.0) for reliability assessment
-  - Multi-license support with individual confidence scores
-- **Smart File Discovery**: Automatic LICENSE/COPYING file detection
-- **Metadata Parsing**: Extract from package manifests and configuration
+  - SPDX-License-Identifier exact matching
+  - Fuzzy hash (LSH) matching against normalized license texts
+  - Dice-Sørensen coefficient for similarity matching
+  - Regex-based pattern matching with alias support (GPL-3.0, GPLv3, etc.)
+  - Full text similarity comparison using SequenceMatcher
+  - Confidence scoring (0.0-1.0) with detection method tracking
+- **Smart File Discovery**: Automatic LICENSE/COPYING/COPYRIGHT/NOTICE file extraction
+- **Text Normalization**: Removes variables, dates, and copyright notices for better matching
+- **Multi-license Support**: Detects dual/multiple licensing with individual confidence scores
+- **Provenance Tracking**: Records detection method and source for attestation
 
 ### API Integrations
 - **ClearlyDefined**: License and compliance data enrichment
@@ -48,6 +53,10 @@ Extract metadata and license information from various package formats with a sin
 - **Author Parsing**: Intelligent name/email extraction and normalization
 - **Repository Detection**: Automatic VCS URL extraction
 - **Platform Support**: Architecture and OS requirement detection
+- **Package URL (PURL)**: Generate standard Package URLs for all packages
+- **File Hashing**: SHA-1, MD5, and fuzzy hash (TLSH/LSH) for package files
+- **JSON Organization**: Structured output with package, metadata, people, licensing sections
+- **Data Provenance**: Track source of each data field for attestation
 
 ## Installation
 

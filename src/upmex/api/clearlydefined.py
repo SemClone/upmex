@@ -14,7 +14,7 @@ class ClearlyDefinedAPI:
         Args:
             api_key: Optional API key for authenticated requests
         """
-        self.base_url = "https://api.clearlydefined.io/v1"
+        self.base_url = "https://api.clearlydefined.io"
         self.api_key = api_key
         self.headers = {}
         if api_key:
@@ -33,16 +33,19 @@ class ClearlyDefinedAPI:
             Package definition or None
         """
         try:
-            # Map package type to ClearlyDefined type
-            cd_type = self._map_package_type(package_type)
-            if not cd_type:
+            # Map package type to ClearlyDefined type and provider
+            cd_info = self._map_package_type(package_type)
+            if not cd_info:
                 return None
             
-            # Construct coordinates
+            cd_type = cd_info['type']
+            provider = cd_info['provider']
+            
+            # Construct coordinates: type/provider/namespace/name/revision
             if namespace:
-                coordinates = f"{cd_type}/{namespace}/{name}/{version}"
+                coordinates = f"{cd_type}/{provider}/{namespace}/{name}/{version}"
             else:
-                coordinates = f"{cd_type}/-/{name}/{version}"
+                coordinates = f"{cd_type}/{provider}/-/{name}/{version}"
             
             # Make API request
             url = f"{self.base_url}/definitions/{coordinates}"
@@ -56,28 +59,28 @@ class ClearlyDefinedAPI:
         
         return None
     
-    def _map_package_type(self, package_type: PackageType) -> Optional[str]:
-        """Map PackageType to ClearlyDefined type string.
+    def _map_package_type(self, package_type: PackageType) -> Optional[Dict[str, str]]:
+        """Map PackageType to ClearlyDefined type and provider.
         
         Args:
             package_type: Package type enum
             
         Returns:
-            ClearlyDefined type string or None
+            Dictionary with 'type' and 'provider' or None
         """
         mapping = {
-            PackageType.PYTHON_WHEEL: "pypi",
-            PackageType.PYTHON_SDIST: "pypi",
-            PackageType.NPM: "npm",
-            PackageType.MAVEN: "maven",
-            PackageType.JAR: "maven",
-            PackageType.GRADLE: "maven",  # Gradle projects often resolve from Maven repos
-            PackageType.COCOAPODS: "pod",
-            PackageType.CONDA: "conda",
-            PackageType.RUBY_GEM: "gem",
-            PackageType.RUST_CRATE: "crate",
-            PackageType.GO_MODULE: "go",
-            PackageType.NUGET: "nuget"
+            PackageType.PYTHON_WHEEL: {"type": "pypi", "provider": "pypi"},
+            PackageType.PYTHON_SDIST: {"type": "pypi", "provider": "pypi"},
+            PackageType.NPM: {"type": "npm", "provider": "npmjs"},
+            PackageType.MAVEN: {"type": "maven", "provider": "mavencentral"},
+            PackageType.JAR: {"type": "maven", "provider": "mavencentral"},
+            PackageType.GRADLE: {"type": "maven", "provider": "mavencentral"},
+            PackageType.COCOAPODS: {"type": "pod", "provider": "cocoapods"},
+            PackageType.CONDA: {"type": "conda", "provider": "conda-forge"},
+            PackageType.RUBY_GEM: {"type": "gem", "provider": "rubygems"},
+            PackageType.RUST_CRATE: {"type": "crate", "provider": "cratesio"},
+            PackageType.GO_MODULE: {"type": "go", "provider": "golang"},
+            PackageType.NUGET: {"type": "nuget", "provider": "nuget"}
         }
         return mapping.get(package_type)
     

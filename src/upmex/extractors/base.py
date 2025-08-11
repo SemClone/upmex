@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ..core.models import PackageMetadata, LicenseInfo, LicenseConfidenceLevel, NO_ASSERTION
 from ..utils.license_detector import LicenseDetector
+from ..licenses.enhanced_detector import EnhancedLicenseDetector
 from ..utils.author_parser import parse_author_string, parse_author_list
 from ..utils.archive_utils import find_file_in_archive, extract_from_tar, extract_from_zip
 
@@ -32,6 +33,14 @@ class BaseExtractor(ABC):
         """
         self.online_mode = online_mode
         self.license_detector = LicenseDetector()
+        
+        # Try to use enhanced detector if available
+        try:
+            self.enhanced_detector = EnhancedLicenseDetector(enable_spdx=True)
+            self.use_enhanced = True
+        except:
+            self.enhanced_detector = None
+            self.use_enhanced = False
     
     @abstractmethod
     def extract(self, package_path: str) -> PackageMetadata:
@@ -96,7 +105,16 @@ class BaseExtractor(ABC):
         if not text:
             return licenses
         
-        # Use license detector
+        # Try enhanced detector first if available
+        if self.use_enhanced and self.enhanced_detector:
+            try:
+                enhanced_results = self.enhanced_detector.detect_license(text, filename)
+                if enhanced_results:
+                    return enhanced_results
+            except:
+                pass
+        
+        # Fall back to standard detector
         detected = self.license_detector.detect_license_from_text(text, filename=filename)
         
         if detected:
