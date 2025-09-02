@@ -5,7 +5,10 @@ __pycache__/
 download/
 *.md.private
 CL*.md
+claude.md
+CLAUDE.md
 sample-packages/
+test-packages/
 
 # C extensions
 *.so
