@@ -32,6 +32,19 @@ class JavaExtractor(BaseExtractor):
                     # Fallback to MANIFEST.MF
                     metadata = self._extract_manifest_metadata(zf)
                     metadata.package_type = PackageType.JAR
+                
+                # Detect licenses from files in the archive (e.g., META-INF/LICENSE)
+                detected_licenses = self.find_and_detect_licenses(archive_path=package_path)
+                if detected_licenses and not metadata.licenses:
+                    metadata.licenses = detected_licenses
+                elif detected_licenses:
+                    # Merge with existing licenses, avoiding duplicates
+                    existing_spdx_ids = {lic.spdx_id for lic in metadata.licenses if lic.spdx_id}
+                    for lic in detected_licenses:
+                        if lic.spdx_id not in existing_spdx_ids:
+                            metadata.licenses.append(lic)
+                            existing_spdx_ids.add(lic.spdx_id)
+                            
         except Exception as e:
             print(f"Error extracting Java metadata: {e}")
         
