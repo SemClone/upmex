@@ -1,5 +1,14 @@
-"""Enhanced license detector using SPDX license texts and multiple detection methods."""
+"""Enhanced license detector - now using oslili for improved accuracy."""
 
+# Re-export unified detector functions for backward compatibility
+from .unified_detector import (
+    detect_licenses,
+    detect_licenses_from_directory,
+    find_and_detect_licenses,
+    UnifiedLicenseDetector,
+)
+
+# Legacy imports for compatibility
 import re
 from typing import List, Optional, Dict, Tuple
 from pathlib import Path
@@ -11,27 +20,29 @@ from .spdx_manager import SPDXLicenseManager
 
 
 class EnhancedLicenseDetector:
-    """Enhanced license detection using SPDX texts and multiple algorithms."""
+    """Enhanced license detection - now powered by oslili."""
     
     def __init__(self, enable_spdx: bool = True):
         """Initialize enhanced license detector.
         
         Args:
-            enable_spdx: Whether to use full SPDX text matching
+            enable_spdx: Whether to use full SPDX text matching (kept for compatibility)
         """
         self.enable_spdx = enable_spdx
+        # Use unified detector internally
+        self.unified_detector = UnifiedLicenseDetector()
         
-        # Initialize components
-        self.dice_matcher = DiceSorensenMatcher(n_gram_size=3)  # Use trigrams for better accuracy
-        
+        # Keep legacy attributes for compatibility
+        self.dice_matcher = DiceSorensenMatcher(n_gram_size=3)
         if enable_spdx:
             self.spdx_manager = SPDXLicenseManager()
-            self.spdx_manager.load_or_download()
-            self.spdx_manager.load_texts()
-            self.spdx_manager.load_hashes()
-            
-            # Add SPDX texts to Dice-Sørensen matcher
-            self._populate_dice_matcher()
+            try:
+                self.spdx_manager.load_or_download()
+                self.spdx_manager.load_texts()
+                self.spdx_manager.load_hashes()
+                self._populate_dice_matcher()
+            except:
+                pass  # Fallback to oslili only
     
     def _populate_dice_matcher(self):
         """Populate Dice-Sørensen matcher with SPDX license texts."""
@@ -57,7 +68,7 @@ class EnhancedLicenseDetector:
             self.dice_matcher.add_license_snippet(license_id, key_text)
     
     def detect_license(self, text: str, filename: Optional[str] = None) -> List[LicenseInfo]:
-        """Detect licenses using multiple methods.
+        """Detect licenses using oslili.
         
         Args:
             text: Text to analyze
@@ -69,49 +80,22 @@ class EnhancedLicenseDetector:
         if not text or len(text) < 20:
             return []
         
+        # Use unified detector
+        licenses = self.unified_detector.detect_licenses(filename or "unknown", text)
+        
+        # Convert to LicenseInfo objects for compatibility
         results = []
-        detected_licenses = set()
+        for lic in licenses[:3]:  # Return top 3 matches
+            results.append(LicenseInfo(
+                spdx_id=lic.get('spdx_id', 'Unknown'),
+                name=lic.get('name', 'Unknown'),
+                confidence=lic.get('confidence', 0.0),
+                confidence_level=self._get_confidence_level(lic.get('confidence', 0.0)),
+                detection_method=lic.get('source', 'oslili'),
+                file_path=filename
+            ))
         
-        # Method 1: Exact SPDX identifier matching
-        spdx_match = self._detect_spdx_identifier(text)
-        if spdx_match:
-            results.append(spdx_match)
-            detected_licenses.add(spdx_match.spdx_id)
-        
-        # Method 2: Fuzzy hash matching (if SPDX enabled)
-        if self.enable_spdx and len(text) > 100:
-            fuzzy_matches = self.spdx_manager.find_license_by_fuzzy_hash(text, threshold=0.7)
-            for license_id, similarity in fuzzy_matches[:2]:  # Top 2 matches
-                if license_id not in detected_licenses:
-                    results.append(LicenseInfo(
-                        spdx_id=license_id,
-                        name=self._get_license_name(license_id),
-                        confidence=similarity,
-                        confidence_level=self._get_confidence_level(similarity),
-                        detection_method='fuzzy_hash_lsh',
-                        file_path=filename
-                    ))
-                    detected_licenses.add(license_id)
-        
-        # Method 3: Dice-Sørensen coefficient matching
-        dice_matches = self._detect_with_dice_sorensen(text, filename)
-        for match in dice_matches:
-            if match.spdx_id not in detected_licenses:
-                results.append(match)
-                detected_licenses.add(match.spdx_id)
-        
-        # Method 4: Full text similarity (if SPDX enabled and text is substantial)
-        if self.enable_spdx and len(text) > 500:
-            full_text_matches = self._detect_with_full_text_similarity(text, filename)
-            for match in full_text_matches:
-                if match.spdx_id not in detected_licenses:
-                    results.append(match)
-                    detected_licenses.add(match.spdx_id)
-        
-        # Sort by confidence
-        results.sort(key=lambda x: x.confidence, reverse=True)
-        
-        return results[:3]  # Return top 3 matches
+        return results
     
     def _detect_spdx_identifier(self, text: str) -> Optional[LicenseInfo]:
         """Detect SPDX-License-Identifier in text.
