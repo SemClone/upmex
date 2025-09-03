@@ -11,7 +11,19 @@ Extract metadata and license information from various package formats with a sin
 - **Native Extraction**: No dependency on external package managers
 - **High Performance**: Process packages up to 500MB in under 10 seconds
 
-### Supported Ecosystems
+#### Advanced Features
+- **NO-ASSERTION Handling**: Clear indication for unavailable data
+- **Dependency Mapping**: Full dependency tree with version constraints
+- **Author Parsing**: Intelligent name/email extraction and normalization
+- **Copyright Holder Integration**: Automatically adds copyright holders to authors list
+- **Repository Detection**: Automatic VCS URL extraction
+- **Platform Support**: Architecture and OS requirement detection
+- **Package URL (PURL)**: Generate standard Package URLs for all packages
+- **File Hashing**: SHA-1, MD5, and fuzzy hash (TLSH) for package files
+- **JSON Organization**: Structured output with package, metadata, people, licensing, copyright sections
+- **Data Provenance**: Track source of each data field for attestation
+
+#### Supported Ecosystems
 - **Python**: wheel (.whl), sdist (.tar.gz, .zip)
 - **NPM/Node.js**: .tgz, .tar.gz packages
 - **Java/Maven**: .jar, .war, .ear with POM support
@@ -26,8 +38,8 @@ Extract metadata and license information from various package formats with a sin
 - **NuGet/.NET**: .nupkg packages
 - **Linux**: (Planned) Debian .deb, RPM .rpm
 
-### Advanced License & Copyright Detection
-- **Powered by oslili**: Integration with [oslili](https://github.com/oscarvalenzuelab/semantic-copycat-oslili) v1.3.4+ for accurate license and copyright detection
+#### Advanced License & Copyright Detection
+- **Powered by OSLiLI**: Integration with [oslili](https://github.com/oscarvalenzuelab/semantic-copycat-oslili) for accurate license and copyright detection
 - **Multi-Method Detection**:
   - Tag-based detection for short license identifiers (MIT, Apache-2.0, etc.)
   - SPDX-License-Identifier exact matching
@@ -35,29 +47,12 @@ Extract metadata and license information from various package formats with a sin
   - Regex-based pattern matching with comprehensive SPDX support
   - Confidence scoring (0.0-1.0) with detection method tracking
 - **Copyright Extraction**: Automatic extraction of copyright statements from source files
-- **Author Unification**: Merges copyright holders with package authors list
-- **Smart File Discovery**: Automatic LICENSE/COPYING/COPYRIGHT/NOTICE file extraction
-- **Multi-license Support**: Detects dual/multiple licensing with individual confidence scores
-- **Provenance Tracking**: Records detection method (oslili_tag, oslili_regex, oslili_tlsh) and source for attestation
 
-### API Integrations
+#### API Integrations
 - **ClearlyDefined**: License and compliance data enrichment
 - **Ecosyste.ms**: Package registry metadata and dependencies
 - **Maven Central**: Parent POM resolution and inheritance
 - **Offline-First**: All features work without internet connectivity
-
-### Advanced Features
-- **NO-ASSERTION Handling**: Clear indication for unavailable data
-- **Parent POM Resolution**: Automatic Maven inheritance processing
-- **Dependency Mapping**: Full dependency tree with version constraints
-- **Author Parsing**: Intelligent name/email extraction and normalization
-- **Copyright Holder Integration**: Automatically adds copyright holders to authors list
-- **Repository Detection**: Automatic VCS URL extraction
-- **Platform Support**: Architecture and OS requirement detection
-- **Package URL (PURL)**: Generate standard Package URLs for all packages
-- **File Hashing**: SHA-1, MD5, and fuzzy hash (TLSH) for package files
-- **JSON Organization**: Structured output with package, metadata, people, licensing, copyright sections
-- **Data Provenance**: Track source of each data field for attestation
 
 ## Installation
 
@@ -73,7 +68,6 @@ pip install -e ".[all]"
 # Install for development
 pip install -e ".[dev]"
 
-# Note: oslili v1.3.4+ is automatically installed as a dependency
 ```
 
 ## Quick Start
@@ -138,7 +132,6 @@ export PME_LOG_LEVEL=DEBUG
 export PME_CACHE_DIR=/path/to/cache
 export PME_OUTPUT_FORMAT=json
 
-# Note: License detection methods are now handled by oslili
 ```
 
 ### Configuration File
@@ -159,14 +152,6 @@ Create a `config.json`:
   }
 }
 ```
-
-### License Detection
-
-License and copyright detection is powered by oslili, which provides:
-- Tag-based detection for SPDX identifiers
-- Regex pattern matching
-- TLSH fuzzy hash matching
-- Copyright statement extraction
 
 ## Supported Package Types
 
