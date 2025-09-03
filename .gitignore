@@ -216,3 +216,4 @@ __marimo__/
 # Project-specific
 # Development notes file
 *.md.dev
+main-test/
