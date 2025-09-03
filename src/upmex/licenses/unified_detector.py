@@ -27,16 +27,9 @@ class UnifiedLicenseDetector:
     
     def __init__(self):
         """Initialize both detectors."""
-        # Try to use oslili, fallback to subprocess if import fails
-        if OSLILI_IMPORT_AVAILABLE:
-            try:
-                self.oslili_detector = OsliliLicenseDetector()
-            except:
-                # Fallback to subprocess
-                self.oslili_detector = OsliliSubprocessDetector()
-        else:
-            # Use subprocess version
-            self.oslili_detector = OsliliSubprocessDetector()
+        # Always use subprocess version for copyright support
+        # OsliliLicenseDetector doesn't extract copyrights
+        self.oslili_detector = OsliliSubprocessDetector()
             
         self.regex_detector = LicenseDetector(enable_fuzzy=False)  # Disable fuzzy to avoid false positives
     
@@ -90,30 +83,49 @@ class UnifiedLicenseDetector:
         
         return licenses
     
-    def detect_licenses_from_directory(self, dir_path: str) -> List[Dict[str, Any]]:
+    def detect_licenses_from_directory(self, dir_path: str) -> Dict[str, List[Dict[str, Any]]]:
         """
-        Detect licenses from a directory.
+        Detect licenses and copyrights from a directory.
         
         Args:
             dir_path: Path to the directory
             
         Returns:
-            List of detected licenses
+            Dictionary with 'licenses' and 'copyrights' lists
         """
         licenses = []
+        copyrights = []
         seen_licenses = set()
         
         # Try oslili first
         try:
-            oslili_licenses = self.oslili_detector.detect_from_directory(dir_path)
-            for license_info in oslili_licenses:
-                # Filter known false positives
-                if license_info.get('spdx_id') == 'Pixar':
-                    continue
-                key = (license_info.get('spdx_id'), license_info.get('file'))
-                if key not in seen_licenses:
-                    licenses.append(license_info)
-                    seen_licenses.add(key)
+            oslili_result = self.oslili_detector.detect_from_directory(dir_path)
+            
+            # Handle new format with separate licenses and copyrights
+            if isinstance(oslili_result, dict):
+                # Handle licenses
+                if 'licenses' in oslili_result:
+                    for license_info in oslili_result['licenses']:
+                        # Filter known false positives
+                        if license_info.get('spdx_id') == 'Pixar':
+                            continue
+                        key = (license_info.get('spdx_id'), license_info.get('file'))
+                        if key not in seen_licenses:
+                            licenses.append(license_info)
+                            seen_licenses.add(key)
+                
+                # Handle copyrights
+                if 'copyrights' in oslili_result:
+                    copyrights = oslili_result['copyrights']
+            elif isinstance(oslili_result, list):
+                # Backward compatibility - old format
+                for license_info in oslili_result:
+                    if license_info.get('spdx_id') == 'Pixar':
+                        continue
+                    key = (license_info.get('spdx_id'), license_info.get('file'))
+                    if key not in seen_licenses:
+                        licenses.append(license_info)
+                        seen_licenses.add(key)
         except Exception as e:
             logger.debug(f"Oslili directory detection failed: {e}")
         
@@ -147,7 +159,7 @@ class UnifiedLicenseDetector:
             except Exception as e:
                 logger.debug(f"Directory scan failed: {e}")
         
-        return licenses
+        return {"licenses": licenses, "copyrights": copyrights}
     
     def detect_from_metadata(self, metadata: Dict) -> Optional[Dict[str, Any]]:
         """
@@ -212,7 +224,25 @@ def detect_licenses_from_directory(dir_path: str) -> List[Dict[str, Any]]:
         dir_path: Path to the directory
         
     Returns:
-        List of detected licenses
+        List of detected licenses (for backward compatibility)
+    """
+    detector = get_detector()
+    result = detector.detect_licenses_from_directory(dir_path)
+    # For backward compatibility, return just licenses
+    if isinstance(result, dict) and 'licenses' in result:
+        return result['licenses']
+    return result
+
+
+def detect_licenses_and_copyrights_from_directory(dir_path: str) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Detect licenses and copyrights from a directory.
+    
+    Args:
+        dir_path: Path to the directory
+        
+    Returns:
+        Dictionary with 'licenses' and 'copyrights' lists
     """
     detector = get_detector()
     return detector.detect_licenses_from_directory(dir_path)

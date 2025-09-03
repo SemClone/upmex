@@ -30,6 +30,34 @@ class NpmExtractor(BaseExtractor):
             detected_licenses = self.find_and_detect_licenses(archive_path=package_path)
             if detected_licenses:
                 metadata.licenses.extend(detected_licenses)
+            
+            # Extract copyright information by extracting full package
+            import tempfile
+            import tarfile
+            import os
+            with tempfile.TemporaryDirectory() as temp_dir:
+                # Extract full package for copyright scanning
+                try:
+                    with tarfile.open(package_path, 'r:*') as tar:
+                        # Extract with a limit on file count and size for safety
+                        members = tar.getmembers()[:100]  # Limit to first 100 files
+                        tar.extractall(temp_dir, members=members)
+                    
+                    # Find the package directory (usually 'package')
+                    pkg_dir = temp_dir
+                    if os.path.exists(os.path.join(temp_dir, 'package')):
+                        pkg_dir = os.path.join(temp_dir, 'package')
+                    
+                    # Detect copyrights from the extracted directory and merge holders with authors
+                    copyright_statement = self.find_and_detect_copyrights(
+                        directory_path=pkg_dir,
+                        merge_with_authors=True,
+                        metadata=metadata
+                    )
+                    if copyright_statement:
+                        metadata.copyright = copyright_statement
+                except Exception as e:
+                    print(f"Error extracting for copyright: {e}")
                 
         except Exception as e:
             print(f"Error extracting NPM metadata: {e}")

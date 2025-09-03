@@ -133,6 +133,65 @@ class BaseExtractor(ABC):
         except Exception:
             return []
     
+    def find_and_detect_copyrights(self,
+                                  directory_path: Optional[str] = None,
+                                  merge_with_authors: bool = True,
+                                  metadata: Optional[Any] = None) -> str:
+        """Find and detect copyright statements from extracted directory.
+        
+        Args:
+            directory_path: Path to directory to search
+            merge_with_authors: Whether to merge copyright holders into authors list
+            metadata: Optional metadata object to update with copyright holders as authors
+            
+        Returns:
+            Combined copyright statement string
+        """
+        if not directory_path or not os.path.exists(directory_path):
+            return ""
+        
+        try:
+            # Import here to avoid circular dependency
+            from ..licenses.unified_detector import detect_licenses_and_copyrights_from_directory
+            
+            result = detect_licenses_and_copyrights_from_directory(directory_path)
+            if isinstance(result, dict) and 'copyrights' in result:
+                copyrights = result['copyrights']
+                
+                # Combine unique copyright statements
+                unique_statements = []
+                seen_statements = set()
+                seen_holders = set()
+                
+                for copyright_info in copyrights[:10]:  # Limit to first 10 to avoid huge strings
+                    statement = copyright_info.get('statement', '')
+                    holder = copyright_info.get('holder', '')
+                    
+                    if statement and statement not in seen_statements:
+                        unique_statements.append(statement)
+                        seen_statements.add(statement)
+                    
+                    # If merge_with_authors is enabled and we have metadata, add holders as authors
+                    if merge_with_authors and metadata and holder and holder not in seen_holders:
+                        seen_holders.add(holder)
+                        # Check if holder is not already in authors
+                        existing_names = {author.get('name', '').lower() for author in metadata.authors}
+                        if holder.lower() not in existing_names:
+                            # Add copyright holder as author
+                            metadata.authors.append({
+                                'name': holder,
+                                'source': 'copyright'
+                            })
+                
+                # Join statements with semicolons
+                if unique_statements:
+                    return '; '.join(unique_statements)
+        except Exception as e:
+            # Silently fail - copyright extraction is optional
+            pass
+        
+        return ""
+    
     def find_and_detect_licenses(self, 
                                 archive_path: Optional[str] = None,
                                 directory_path: Optional[str] = None) -> List[LicenseInfo]:

@@ -44,6 +44,27 @@ class JavaExtractor(BaseExtractor):
                         if lic.spdx_id not in existing_spdx_ids:
                             metadata.licenses.append(lic)
                             existing_spdx_ids.add(lic.spdx_id)
+                
+                # Extract copyright information
+                import tempfile
+                import os
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    try:
+                        # Extract limited files for copyright scanning
+                        members = zf.namelist()[:100]  # Limit to first 100 files
+                        for member in members:
+                            zf.extract(member, temp_dir)
+                        
+                        # Detect copyrights and merge holders with authors
+                        copyright_statement = self.find_and_detect_copyrights(
+                            directory_path=temp_dir,
+                            merge_with_authors=True,
+                            metadata=metadata
+                        )
+                        if copyright_statement:
+                            metadata.copyright = copyright_statement
+                    except Exception as e:
+                        print(f"Error extracting for copyright: {e}")
                             
         except Exception as e:
             print(f"Error extracting Java metadata: {e}")
