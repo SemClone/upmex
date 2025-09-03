@@ -1,6 +1,6 @@
 """UPMEX - Universal Package Metadata Extractor."""
 
-__version__ = "1.5.1"
+__version__ = "1.5.5"
 __author__ = "Oscar Valenzuela B."
 __email__ = "oscar.valenzuela.b@gmail.com"
 

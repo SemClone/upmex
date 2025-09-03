@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.5] - 2025-09-03
+
+### Added
+- **Copyright Statement Extraction**
+  - Extracts copyright statements from source files using oslili CLI
+  - Adds new `copyright` field to metadata schema
+  - Scans up to 100 files per package for copyright information
+  - Supports all package formats (NPM, Python, Java, Ruby, Go, Rust, NuGet)
+
+- **Author Unification with Copyright Holders**
+  - Automatically merges copyright holders into the authors list
+  - Copyright holders are tagged with `source: "copyright"` for provenance
+  - Prevents duplicate entries when copyright holder already exists as author
+  - Recognizes that copyright holders and authors are often the same people
+
+### Changed
+- **License Detection Migration to oslili**
+  - Replaced custom license detection with oslili library integration
+  - Uses oslili CLI via subprocess for maximum compatibility
+  - Improved accuracy with 0.95 confidence threshold
+  - Filters known false positives (e.g., Pixar license confusion)
+
+### Fixed
+- **oslili JSON Parsing**
+  - Fixed parsing of oslili CLI output that includes non-JSON header lines
+  - Properly handles both license and copyright detection results
+  - Improved error handling for subprocess calls
+
 ## [1.5.1] - 2025-09-02
 
 ### Fixed
