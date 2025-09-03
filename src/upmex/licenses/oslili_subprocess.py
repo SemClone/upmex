@@ -9,6 +9,7 @@ import os
 from typing import List, Dict, Optional, Any
 from pathlib import Path
 import logging
+from ..utils.confidence import get_confidence_level_string
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ class OsliliSubprocessDetector:
                                         "name": lic.get('name', lic.get('spdx_id', 'Unknown')),
                                         "spdx_id": lic.get('spdx_id', 'Unknown'),
                                         "confidence": lic.get('confidence', 0.0),
-                                        "confidence_level": self._get_confidence_level(lic.get('confidence', 0.0)),
+                                        "confidence_level": get_confidence_level_string(lic.get('confidence', 0.0)),
                                         "source": f"oslili_{lic.get('detection_method', 'unknown')}",
                                         "file": file_path,
                                     }
@@ -133,14 +134,3 @@ class OsliliSubprocessDetector:
             logger.debug(f"Oslili subprocess directory detection failed for {dir_path}: {e}")
             
         return licenses
-    
-    def _get_confidence_level(self, confidence: float) -> str:
-        """Convert numeric confidence to level string."""
-        if confidence >= 0.95:
-            return "exact"
-        elif confidence >= 0.85:
-            return "high"
-        elif confidence >= 0.70:
-            return "medium"
-        else:
-            return "low"

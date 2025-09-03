@@ -1,0 +1,86 @@
+{
+  "dependencies": {
+    "runtime": [
+      "charset-normalizer <4,>=2",
+      "idna <4,>=2.5",
+      "urllib3 <3,>=1.21.1",
+      "certifi >=2017.4.17",
+      "PySocks !=1.5.7,>=1.5.6 ; extra == 'socks'",
+      "chardet <6,>=3.0.2 ; extra == 'use_chardet_on_py3'"
+    ]
+  },
+  "extraction_info": {
+    "schema_version": "1.0.0",
+    "timestamp": "2025-09-02T23:50:56.514523"
+  },
+  "file_info": {
+    "hashes": {
+      "fuzzy": "tlsh:T14D53F1B3E3624111E91711F2FAB187D56E99F2323048F07CA468B48ECE83C95FA8B945",
+      "md5": "83d50f7980b330c48f3bfe86372adcca",
+      "sha1": "c7e25779bcff4f82f2f002cd0503ceabf433378f"
+    },
+    "size": 64928
+  },
+  "licensing": {
+    "declared_licenses": [
+      {
+        "confidence": 0.6,
+        "confidence_level": "medium",
+        "file": "METADATA",
+        "name": "Apache-2.0",
+        "source": "regex_pattern",
+        "spdx_id": "Apache-2.0"
+      },
+      {
+        "confidence": 0.992,
+        "confidence_level": "exact",
+        "file": "requests-2.32.3.dist-info/LICENSE",
+        "name": "Pixar License",
+        "source": "oslili_tlsh",
+        "spdx_id": "Pixar"
+      }
+    ]
+  },
+  "metadata": {
+    "classifiers": [
+      "Development Status :: 5 - Production/Stable",
+      "Environment :: Web Environment",
+      "Intended Audience :: Developers",
+      "License :: OSI Approved :: Apache Software License",
+      "Natural Language :: English",
+      "Operating System :: OS Independent",
+      "Programming Language :: Python",
+      "Programming Language :: Python :: 3",
+      "Programming Language :: Python :: 3.8",
+      "Programming Language :: Python :: 3.9",
+      "Programming Language :: Python :: 3.10",
+      "Programming Language :: Python :: 3.11",
+      "Programming Language :: Python :: 3.12",
+      "Programming Language :: Python :: 3 :: Only",
+      "Programming Language :: Python :: Implementation :: CPython",
+      "Programming Language :: Python :: Implementation :: PyPy",
+      "Topic :: Internet :: WWW/HTTP",
+      "Topic :: Software Development :: Libraries"
+    ],
+    "description": "Python HTTP for Humans.",
+    "homepage": "https://requests.readthedocs.io",
+    "keywords": [],
+    "repository": "https://github.com/psf/requests"
+  },
+  "package": {
+    "name": "requests",
+    "purl": "pkg:pypi/requests@2.32.3",
+    "type": "python_wheel",
+    "version": "2.32.3"
+  },
+  "people": {
+    "authors": [
+      {
+        "email": "me@kennethreitz.org",
+        "name": "Kenneth Reitz"
+      }
+    ],
+    "maintainers": []
+  },
+  "provenance": {}
+}
