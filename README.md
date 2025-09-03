@@ -26,19 +26,19 @@ Extract metadata and license information from various package formats with a sin
 - **NuGet/.NET**: .nupkg packages
 - **Linux**: (Planned) Debian .deb, RPM .rpm
 
-### Enhanced License Detection Engine
-- **Comprehensive SPDX Support**: 400+ official SPDX license texts with fuzzy matching
-- **Multi-Layer Detection**:
+### Advanced License & Copyright Detection
+- **Powered by oslili**: Integration with [oslili](https://github.com/oscarvalenzuelab/semantic-copycat-oslili) v1.3.4+ for accurate license and copyright detection
+- **Multi-Method Detection**:
+  - Tag-based detection for short license identifiers (MIT, Apache-2.0, etc.)
   - SPDX-License-Identifier exact matching
-  - Fuzzy hash (LSH) matching against normalized license texts
-  - Dice-Sørensen coefficient for similarity matching
-  - Regex-based pattern matching with alias support (GPL-3.0, GPLv3, etc.)
-  - Full text similarity comparison using SequenceMatcher
+  - Fuzzy hash (TLSH) matching against normalized license texts
+  - Regex-based pattern matching with comprehensive SPDX support
   - Confidence scoring (0.0-1.0) with detection method tracking
+- **Copyright Extraction**: Automatic extraction of copyright statements from source files
+- **Author Unification**: Merges copyright holders with package authors list
 - **Smart File Discovery**: Automatic LICENSE/COPYING/COPYRIGHT/NOTICE file extraction
-- **Text Normalization**: Removes variables, dates, and copyright notices for better matching
 - **Multi-license Support**: Detects dual/multiple licensing with individual confidence scores
-- **Provenance Tracking**: Records detection method and source for attestation
+- **Provenance Tracking**: Records detection method (oslili_tag, oslili_regex, oslili_tlsh) and source for attestation
 
 ### API Integrations
 - **ClearlyDefined**: License and compliance data enrichment
@@ -51,11 +51,12 @@ Extract metadata and license information from various package formats with a sin
 - **Parent POM Resolution**: Automatic Maven inheritance processing
 - **Dependency Mapping**: Full dependency tree with version constraints
 - **Author Parsing**: Intelligent name/email extraction and normalization
+- **Copyright Holder Integration**: Automatically adds copyright holders to authors list
 - **Repository Detection**: Automatic VCS URL extraction
 - **Platform Support**: Architecture and OS requirement detection
 - **Package URL (PURL)**: Generate standard Package URLs for all packages
-- **File Hashing**: SHA-1, MD5, and fuzzy hash (TLSH/LSH) for package files
-- **JSON Organization**: Structured output with package, metadata, people, licensing sections
+- **File Hashing**: SHA-1, MD5, and fuzzy hash (TLSH) for package files
+- **JSON Organization**: Structured output with package, metadata, people, licensing, copyright sections
 - **Data Provenance**: Track source of each data field for attestation
 
 ## Installation
@@ -66,11 +67,13 @@ git clone https://github.com/oscarvalenzuelab/semantic-copycat-upmex.git
 cd semantic-copycat-upmex
 pip install -e .
 
-# Install with all features
+# Install with all features (includes oslili for license detection)
 pip install -e ".[all]"
 
 # Install for development
 pip install -e ".[dev]"
+
+# Note: oslili v1.3.4+ is automatically installed as a dependency
 ```
 
 ## Quick Start
@@ -133,8 +136,9 @@ export PME_ECOSYSTEMS_API_KEY=your-api-key
 # Settings
 export PME_LOG_LEVEL=DEBUG
 export PME_CACHE_DIR=/path/to/cache
-export PME_LICENSE_METHODS=regex,dice_sorensen
 export PME_OUTPUT_FORMAT=json
+
+# Note: License detection methods are now handled by oslili
 ```
 
 ### Configuration File
@@ -149,16 +153,20 @@ Create a `config.json`:
       "api_key": null
     }
   },
-  "license_detection": {
-    "methods": ["regex", "dice_sorensen"],
-    "confidence_threshold": 0.85
-  },
   "output": {
     "format": "json",
     "pretty_print": true
   }
 }
 ```
+
+### License Detection
+
+License and copyright detection is powered by oslili, which provides:
+- Tag-based detection for SPDX identifiers
+- Regex pattern matching
+- TLSH fuzzy hash matching
+- Copyright statement extraction
 
 ## Supported Package Types
 
