@@ -238,6 +238,27 @@ class RubyExtractor(BaseExtractor):
             logger.error(f"Error extracting Ruby gem metadata: {e}")
             raise
 
+        # Extract copyright information
+        import tempfile
+        import os
+        with tempfile.TemporaryDirectory() as temp_dir:
+            try:
+                with tarfile.open(str(package_path), 'r:*') as tar:
+                    # Extract limited files for copyright scanning
+                    members = tar.getmembers()[:100]  # Limit to first 100 files
+                    tar.extractall(temp_dir, members=members)
+                
+                # Detect copyrights and merge holders with authors
+                copyright_statement = self.find_and_detect_copyrights(
+                    directory_path=temp_dir,
+                    merge_with_authors=True,
+                    metadata=metadata
+                )
+                if copyright_statement:
+                    metadata.copyright = copyright_statement
+            except Exception as e:
+                print(f"Error extracting for copyright: {e}")
+
         # Query online APIs if enabled
         if self.online_mode and metadata.name != NO_ASSERTION:
             # This would be handled by the main extractor

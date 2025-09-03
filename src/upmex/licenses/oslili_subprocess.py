@@ -49,8 +49,19 @@ class OsliliSubprocessDetector:
                 )
                 
                 if result.returncode == 0 and result.stdout:
-                    # Parse JSON output
-                    data = json.loads(result.stdout)
+                    # Parse JSON output - skip non-JSON header lines
+                    stdout_lines = result.stdout.splitlines()
+                    json_start = -1
+                    for i, line in enumerate(stdout_lines):
+                        if line.strip().startswith('{'):
+                            json_start = i
+                            break
+                    
+                    if json_start >= 0:
+                        json_content = '\n'.join(stdout_lines[json_start:])
+                        data = json.loads(json_content)
+                    else:
+                        data = {}
                     
                     # Extract licenses from evidence format
                     if 'results' in data and data['results']:
@@ -83,17 +94,18 @@ class OsliliSubprocessDetector:
             
         return licenses
     
-    def detect_from_directory(self, dir_path: str) -> List[Dict[str, Any]]:
+    def detect_from_directory(self, dir_path: str) -> Dict[str, List[Dict[str, Any]]]:
         """
-        Detect licenses from a directory using oslili CLI.
+        Detect licenses and copyrights from a directory using oslili CLI.
         
         Args:
             dir_path: Path to the directory
             
         Returns:
-            List of detected licenses with confidence scores
+            Dictionary with 'licenses' and 'copyrights' lists
         """
         licenses = []
+        copyrights = []
         
         try:
             # Run oslili CLI on directory
@@ -106,8 +118,19 @@ class OsliliSubprocessDetector:
             )
             
             if result.returncode == 0 and result.stdout:
-                # Parse JSON output
-                data = json.loads(result.stdout)
+                # Parse JSON output - skip non-JSON header lines
+                stdout_lines = result.stdout.splitlines()
+                json_start = -1
+                for i, line in enumerate(stdout_lines):
+                    if line.strip().startswith('{'):
+                        json_start = i
+                        break
+                
+                if json_start >= 0:
+                    json_content = '\n'.join(stdout_lines[json_start:])
+                    data = json.loads(json_content)
+                else:
+                    data = {}
                 
                 # Extract licenses from evidence format
                 seen_licenses = set()
@@ -125,7 +148,7 @@ class OsliliSubprocessDetector:
                                     "name": lic.get('name', lic.get('spdx_id', 'Unknown')),
                                     "spdx_id": lic.get('spdx_id', 'Unknown'),
                                     "confidence": lic.get('confidence', 0.0),
-                                    "confidence_level": self._get_confidence_level(lic.get('confidence', 0.0)),
+                                    "confidence_level": get_confidence_level_string(lic.get('confidence', 0.0)),
                                     "source": f"oslili_{lic.get('detection_method', 'unknown')}",
                                     "file": lic.get('source_file', 'unknown'),
                                 }
@@ -137,8 +160,26 @@ class OsliliSubprocessDetector:
                                     if lic.get('spdx_id') == 'Pixar':
                                         continue
                                     licenses.append(license_info)
+                
+                # Extract copyrights from scan_results
+                seen_copyrights = set()
+                if 'scan_results' in data and data['scan_results']:
+                    for scan_result in data['scan_results']:
+                        if 'copyright_evidence' in scan_result:
+                            for copyright_item in scan_result['copyright_evidence']:
+                                statement = copyright_item.get('statement', '')
+                                if statement and statement not in seen_copyrights:
+                                    seen_copyrights.add(statement)
+                                    copyright_info = {
+                                        "statement": statement,
+                                        "holder": copyright_item.get('holder', ''),
+                                        "years": copyright_item.get('years', []),
+                                        "file": copyright_item.get('file', 'unknown'),
+                                        "confidence": copyright_item.get('confidence', 1.0)
+                                    }
+                                    copyrights.append(copyright_info)
                     
         except Exception as e:
             logger.debug(f"Oslili subprocess directory detection failed for {dir_path}: {e}")
             
-        return licenses
+        return {"licenses": licenses, "copyrights": copyrights}

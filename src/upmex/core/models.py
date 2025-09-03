@@ -60,6 +60,7 @@ class PackageMetadata:
     description: Optional[str] = None
     homepage: Optional[str] = None
     repository: Optional[str] = None
+    copyright: Optional[str] = None  # Copyright statements
     authors: List[Dict[str, str]] = field(default_factory=list)
     maintainers: List[Dict[str, str]] = field(default_factory=list)
     licenses: List[LicenseInfo] = field(default_factory=list)
@@ -91,6 +92,7 @@ class PackageMetadata:
                 "description": self.description,
                 "homepage": self.homepage,
                 "repository": self.repository,
+                "copyright": self.copyright,
                 "keywords": self.keywords,
                 "classifiers": self.classifiers,
             },
