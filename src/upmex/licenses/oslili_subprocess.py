@@ -67,7 +67,11 @@ class OsliliSubprocessDetector:
                                     }
                                     
                                     # Only include very high-confidence matches
+                                    # Filter known false positives
                                     if lic.get('confidence', 0) >= 0.95:
+                                        # Skip known false positive: Pixar (often confused with Apache-2.0 by TLSH)
+                                        if lic.get('spdx_id') == 'Pixar':
+                                            continue
                                         licenses.append(license_info)
                         
             finally:
@@ -126,8 +130,12 @@ class OsliliSubprocessDetector:
                                     "file": lic.get('source_file', 'unknown'),
                                 }
                                 
-                                # Only include high-confidence matches
-                                if lic.get('confidence', 0) >= 0.8:
+                                # Only include very high-confidence matches
+                                # Filter known false positives
+                                if lic.get('confidence', 0) >= 0.95:
+                                    # Skip known false positive: Pixar (often confused with Apache-2.0)
+                                    if lic.get('spdx_id') == 'Pixar':
+                                        continue
                                     licenses.append(license_info)
                     
         except Exception as e:

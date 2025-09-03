@@ -58,6 +58,9 @@ class UnifiedLicenseDetector:
         try:
             oslili_licenses = self.oslili_detector.detect_from_file(file_path, content)
             for license_info in oslili_licenses:
+                # Filter known false positives
+                if license_info.get('spdx_id') == 'Pixar':
+                    continue
                 key = (license_info.get('spdx_id'), license_info.get('file'))
                 if key not in seen_licenses:
                     licenses.append(license_info)
@@ -104,6 +107,9 @@ class UnifiedLicenseDetector:
         try:
             oslili_licenses = self.oslili_detector.detect_from_directory(dir_path)
             for license_info in oslili_licenses:
+                # Filter known false positives
+                if license_info.get('spdx_id') == 'Pixar':
+                    continue
                 key = (license_info.get('spdx_id'), license_info.get('file'))
                 if key not in seen_licenses:
                     licenses.append(license_info)
