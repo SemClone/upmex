@@ -1,8 +1,10 @@
 """License detection using regex patterns for common license identifiers."""
 
 import re
-from typing import Optional, List, Dict, Tuple
-from ..core.models import LicenseInfo, LicenseConfidenceLevel
+from typing import Optional, List, Dict
+from ..core.models import LicenseInfo
+from ..utils.confidence import get_confidence_level
+from ..utils.patterns import is_license_file
 from .dice_sorensen import FuzzyLicenseMatcher
 
 
@@ -64,13 +66,6 @@ class LicenseDetector:
         (re.compile(r'##?\s*License\s*\n+([^\n]+)', re.IGNORECASE), 0.6),
     ]
     
-    # Patterns that indicate a license file
-    LICENSE_FILE_PATTERNS = [
-        re.compile(r'^LICENSE(?:\.\w+)?$', re.IGNORECASE),
-        re.compile(r'^COPYING(?:\.\w+)?$', re.IGNORECASE),
-        re.compile(r'^COPYRIGHT(?:\.\w+)?$', re.IGNORECASE),
-        re.compile(r'^NOTICE(?:\.\w+)?$', re.IGNORECASE),
-    ]
     
     def __init__(self, enable_fuzzy: bool = True):
         """Initialize the license detector.
@@ -120,7 +115,7 @@ class LicenseDetector:
                         spdx_id=spdx_id,
                         name=license_text,
                         confidence=min(1.0, 0.9 * confidence_boost),
-                        confidence_level=LicenseConfidenceLevel.HIGH,
+                        confidence_level=get_confidence_level(0.9),
                         detection_method='regex_field',
                         file_path=filename
                     )
@@ -180,7 +175,7 @@ class LicenseDetector:
                             spdx_id=spdx_id,
                             name=value,
                             confidence=0.95,
-                            confidence_level=LicenseConfidenceLevel.HIGH,
+                            confidence_level=get_confidence_level(0.9),
                             detection_method='regex_metadata'
                         )
                 
@@ -213,7 +208,7 @@ class LicenseDetector:
                         spdx_id=spdx_id,
                         name=str(value) if not isinstance(value, list) else str(first_license),
                         confidence=0.95,
-                        confidence_level=LicenseConfidenceLevel.HIGH,
+                        confidence_level=get_confidence_level(0.9),
                         detection_method='regex_metadata'
                     )
         
@@ -231,7 +226,7 @@ class LicenseDetector:
                                 spdx_id=spdx_id,
                                 name=license_name,
                                 confidence=0.9,
-                                confidence_level=LicenseConfidenceLevel.HIGH,
+                                confidence_level=get_confidence_level(0.9),
                                 detection_method='regex_classifier'
                             )
         
@@ -303,7 +298,7 @@ class LicenseDetector:
         
         return min(1.0, max(0.6, confidence))  # Minimum 0.6 for any detection
     
-    def _get_confidence_level(self, confidence: float) -> LicenseConfidenceLevel:
+    def _get_confidence_level(self, confidence: float):
         """Convert numeric confidence to confidence level.
         
         Args:
@@ -312,16 +307,7 @@ class LicenseDetector:
         Returns:
             LicenseConfidenceLevel enum value
         """
-        if confidence >= 0.95:
-            return LicenseConfidenceLevel.EXACT
-        elif confidence >= 0.8:
-            return LicenseConfidenceLevel.HIGH
-        elif confidence >= 0.6:
-            return LicenseConfidenceLevel.MEDIUM
-        elif confidence >= 0.3:
-            return LicenseConfidenceLevel.LOW
-        else:
-            return LicenseConfidenceLevel.NONE
+        return get_confidence_level(confidence)
     
     def is_license_file(self, filename: str) -> bool:
         """Check if a filename indicates a license file.
@@ -332,10 +318,7 @@ class LicenseDetector:
         Returns:
             True if likely a license file
         """
-        for pattern in self.LICENSE_FILE_PATTERNS:
-            if pattern.match(filename):
-                return True
-        return False
+        return is_license_file(filename)
     
     def detect_multiple_licenses(self, text: str) -> List[LicenseInfo]:
         """Detect multiple licenses in text (e.g., dual licensing).

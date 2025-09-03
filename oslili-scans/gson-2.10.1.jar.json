@@ -1,0 +1,54 @@
+{
+  "dependencies": {
+    "dev": [
+      "junit:junit"
+    ]
+  },
+  "extraction_info": {
+    "schema_version": "1.0.0",
+    "timestamp": "2025-09-02T23:51:19.577320"
+  },
+  "file_info": {
+    "hashes": {
+      "fuzzy": "tlsh:T13154BEEBE49A4ECEE96FE83B00C1041275A4A4FEC44AB60F05B941D949A3DD87F153ED",
+      "md5": "df6097815738cb31fc56391553210843",
+      "sha1": "b3add478d4382b78ea20b1671390a858002feb6c"
+    },
+    "size": 283367
+  },
+  "licensing": {
+    "declared_licenses": [
+      {
+        "confidence": 0.6,
+        "confidence_level": "medium",
+        "file": "pom.xml",
+        "name": "Apache-2.0",
+        "source": "regex_pattern",
+        "spdx_id": "Apache-2.0"
+      }
+    ]
+  },
+  "metadata": {
+    "classifiers": [],
+    "description": null,
+    "homepage": "https://www.apache.org/licenses/LICENSE-2.0.txt",
+    "keywords": [],
+    "repository": "NO-ASSERTION"
+  },
+  "package": {
+    "name": "com.google.code.gson:gson",
+    "purl": "pkg:maven/com/google/code/gson/gson@2.10.1",
+    "type": "maven",
+    "version": "2.10.1"
+  },
+  "people": {
+    "authors": [
+      {
+        "email": "NO-ASSERTION",
+        "name": "NO-ASSERTION"
+      }
+    ],
+    "maintainers": []
+  },
+  "provenance": {}
+}

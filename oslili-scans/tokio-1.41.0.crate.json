@@ -1,0 +1,75 @@
+{
+  "dependencies": {
+    "build": [],
+    "dev": [
+      "tokio-test 0.4.0",
+      "tokio-stream 0.1",
+      "futures 0.3.0 (features: async-await)",
+      "mockall 0.11.1",
+      "async-stream 0.3"
+    ],
+    "normal": [
+      "tokio-macros ~2.4.0",
+      "pin-project-lite 0.2.11",
+      "bytes 1.0.0",
+      "mio 1.0.1",
+      "parking_lot 0.12.0"
+    ]
+  },
+  "extraction_info": {
+    "schema_version": "1.0.0",
+    "timestamp": "2025-09-02T23:51:50.241132"
+  },
+  "file_info": {
+    "hashes": {
+      "fuzzy": "tlsh:T1C705230EC3601D094EF53A916202C406544CFB3A26958B86FEA494DDE3C7F6AA37F667",
+      "md5": "0401469b6f31f4346cdfd9e55e318bb3",
+      "sha1": "ef7f30da4c2543f263cf5e8db3b500b0fc29c08b"
+    },
+    "size": 805168
+  },
+  "licensing": {
+    "declared_licenses": [
+      {
+        "confidence": 0.6,
+        "confidence_level": "medium",
+        "file": "Cargo.toml",
+        "name": "MIT",
+        "source": "regex_pattern",
+        "spdx_id": "MIT"
+      }
+    ]
+  },
+  "metadata": {
+    "classifiers": [
+      "Category :: asynchronous",
+      "Category :: network-programming",
+      "Rust Edition :: 2021"
+    ],
+    "description": "An event-driven, non-blocking I/O platform for writing asynchronous I/O backed applications.",
+    "homepage": "https://tokio.rs",
+    "keywords": [
+      "io",
+      "async",
+      "non-blocking",
+      "futures"
+    ],
+    "repository": "https://github.com/tokio-rs/tokio"
+  },
+  "package": {
+    "name": "tokio",
+    "purl": "pkg:cargo/tokio@1.41.0",
+    "type": "rust_crate",
+    "version": "1.41.0"
+  },
+  "people": {
+    "authors": [
+      {
+        "email": "team@tokio.rs",
+        "name": "Tokio Contributors"
+      }
+    ],
+    "maintainers": []
+  },
+  "provenance": {}
+}

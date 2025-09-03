@@ -1,0 +1,67 @@
+{
+  "dependencies": {
+    "development": [],
+    "runtime": [
+      "System.Diagnostics.DiagnosticSource 7.0.2 (framework: .NETFramework4.6.2) (exclude: Build,Analyzers)",
+      "System.ValueTuple 4.5.0 (framework: .NETFramework4.6.2) (exclude: Build,Analyzers)",
+      "System.Diagnostics.DiagnosticSource 7.0.2 (framework: .NETFramework4.7.1) (exclude: Build,Analyzers)",
+      "System.Diagnostics.DiagnosticSource 7.0.2 (framework: .NETStandard2.0) (exclude: Build,Analyzers)",
+      "System.Diagnostics.DiagnosticSource 7.0.2 (framework: .NETStandard2.1) (exclude: Build,Analyzers)",
+      "Microsoft.CSharp (framework: .NETFramework4.6.2, .NETFramework4.7.1)",
+      "System.Core (framework: .NETFramework4.6.2, .NETFramework4.7.1)",
+      "System (framework: .NETFramework4.6.2, .NETFramework4.7.1)"
+    ]
+  },
+  "extraction_info": {
+    "schema_version": "1.0.0",
+    "timestamp": "2025-09-02T23:52:05.675291"
+  },
+  "file_info": {
+    "hashes": {
+      "fuzzy": "tlsh:T16DE423A29EF59855EAA77E31319DC24A66B3AA167040F1F7337573E30A06FCA31C9214",
+      "md5": "843ab8e8c581788f001a3c9771c7a030",
+      "sha1": "52982a868d9178537bbd794485d81a80676a5927"
+    },
+    "size": 663302
+  },
+  "licensing": {
+    "declared_licenses": [
+      {
+        "confidence": 0.6,
+        "confidence_level": "medium",
+        "file": ".nuspec",
+        "name": "Apache-2.0",
+        "source": "regex_pattern",
+        "spdx_id": "Apache-2.0"
+      }
+    ]
+  },
+  "metadata": {
+    "classifiers": [],
+    "description": "Simple .NET logging with fully-structured events",
+    "homepage": "https://serilog.net/",
+    "keywords": [
+      "serilog",
+      "logging",
+      "semantic",
+      "structured"
+    ],
+    "repository": "https://github.com/serilog/serilog.git"
+  },
+  "package": {
+    "name": "Serilog",
+    "purl": "pkg:nuget/Serilog@3.1.1",
+    "type": "nuget",
+    "version": "3.1.1"
+  },
+  "people": {
+    "authors": [
+      {
+        "email": "NO-ASSERTION",
+        "name": "Serilog Contributors"
+      }
+    ],
+    "maintainers": []
+  },
+  "provenance": {}
+}

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from ..core.models import PackageMetadata, LicenseInfo, LicenseConfidenceLevel, NO_ASSERTION
 from ..utils.license_detector import LicenseDetector
+from ..utils.patterns import LICENSE_FILE_NAMES
 from ..licenses.enhanced_detector import EnhancedLicenseDetector
 from ..utils.author_parser import parse_author_string, parse_author_list
 from ..utils.archive_utils import find_file_in_archive, extract_from_tar, extract_from_zip
@@ -15,15 +16,8 @@ from ..utils.archive_utils import find_file_in_archive, extract_from_tar, extrac
 class BaseExtractor(ABC):
     """Abstract base class for package extractors."""
     
-    # Common license file patterns
-    LICENSE_FILE_PATTERNS = [
-        'LICENSE', 'LICENSE.txt', 'LICENSE.md', 'LICENSE.rst',
-        'LICENCE', 'LICENCE.txt', 'LICENCE.md',
-        'COPYING', 'COPYING.txt', 'COPYING.md',
-        'COPYRIGHT', 'COPYRIGHT.txt',
-        'NOTICE', 'NOTICE.txt',
-        'license', 'licence', 'copying'
-    ]
+    # Common license file patterns (using shared patterns)
+    LICENSE_FILE_PATTERNS = LICENSE_FILE_NAMES
     
     def __init__(self, online_mode: bool = False):
         """Initialize extractor.
