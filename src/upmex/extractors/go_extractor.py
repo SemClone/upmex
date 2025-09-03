@@ -76,8 +76,13 @@ class GoExtractor(BaseExtractor):
                     if license_files:
                         for license_file in license_files:
                             license_content = zip_file.read(license_file).decode('utf-8', errors='ignore')
+                            # Only format if it's a short identifier (not full license text)
+                            if len(license_content) < 20 and ':' not in license_content:
+                                formatted_text = f"License: {license_content}"
+                            else:
+                                formatted_text = license_content
                             license_infos = self.detect_licenses_from_text(
-                                license_content,
+                                formatted_text,
                                 filename=license_file
                             )
                             if license_infos:
@@ -95,8 +100,13 @@ class GoExtractor(BaseExtractor):
                     license_path = parent_dir / license_name
                     if license_path.exists():
                         license_content = license_path.read_text(encoding='utf-8', errors='ignore')
+                        # Only format if it's a short identifier (not full license text)
+                        if len(license_content) < 20 and ':' not in license_content:
+                            formatted_text = f"License: {license_content}"
+                        else:
+                            formatted_text = license_content
                         license_infos = self.detect_licenses_from_text(
-                            license_content,
+                            formatted_text,
                             filename=license_name
                         )
                         if license_infos:

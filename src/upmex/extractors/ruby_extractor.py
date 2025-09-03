@@ -158,8 +158,15 @@ class RubyExtractor(BaseExtractor):
                             license_text = gemspec['license']
                         
                         if license_text:
+                            # Format license text for better oslili detection
+                            # If it's just a short license identifier, add "License:" prefix
+                            if len(license_text) < 20 and not ':' in license_text:
+                                formatted_text = f"License: {license_text}"
+                            else:
+                                formatted_text = license_text
+                            
                             license_infos = self.detect_licenses_from_text(
-                                license_text, 
+                                formatted_text, 
                                 filename='metadata.gz'
                             )
                             if license_infos:

@@ -40,9 +40,9 @@ class OsliliSubprocessDetector:
                 tmp_path = tmp.name
             
             try:
-                # Run oslili CLI
+                # Run oslili CLI without similarity threshold for better tag detection
                 result = subprocess.run(
-                    ['oslili', '-f', 'evidence', '--similarity-threshold', '0.95', tmp_path],
+                    ['oslili', '-f', 'evidence', tmp_path],
                     capture_output=True,
                     text=True,
                     timeout=10
@@ -64,7 +64,32 @@ class OsliliSubprocessDetector:
                         data = {}
                     
                     # Extract licenses from evidence format
-                    if 'results' in data and data['results']:
+                    # Handle both 'results' format (older) and 'scan_results' format (newer)
+                    if 'scan_results' in data and data['scan_results']:
+                        for scan_result in data['scan_results']:
+                            if 'license_evidence' in scan_result:
+                                for lic in scan_result['license_evidence']:
+                                    # Map detected_license to spdx_id for consistency
+                                    spdx_id = lic.get('detected_license', lic.get('spdx_id', 'Unknown'))
+                                    license_info = {
+                                        "name": lic.get('name', spdx_id),
+                                        "spdx_id": spdx_id,
+                                        "confidence": lic.get('confidence', 0.0),
+                                        "confidence_level": get_confidence_level_string(lic.get('confidence', 0.0)),
+                                        "source": f"oslili_{lic.get('detection_method', 'unknown')}",
+                                        "file": file_path,
+                                    }
+                                    
+                                    # Include high-confidence matches or tag detections
+                                    detection_method = lic.get('detection_method', '')
+                                    if (lic.get('confidence', 0) >= 0.95 or 
+                                        detection_method in ['tag', 'spdx_identifier']):
+                                        # Skip known false positive: Pixar
+                                        if spdx_id == 'Pixar':
+                                            continue
+                                        licenses.append(license_info)
+                    elif 'results' in data and data['results']:
+                        # Fallback to old format
                         for result_item in data['results']:
                             if 'licenses' in result_item:
                                 for lic in result_item['licenses']:
@@ -77,10 +102,11 @@ class OsliliSubprocessDetector:
                                         "file": file_path,
                                     }
                                     
-                                    # Only include very high-confidence matches
-                                    # Filter known false positives
-                                    if lic.get('confidence', 0) >= 0.95:
-                                        # Skip known false positive: Pixar (often confused with Apache-2.0 by TLSH)
+                                    # Include high-confidence matches or tag detections
+                                    detection_method = lic.get('detection_method', '')
+                                    if (lic.get('confidence', 0) >= 0.95 or 
+                                        detection_method in ['tag', 'spdx_identifier']):
+                                        # Skip known false positive: Pixar
                                         if lic.get('spdx_id') == 'Pixar':
                                             continue
                                         licenses.append(license_info)
@@ -108,10 +134,9 @@ class OsliliSubprocessDetector:
         copyrights = []
         
         try:
-            # Run oslili CLI on directory
+            # Run oslili CLI on directory without similarity threshold for better tag detection
             result = subprocess.run(
-                ['oslili', '-f', 'evidence', '--similarity-threshold', '0.95', 
-                 '--max-depth', '3', dir_path],
+                ['oslili', '-f', 'evidence', '--max-depth', '3', dir_path],
                 capture_output=True,
                 text=True,
                 timeout=30
@@ -134,7 +159,37 @@ class OsliliSubprocessDetector:
                 
                 # Extract licenses from evidence format
                 seen_licenses = set()
-                if 'results' in data and data['results']:
+                # Handle both 'scan_results' format (newer) and 'results' format (older)
+                if 'scan_results' in data and data['scan_results']:
+                    for scan_result in data['scan_results']:
+                        if 'license_evidence' in scan_result:
+                            for lic in scan_result['license_evidence']:
+                                # Map detected_license to spdx_id for consistency
+                                spdx_id = lic.get('detected_license', lic.get('spdx_id', 'Unknown'))
+                                key = (spdx_id, lic.get('file', 'unknown'))
+                                if key in seen_licenses:
+                                    continue
+                                seen_licenses.add(key)
+                                
+                                license_info = {
+                                    "name": lic.get('name', spdx_id),
+                                    "spdx_id": spdx_id,
+                                    "confidence": lic.get('confidence', 0.0),
+                                    "confidence_level": get_confidence_level_string(lic.get('confidence', 0.0)),
+                                    "source": f"oslili_{lic.get('detection_method', 'unknown')}",
+                                    "file": lic.get('file', 'unknown'),
+                                }
+                                
+                                # Include high-confidence matches or tag detections
+                                detection_method = lic.get('detection_method', '')
+                                if (lic.get('confidence', 0) >= 0.95 or 
+                                    detection_method in ['tag', 'spdx_identifier']):
+                                    # Skip known false positive: Pixar
+                                    if spdx_id == 'Pixar':
+                                        continue
+                                    licenses.append(license_info)
+                elif 'results' in data and data['results']:
+                    # Fallback to old format
                     for result_item in data['results']:
                         if 'licenses' in result_item:
                             for lic in result_item['licenses']:

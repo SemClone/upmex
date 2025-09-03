@@ -126,8 +126,13 @@ class RustExtractor(BaseExtractor):
                         # Extract license
                         if package.get('license'):
                             license_text = package['license']
+                            # Format license text for better oslili detection
+                            if len(license_text) < 20 and ':' not in license_text:
+                                formatted_text = f"License: {license_text}"
+                            else:
+                                formatted_text = license_text
                             license_infos = self.detect_licenses_from_text(
-                                license_text,
+                                formatted_text,
                                 filename='Cargo.toml'
                             )
                             if license_infos:
@@ -194,8 +199,13 @@ class RustExtractor(BaseExtractor):
                         license_file = crate_tar.extractfile(license_member)
                         if license_file:
                             license_content = license_file.read().decode('utf-8', errors='ignore')
+                            # Only format if it's a short identifier (not full license text)
+                            if len(license_content) < 20 and ':' not in license_content:
+                                formatted_text = f"License: {license_content}"
+                            else:
+                                formatted_text = license_content
                             license_infos = self.detect_licenses_from_text(
-                                license_content,
+                                formatted_text,
                                 filename=license_member.name
                             )
                             if license_infos:

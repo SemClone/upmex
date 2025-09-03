@@ -179,7 +179,12 @@ class PythonExtractor(BaseExtractor):
             # Detect license from text
             license_text = msg.get('License')
             if license_text:
-                detected = self.detect_licenses_from_text(license_text, 'METADATA')
+                # Format license text for better oslili detection
+                if len(license_text) < 20 and ':' not in license_text:
+                    formatted_text = f"License: {license_text}"
+                else:
+                    formatted_text = license_text
+                detected = self.detect_licenses_from_text(formatted_text, 'METADATA')
                 if detected:
                     metadata.licenses.extend(detected)
             
@@ -187,10 +192,19 @@ class PythonExtractor(BaseExtractor):
             if not metadata.licenses and metadata.classifiers:
                 for classifier in metadata.classifiers:
                     if 'License ::' in classifier:
-                        detected = self.detect_licenses_from_text(classifier, 'METADATA')
-                        if detected:
-                            metadata.licenses.extend(detected)
-                            break
+                        # Extract just the license part
+                        license_parts = classifier.split(' :: ')
+                        if len(license_parts) > 1:
+                            license_name = license_parts[-1]
+                            # Format license text for better oslili detection
+                            if len(license_name) < 20 and ':' not in license_name:
+                                formatted_text = f"License: {license_name}"
+                            else:
+                                formatted_text = license_name
+                            detected = self.detect_licenses_from_text(formatted_text, 'METADATA')
+                            if detected:
+                                metadata.licenses.extend(detected)
+                                break
             
             # Extract keywords
             keywords = msg.get('Keywords')
