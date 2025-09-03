@@ -160,8 +160,13 @@ class NuGetExtractor(BaseExtractor):
                         # SPDX expression
                         license_text = license_elem.text
                         if license_text:
+                            # Format license text for better oslili detection
+                            if len(license_text) < 20 and ':' not in license_text:
+                                formatted_text = f"License: {license_text}"
+                            else:
+                                formatted_text = license_text
                             license_infos = self.detect_licenses_from_text(
-                                license_text,
+                                formatted_text,
                                 filename='.nuspec'
                             )
                             if license_infos:
@@ -182,8 +187,13 @@ class NuGetExtractor(BaseExtractor):
                             parts = license_url.split('/')
                             if parts:
                                 license_id = parts[-1].upper()
+                                # Format license text for better oslili detection
+                                if len(license_id) < 20 and ':' not in license_id:
+                                    formatted_text = f"License: {license_id}"
+                                else:
+                                    formatted_text = license_id
                                 license_info = self.detect_licenses_from_text(
-                                    license_id,
+                                    formatted_text,
                                     filename='licenseUrl'
                                 )
                                 if license_info:

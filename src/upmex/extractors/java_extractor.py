@@ -152,8 +152,13 @@ class JavaExtractor(BaseExtractor):
                         for license_elem in license_elems:
                             license_name = license_elem.findtext('maven:name', '', ns) or license_elem.findtext('name', '')
                             if license_name:
+                                # Format license text for better oslili detection
+                                if len(license_name) < 20 and ':' not in license_name:
+                                    formatted_text = f"License: {license_name}"
+                                else:
+                                    formatted_text = license_name
                                 license_infos = self.detect_licenses_from_text(
-                                    license_name,
+                                    formatted_text,
                                     filename='pom.xml'
                                 )
                                 if license_infos:
@@ -376,8 +381,13 @@ class JavaExtractor(BaseExtractor):
                         if license_name:
                             # Use the same license detection as in main extraction
                             try:
+                                # Format license text for better oslili detection
+                                if len(license_name) < 20 and ':' not in license_name:
+                                    formatted_text = f"License: {license_name}"
+                                else:
+                                    formatted_text = license_name
                                 license_infos = self.detect_licenses_from_text(
-                                    license_name,
+                                    formatted_text,
                                     filename='parent_pom.xml'
                                 )
                                 if license_infos:
@@ -399,8 +409,14 @@ class JavaExtractor(BaseExtractor):
                         parent_data['authors'] = header_data['authors']
                     if 'license' in header_data and not parent_data.get('licenses'):
                         # Convert header license text to proper format
+                        license_text = header_data['license']
+                        # Format license text for better oslili detection
+                        if len(license_text) < 20 and ':' not in license_text:
+                            formatted_text = f"License: {license_text}"
+                        else:
+                            formatted_text = license_text
                         license_infos = self.detect_licenses_from_text(
-                            header_data['license'],
+                            formatted_text,
                             filename='pom.xml'
                         )
                         if license_infos:

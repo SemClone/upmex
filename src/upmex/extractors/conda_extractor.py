@@ -239,7 +239,12 @@ class CondaExtractor(BaseExtractor):
         licenses = []
         license_info = index_json.get('license') or (recipe.get('about', {}).get('license') if recipe else None)
         if license_info:
-            detected = self.detect_licenses_from_text(license_info)
+            # Format license text for better oslili detection
+            if len(license_info) < 20 and ':' not in license_info:
+                formatted_text = f"License: {license_info}"
+            else:
+                formatted_text = license_info
+            detected = self.detect_licenses_from_text(formatted_text)
             if detected:
                 licenses.extend(detected)
         

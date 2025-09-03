@@ -273,8 +273,13 @@ class GradleExtractor(BaseExtractor):
             match = re.search(pattern, content, re.MULTILINE | re.DOTALL)
             if match:
                 license_text = match.group(1)
+                # Format license text for better oslili detection
+                if len(license_text) < 20 and ':' not in license_text:
+                    formatted_text = f"License: {license_text}"
+                else:
+                    formatted_text = license_text
                 return self.detect_licenses_from_text(
-                    license_text,
+                    formatted_text,
                     filename='build.gradle'
                 )
         

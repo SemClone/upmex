@@ -131,7 +131,12 @@ class NpmExtractor(BaseExtractor):
         
         if isinstance(license_data, str):
             # Simple string license
-            detected = self.detect_licenses_from_text(license_data, 'package.json')
+            # Format license text for better oslili detection
+            if len(license_data) < 20 and ':' not in license_data:
+                formatted_text = f"License: {license_data}"
+            else:
+                formatted_text = license_data
+            detected = self.detect_licenses_from_text(formatted_text, 'package.json')
             if detected:
                 metadata.licenses.extend(detected)
                 
@@ -139,7 +144,12 @@ class NpmExtractor(BaseExtractor):
             # Dict with 'type' field
             license_type = license_data.get('type')
             if license_type:
-                detected = self.detect_licenses_from_text(license_type, 'package.json')
+                # Format license text for better oslili detection
+                if len(license_type) < 20 and ':' not in license_type:
+                    formatted_text = f"License: {license_type}"
+                else:
+                    formatted_text = license_type
+                detected = self.detect_licenses_from_text(formatted_text, 'package.json')
                 if detected:
                     metadata.licenses.extend(detected)
                     
@@ -153,6 +163,11 @@ class NpmExtractor(BaseExtractor):
                     license_text = lic.get('type')
                 
                 if license_text:
-                    detected = self.detect_licenses_from_text(license_text, 'package.json')
+                    # Format license text for better oslili detection
+                    if len(license_text) < 20 and ':' not in license_text:
+                        formatted_text = f"License: {license_text}"
+                    else:
+                        formatted_text = license_text
+                    detected = self.detect_licenses_from_text(formatted_text, 'package.json')
                     if detected:
                         metadata.licenses.extend(detected)

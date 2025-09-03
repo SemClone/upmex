@@ -36,7 +36,7 @@ class EnhancedLicenseDetector:
         Returns:
             List of detected licenses with confidence scores
         """
-        if not text or len(text) < 20:
+        if not text or len(text.strip()) < 2:  # Allow short license identifiers
             return []
         
         # Use unified detector
