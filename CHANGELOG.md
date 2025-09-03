@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.6] - 2025-09-03
+
+### Fixed
+- **oslili License Detection for Short Identifiers**
+  - Fixed oslili not detecting short license identifiers like "MIT" or "Apache-2.0"
+  - All extractors now format short license text (< 20 chars) as "License: <identifier>" for better oslili tag detection
+  - Updated oslili subprocess to handle both JSON formats (scan_results and results) for compatibility
+  - Removed similarity threshold filtering to allow tag detection to work properly
+  - Fixed EnhancedLicenseDetector minimum text length check from 20 to 2 characters
+  - Ensures consistent license detection across all package formats using oslili tags
+
 ## [1.5.5] - 2025-09-03
 
 ### Added
