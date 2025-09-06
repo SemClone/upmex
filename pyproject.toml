@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "semantic-copycat-upmex"
-version = "1.5.6"
+version = "1.5.7"
 description = "Universal Package Metadata Extractor - Extract metadata from various package formats"
 readme = "README.md"
 requires-python = ">=3.8"
