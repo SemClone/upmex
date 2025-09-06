@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **RPM Package Support** (#19)
+  - New RPM package extractor with filename parsing fallback
+  - Optional rpm command integration for richer metadata extraction
+  - License normalization from RPM format to SPDX identifiers
+  - Dependency extraction when rpm command is available
+
+- **Debian Package Support** (#18)
+  - New Debian (.deb) package extractor with filename parsing fallback
+  - Optional dpkg command integration for enhanced metadata
+  - Control file parsing for package information
+  - Copyright file extraction for license detection
+  - Dependency parsing with version constraints
+
+### Changed
+- Added PackageType.RPM and PackageType.DEB enum values
+- Updated package detector to recognize .rpm and .deb file extensions
+- Registered new extractors in main PackageExtractor class
+
+### Fixed
+- Test format compatibility with new JSON output structure
+
 ## [1.5.6] - 2025-09-03
 
 ### Fixed
