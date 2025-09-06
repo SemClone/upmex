@@ -25,6 +25,8 @@ class PackageType(Enum):
     RUST_CRATE = "rust_crate"
     GO_MODULE = "go_module"
     NUGET = "nuget"
+    RPM = "rpm"
+    DEB = "deb"
     GENERIC = "generic"
     UNKNOWN = "unknown"
 

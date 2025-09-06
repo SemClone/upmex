@@ -38,9 +38,9 @@ License: MIT
         
         assert result.exit_code == 0
         output = json.loads(result.output)
-        assert output["name"] == "test-package"
-        assert output["version"] == "1.0.0"
-        assert output["description"] == "Test package for E2E"
+        assert output["package"]["name"] == "test-package"
+        assert output["package"]["version"] == "1.0.0"
+        assert output["metadata"]["description"] == "Test package for E2E"
     
     def test_extract_command_text_output(self, tmp_path):
         """Test extract command with text output."""
@@ -94,8 +94,8 @@ Implementation-Version: 1.0.0
         
         with open(output_path) as f:
             data = json.load(f)
-            assert data["name"] == "test-npm"
-            assert data["version"] == "2.0.0"
+            assert data["package"]["name"] == "test-npm"
+            assert data["package"]["version"] == "2.0.0"
     
     @patch('requests.get')
     def test_extract_with_online_mode(self, mock_get, tmp_path):

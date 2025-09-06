@@ -50,6 +50,12 @@ def detect_package_type(package_path: str) -> PackageType:
     if path.suffix == '.nupkg':
         return PackageType.NUGET
     
+    if path.suffix == '.rpm':
+        return PackageType.RPM
+    
+    if path.suffix == '.deb':
+        return PackageType.DEB
+    
     if path.suffix in ['.jar', '.war', '.ear']:
         # Check if it's a Maven package
         if _is_maven_package(package_path):
