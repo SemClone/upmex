@@ -19,12 +19,25 @@ class NpmExtractor(BaseExtractor):
         try:
             # Use base class archive extraction
             files = self.extract_archive_files(package_path, ['package.json'])
-            
-            # Find and process package.json
+
+            # Prioritize root package.json (package/package.json)
+            # First, try to find the root package.json
+            root_package_json = None
+            other_package_jsons = []
+
             for filename, content in files.items():
-                if 'package.json' in filename:
-                    self._process_package_json(metadata, content)
-                    break
+                if filename == 'package/package.json':
+                    root_package_json = (filename, content)
+                elif 'package.json' in filename:
+                    other_package_jsons.append((filename, content))
+
+            # Process root package.json first if found
+            if root_package_json:
+                self._process_package_json(metadata, root_package_json[1])
+            elif other_package_jsons:
+                # Fallback to the first package.json if no root found
+                # This maintains backward compatibility
+                self._process_package_json(metadata, other_package_jsons[0][1])
             
             # Try to find license files
             detected_licenses = self.find_and_detect_licenses(archive_path=package_path)
@@ -72,8 +85,18 @@ class NpmExtractor(BaseExtractor):
     def _process_package_json(self, metadata: PackageMetadata, content: bytes):
         """Process package.json content."""
         try:
+            # Handle empty content
+            if not content or len(content.strip()) == 0:
+                print("Warning: Empty package.json content, skipping")
+                return
+
             data = json.loads(content)
-            
+
+            # Skip if data is empty or not a dict
+            if not data or not isinstance(data, dict):
+                print("Warning: Invalid package.json structure, skipping")
+                return
+
             # Extract basic metadata
             metadata.name = data.get('name', NO_ASSERTION)
             metadata.version = data.get('version', NO_ASSERTION)
