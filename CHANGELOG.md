@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.9] - 2025-09-17
+
+### Fixed
+- **NPM extractor prioritizes root package.json** (#45)
+  - Fixed issue where NPM packages with multiple package.json files would use the wrong one
+  - Now prioritizes `package/package.json` (root) over nested package.json files
+  - Added error handling for empty or corrupt package.json files
+  - Resolves homepage field extraction issue for packages like yargs
+
 ## [1.5.8] - 2025-09-16
 
 ### Fixed
