@@ -9,7 +9,6 @@ import os
 from typing import List, Dict, Optional, Any
 from pathlib import Path
 import logging
-from ..utils.confidence import get_confidence_level_string
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +34,9 @@ class OsliliSubprocessDetector:
             
         try:
             # Write content to temporary file for oslili to process
-            with tempfile.NamedTemporaryFile(mode='w', suffix=Path(file_path).suffix, delete=False) as tmp:
+            # Use .txt suffix if file has no extension (e.g., LICENSE files)
+            suffix = Path(file_path).suffix or '.txt'
+            with tempfile.NamedTemporaryFile(mode='w', suffix=suffix, delete=False) as tmp:
                 tmp.write(content)
                 tmp_path = tmp.name
             
@@ -75,7 +76,7 @@ class OsliliSubprocessDetector:
                                         "name": lic.get('name', spdx_id),
                                         "spdx_id": spdx_id,
                                         "confidence": lic.get('confidence', 0.0),
-                                        "confidence_level": get_confidence_level_string(lic.get('confidence', 0.0)),
+                                        "confidence_level": self._get_confidence_level(lic.get('confidence', 0.0)),
                                         "source": f"oslili_{lic.get('detection_method', 'unknown')}",
                                         "file": file_path,
                                     }
@@ -97,7 +98,7 @@ class OsliliSubprocessDetector:
                                         "name": lic.get('name', lic.get('spdx_id', 'Unknown')),
                                         "spdx_id": lic.get('spdx_id', 'Unknown'),
                                         "confidence": lic.get('confidence', 0.0),
-                                        "confidence_level": get_confidence_level_string(lic.get('confidence', 0.0)),
+                                        "confidence_level": self._get_confidence_level(lic.get('confidence', 0.0)),
                                         "source": f"oslili_{lic.get('detection_method', 'unknown')}",
                                         "file": file_path,
                                     }
@@ -238,3 +239,14 @@ class OsliliSubprocessDetector:
             logger.debug(f"Oslili subprocess directory detection failed for {dir_path}: {e}")
             
         return {"licenses": licenses, "copyrights": copyrights}
+
+    def _get_confidence_level(self, confidence: float) -> str:
+        """Convert numeric confidence to level string."""
+        if confidence >= 0.95:
+            return "exact"
+        elif confidence >= 0.85:
+            return "high"
+        elif confidence >= 0.70:
+            return "medium"
+        else:
+            return "low"

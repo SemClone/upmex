@@ -6,9 +6,7 @@ from typing import Optional, Dict, Any, List, Union
 from pathlib import Path
 
 from ..core.models import PackageMetadata, LicenseInfo, LicenseConfidenceLevel, NO_ASSERTION
-from ..utils.license_detector import LicenseDetector
 from ..utils.patterns import LICENSE_FILE_NAMES
-from ..licenses.enhanced_detector import EnhancedLicenseDetector
 from ..utils.author_parser import parse_author_string, parse_author_list
 from ..utils.archive_utils import find_file_in_archive, extract_from_tar, extract_from_zip
 
@@ -21,20 +19,11 @@ class BaseExtractor(ABC):
     
     def __init__(self, online_mode: bool = False):
         """Initialize extractor.
-        
+
         Args:
             online_mode: Whether to fetch additional data from online sources
         """
         self.online_mode = online_mode
-        self.license_detector = LicenseDetector()
-        
-        # Try to use enhanced detector if available
-        try:
-            self.enhanced_detector = EnhancedLicenseDetector(enable_spdx=True)
-            self.use_enhanced = True
-        except:
-            self.enhanced_detector = None
-            self.use_enhanced = False
     
     @abstractmethod
     def extract(self, package_path: str) -> PackageMetadata:
@@ -82,39 +71,39 @@ class BaseExtractor(ABC):
         """
         return parse_author_list(authors)
     
-    def detect_licenses_from_text(self, 
-                                 text: str, 
+    def detect_licenses_from_text(self,
+                                 text: str,
                                  filename: Optional[str] = None) -> List[LicenseInfo]:
-        """Detect licenses from text content.
-        
+        """Detect licenses from text content using OSLiLi.
+
         Args:
             text: Text content to analyze
             filename: Optional filename for context
-            
+
         Returns:
             List of detected licenses
         """
-        licenses = []
-        
         if not text:
-            return licenses
-        
-        # Try enhanced detector first if available
-        if self.use_enhanced and self.enhanced_detector:
-            try:
-                enhanced_results = self.enhanced_detector.detect_license(text, filename)
-                if enhanced_results:
-                    return enhanced_results
-            except:
-                pass
-        
-        # Fall back to standard detector
-        detected = self.license_detector.detect_license_from_text(text, filename=filename)
-        
-        if detected:
-            # detected is a single LicenseInfo object, not a list
-            licenses.append(detected)
-        
+            return []
+
+        # Use unified detector which now uses OSLiLi
+        from ..licenses.unified_detector import detect_licenses
+
+        licenses = []
+        detected_list = detect_licenses(filename or "content", text)
+
+        for license_dict in detected_list:
+            license_info = LicenseInfo(
+                name=license_dict.get('name', 'Unknown'),
+                spdx_id=license_dict.get('spdx_id', 'Unknown'),
+                confidence=license_dict.get('confidence', 0.0),
+                confidence_level=LicenseConfidenceLevel(
+                    license_dict.get('confidence_level', 'low')
+                ),
+                detection_method=license_dict.get('source', 'oslili')
+            )
+            licenses.append(license_info)
+
         return licenses
     
     def detect_licenses_from_file(self, file_path: str) -> List[LicenseInfo]:
