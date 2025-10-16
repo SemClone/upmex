@@ -81,24 +81,25 @@ jobs:
           fi
 
           # Validate and clean JSON output
-          python3 -c "
-import json
-import sys
-try:
-    with open('license_report_raw.json', 'r') as f:
-        content = f.read().strip()
-        if not content:
-            data = {'licenses': []}
-        else:
-            data = json.loads(content)
-    with open('license_report.json', 'w') as f:
-        json.dump(data, f, indent=2)
-    print('License report generated successfully')
-except Exception as e:
-    print(f'Warning: Could not parse OSLiLi output: {e}')
-    with open('license_report.json', 'w') as f:
-        json.dump({'licenses': []}, f)
-"
+          cat > /tmp/validate_json.py << 'EOF'
+          import json
+          import sys
+          try:
+              with open('license_report_raw.json', 'r') as f:
+                  content = f.read().strip()
+                  if not content:
+                      data = {'licenses': []}
+                  else:
+                      data = json.loads(content)
+              with open('license_report.json', 'w') as f:
+                  json.dump(data, f, indent=2)
+              print('License report generated successfully')
+          except Exception as e:
+              print(f'Warning: Could not parse OSLiLi output: {e}')
+              with open('license_report.json', 'w') as f:
+                  json.dump({'licenses': []}, f)
+          EOF
+          python3 /tmp/validate_json.py
 
           # Pretty print for logs
           if [ -f license_report.json ]; then
