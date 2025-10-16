@@ -1,0 +1,24 @@
+plugins {
+    id "java"
+    id "maven-publish"
+}
+
+group = "com.example"
+version = "1.0.0"
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation "com.google.guava:guava:32.1.2-jre"
+    testImplementation "junit:junit:4.13.2"
+}
+
+ext {
+    projectName = "example-gradle-project"
+    projectDescription = "A sample Gradle project for testing"
+    projectUrl = "https://example.com"
+    projectLicense = "Apache-2.0"
+}
+

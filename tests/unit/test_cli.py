@@ -41,7 +41,7 @@ License: MIT
         """Test version option."""
         result = runner.invoke(cli, ['--version'])
         assert result.exit_code == 0
-        assert '1.1.3' in result.output
+        assert '1.6.0' in result.output
     
     def test_info_command(self, runner):
         """Test info command."""
@@ -56,7 +56,7 @@ License: MIT
         result = runner.invoke(cli, ['info', '--json'])
         assert result.exit_code == 0
         data = json.loads(result.output)
-        assert data['version'] == '1.1.3'
+        assert data['version'] == '1.6.0'
         assert 'supported_packages' in data
     
     def test_detect_command(self, runner, sample_package):
@@ -86,15 +86,16 @@ License: MIT
         
         # Parse JSON output
         data = json.loads(result.output)
-        assert data['name'] == 'test-package'
-        assert data['version'] == '1.0.0'
-        assert data['package_type'] == 'python_wheel'
+        assert data['package']['name'] == 'test-package'
+        assert data['package']['version'] == '1.0.0'
+        assert data['package']['type'] == 'python_wheel'
     
     def test_extract_command_pretty(self, runner, sample_package):
         """Test extract command with pretty print."""
         result = runner.invoke(cli, ['extract', '--pretty', sample_package])
         assert result.exit_code == 0
-        assert '  "name": "test-package"' in result.output  # Indented JSON
+        assert '  "package"' in result.output  # Indented JSON
+        assert 'test-package' in result.output
     
     def test_extract_command_text_format(self, runner, sample_package):
         """Test extract command with text format."""
@@ -113,7 +114,7 @@ License: MIT
         
         # Check output file content
         data = json.loads(output_file.read_text())
-        assert data['name'] == 'test-package'
+        assert data['package']['name'] == 'test-package'
     
     def test_extract_quiet_mode(self, runner, sample_package, temp_dir):
         """Test extract command in quiet mode."""
