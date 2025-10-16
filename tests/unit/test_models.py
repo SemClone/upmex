@@ -102,15 +102,15 @@ class TestPackageMetadata:
         
         data = metadata.to_dict()
         
-        assert data["name"] == "test-package"
-        assert data["version"] == "1.0.0"
-        assert data["package_type"] == "npm"
-        assert data["schema_version"] == "1.0.0"
-        assert len(data["licenses"]) == 1
-        assert data["licenses"][0]["spdx_id"] == "MIT"
-        assert data["licenses"][0]["confidence"] == 0.9
-        assert data["licenses"][0]["confidence_level"] == "high"
-        assert "extraction_timestamp" in data
+        assert data["package"]["name"] == "test-package"
+        assert data["package"]["version"] == "1.0.0"
+        assert data["package"]["type"] == "npm"
+        assert data["extraction_info"]["schema_version"] == "1.0.0"
+        assert len(data["licensing"]["declared_licenses"]) == 1
+        assert data["licensing"]["declared_licenses"][0]["spdx_id"] == "MIT"
+        assert data["licensing"]["declared_licenses"][0]["confidence"] == 0.9
+        assert data["licensing"]["declared_licenses"][0]["confidence_level"] == "high"
+        assert "timestamp" in data["extraction_info"]
     
     def test_package_types(self):
         """Test all package type enums."""
@@ -127,4 +127,4 @@ class TestPackageMetadata:
         for package_type in types:
             metadata = PackageMetadata(name="test", package_type=package_type)
             assert metadata.package_type == package_type
-            assert package_type.value in metadata.to_dict()["package_type"]
+            assert package_type.value == metadata.to_dict()["package"]["type"]
