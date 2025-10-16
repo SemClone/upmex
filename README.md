@@ -5,7 +5,7 @@ Extract metadata and license information from various package formats with a sin
 ## Features
 
 ### Core Capabilities
-- **Universal Package Support**: Extract metadata from 13 package ecosystems
+- **Universal Package Support**: Extract metadata from 15 package ecosystems
 - **Multi-Format Detection**: Automatic package type identification
 - **Standardized Output**: Consistent JSON structure across all formats
 - **Native Extraction**: No dependency on external package managers
@@ -36,15 +36,15 @@ Extract metadata and license information from various package formats with a sin
 - **Rust Crates**: .crate packages
 - **Go Modules**: .zip archives, go.mod files
 - **NuGet/.NET**: .nupkg packages
-- **Linux**: (Planned) Debian .deb, RPM .rpm
+- **Debian**: .deb packages
+- **RPM**: .rpm packages
 
 #### Advanced License & Copyright Detection
 - **Powered by OSLiLI**: Integration with [oslili](https://github.com/oscarvalenzuelab/semantic-copycat-oslili) for accurate license and copyright detection
-- **Multi-Method Detection**:
-  - Tag-based detection for short license identifiers (MIT, Apache-2.0, etc.)
+- **Comprehensive Detection**:
   - SPDX-License-Identifier exact matching
-  - Fuzzy hash (TLSH) matching against normalized license texts
-  - Regex-based pattern matching with comprehensive SPDX support
+  - License tag recognition in metadata files
+  - Full text license detection from LICENSE files
   - Confidence scoring (0.0-1.0) with detection method tracking
 - **Copyright Extraction**: Automatic extraction of copyright statements from source files
 
@@ -62,8 +62,8 @@ git clone https://github.com/oscarvalenzuelab/semantic-copycat-upmex.git
 cd semantic-copycat-upmex
 pip install -e .
 
-# Install with all features (includes oslili for license detection)
-pip install -e ".[all]"
+# Install with all dependencies
+pip install -e .
 
 # Install for development
 pip install -e ".[dev]"
@@ -112,8 +112,8 @@ upmex extract --format text package.tar.gz
 # Detect package type
 upmex detect package.jar
 
-# Extract license information with confidence scores
-upmex license package.tgz --confidence
+# Extract license information
+upmex license package.tgz
 ```
 
 ## Configuration
@@ -170,6 +170,8 @@ Create a `config.json`:
 | Rust | .crate | ✓ | ✓ | API enrichment | ✓ |
 | Go | .zip, .mod, go.mod | ✓ | ✓ | API enrichment | ✓ |
 | NuGet | .nupkg | ✓ | ✓ | API enrichment | ✓ |
+| Debian | .deb | ✓ | ✓ | - | ✓ |
+| RPM | .rpm | ✓ | ✓ | - | ✓ |
 
 
 ## Changelog
