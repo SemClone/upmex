@@ -9,7 +9,6 @@ from typing import Dict, Any, Optional, List
 from pathlib import Path
 
 from ..core.models import PackageMetadata, PackageType, LicenseInfo, NO_ASSERTION
-from ..utils.license_detector import LicenseDetector
 
 
 class ConanExtractor:
@@ -17,7 +16,6 @@ class ConanExtractor:
     
     def __init__(self):
         """Initialize the Conan extractor."""
-        self.license_detector = LicenseDetector()
     
     def extract(self, package_path: str) -> PackageMetadata:
         """Extract metadata from a Conan package.

@@ -8,8 +8,7 @@ import os
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 
-from ..core.models import PackageMetadata, PackageType, LicenseInfo, NO_ASSERTION
-from ..utils.license_detector import LicenseDetector
+from ..core.models import PackageMetadata, PackageType, LicenseInfo, NO_ASSERTION, LicenseConfidenceLevel
 
 
 class PerlExtractor:
@@ -17,7 +16,6 @@ class PerlExtractor:
     
     def __init__(self):
         """Initialize the Perl extractor."""
-        self.license_detector = LicenseDetector()
     
     def extract(self, package_path: str) -> PackageMetadata:
         """Extract metadata from a Perl package.
@@ -165,7 +163,23 @@ class PerlExtractor:
             try:
                 with open(license_file, 'r', encoding='utf-8', errors='ignore') as f:
                     license_text = f.read()
-                detected_licenses = self.license_detector.detect_license_from_text(license_text)
+                # Use unified detector which uses OSLiLi
+                from ..licenses.unified_detector import detect_licenses
+                detected_list = detect_licenses("LICENSE", license_text)
+
+                detected_licenses = None
+                if detected_list:
+                    # Convert first detection to LicenseInfo
+                    license_dict = detected_list[0]
+                    detected_licenses = LicenseInfo(
+                        name=license_dict.get('name', 'Unknown'),
+                        spdx_id=license_dict.get('spdx_id', 'Unknown'),
+                        confidence=license_dict.get('confidence', 0.0),
+                        confidence_level=LicenseConfidenceLevel(
+                            license_dict.get('confidence_level', 'low')
+                        ),
+                        detection_method=license_dict.get('source', 'oslili')
+                    )
                 for detected in detected_licenses:
                     if not any(l.spdx_id == detected.spdx_id for l in metadata.licenses):
                         metadata.licenses.append(detected)

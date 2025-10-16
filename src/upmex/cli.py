@@ -150,10 +150,8 @@ def detect(ctx, package_path, verbose):
 
 @cli.command()
 @click.argument('package_path', type=click.Path(exists=True))
-@click.option('--confidence', '-c', is_flag=True, help='Show confidence scores')
-@click.option('--all-methods', is_flag=True, help='Use all detection methods')
 @click.pass_context
-def license(ctx, package_path, confidence, all_methods):
+def license(ctx, package_path):
     """Extract only license information from a package.
     
     Examples:
@@ -182,13 +180,15 @@ def license(ctx, package_path, confidence, all_methods):
             else:
                 click.echo("License: Unknown")
             
-            if confidence:
+            # Always show confidence info if available (OSLiLi provides it)
+            if hasattr(license_info, 'confidence') and license_info.confidence:
                 click.echo(f"  Confidence: {license_info.confidence:.2%}")
+            if hasattr(license_info, 'confidence_level') and license_info.confidence_level:
                 click.echo(f"  Level: {license_info.confidence_level.value}")
-                if license_info.detection_method:
-                    click.echo(f"  Method: {license_info.detection_method}")
-                if license_info.file_path:
-                    click.echo(f"  Source: {license_info.file_path}")
+            if hasattr(license_info, 'detection_method') and license_info.detection_method:
+                click.echo(f"  Method: {license_info.detection_method}")
+            if hasattr(license_info, 'file_path') and license_info.file_path:
+                click.echo(f"  Source: {license_info.file_path}")
                     
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
