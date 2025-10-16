@@ -8,12 +8,7 @@ from typing import List, Dict, Optional, Any
 from pathlib import Path
 import logging
 
-try:
-    from .oslili_detector import OsliliLicenseDetector
-    OSLILI_IMPORT_AVAILABLE = True
-except ImportError:
-    OSLILI_IMPORT_AVAILABLE = False
-    OsliliLicenseDetector = None
+# OSLiLi detection is now handled via subprocess only
 
 from .oslili_subprocess import OsliliSubprocessDetector
 
@@ -25,8 +20,7 @@ class UnifiedLicenseDetector:
 
     def __init__(self):
         """Initialize the detector."""
-        # Always use subprocess version for copyright support
-        # OsliliLicenseDetector doesn't extract copyrights
+        # Use subprocess version for copyright support
         self.oslili_detector = OsliliSubprocessDetector()
 
     def detect_licenses(self, file_path: str, content: Optional[str] = None) -> List[Dict[str, Any]]:
