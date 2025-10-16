@@ -8,7 +8,7 @@ CL*.md
 claude.md
 CLAUDE.md
 sample-packages/
-test-packages/
+# test-packages/  # Commented out - we need these for CI functional tests
 
 # C extensions
 *.so

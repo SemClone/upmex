@@ -1,0 +1,55 @@
+ℹ Processing local path: test_license.txt
+{
+  "scan_results": [
+    {
+      "path": "test_license.txt",
+      "license_evidence": [
+        {
+          "file": "/Users/ovalenzuela/Projects/semantic-copycat-upmex/test-packages/test_license.txt",
+          "detected_license": "MIT",
+          "confidence": 1.0,
+          "detection_method": "regex",
+          "category": "declared",
+          "match_type": "license_file",
+          "description": "License file contains MIT license"
+        },
+        {
+          "file": "/Users/ovalenzuela/Projects/semantic-copycat-upmex/test-packages/test_license.txt",
+          "detected_license": "MIT",
+          "confidence": 0.9,
+          "detection_method": "keyword",
+          "category": "detected",
+          "match_type": "keyword",
+          "description": "Pattern match for MIT"
+        }
+      ],
+      "copyright_evidence": [
+        {
+          "file": "/Users/ovalenzuela/Projects/semantic-copycat-upmex/test-packages/test_license.txt",
+          "holder": "Manuel Mart\u00ednez-Almeida",
+          "years": [
+            2014
+          ],
+          "statement": "Copyright 2014 Manuel Mart\u00ednez-Almeida"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_files_scanned": 2,
+    "declared_licenses": {
+      "MIT": 1
+    },
+    "detected_licenses": {
+      "MIT": 1
+    },
+    "referenced_licenses": {},
+    "all_licenses": {
+      "MIT": 2
+    },
+    "copyright_holders": [
+      "Manuel Mart\u00ednez-Almeida"
+    ],
+    "copyrights_found": 1
+  }
+}
