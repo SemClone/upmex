@@ -217,3 +217,4 @@ __marimo__/
 # Development notes file
 *.md.dev
 main-test/
+test-packages/gin-test/
