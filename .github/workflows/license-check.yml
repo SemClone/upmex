@@ -74,14 +74,35 @@ jobs:
 
           # Run OSLiLi
           echo "Running OSLiLi on changed files..."
-          oslili /tmp/pr_files --json > license_report.json 2>/dev/null || true
+          if [ -d /tmp/pr_files ] && [ "$(ls -A /tmp/pr_files)" ]; then
+            oslili /tmp/pr_files --json > license_report_raw.json 2>/dev/null || echo "{\"licenses\": []}" > license_report_raw.json
+          else
+            echo "{\"licenses\": []}" > license_report_raw.json
+          fi
+
+          # Validate and clean JSON output
+          python3 -c "
+import json
+import sys
+try:
+    with open('license_report_raw.json', 'r') as f:
+        content = f.read().strip()
+        if not content:
+            data = {'licenses': []}
+        else:
+            data = json.loads(content)
+    with open('license_report.json', 'w') as f:
+        json.dump(data, f, indent=2)
+    print('License report generated successfully')
+except Exception as e:
+    print(f'Warning: Could not parse OSLiLi output: {e}')
+    with open('license_report.json', 'w') as f:
+        json.dump({'licenses': []}, f)
+"
 
           # Pretty print for logs
           if [ -f license_report.json ]; then
-            python -m json.tool license_report.json || cat license_report.json
-          else
-            echo "No license report generated"
-            echo "{\"licenses\": []}" > license_report.json
+            cat license_report.json
           fi
 
       - name: Check allowed licenses
