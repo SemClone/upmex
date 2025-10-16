@@ -318,38 +318,9 @@ class DebianExtractor(BaseExtractor):
         if license_name:
             return LicenseInfo(
                 name=license_name,
-                spdx_id=self._normalize_license_id(license_name),
+                spdx_id=license_name,  # Pass raw license string - let OSLiLi normalize
                 detection_method="debian_copyright"
             )
         
         return None
     
-    def _normalize_license_id(self, license_str: str) -> Optional[str]:
-        """Normalize license string to SPDX identifier."""
-        # Common Debian to SPDX mappings
-        mappings = {
-            'GPL-2': 'GPL-2.0',
-            'GPL-2+': 'GPL-2.0-or-later',
-            'GPL-3': 'GPL-3.0',
-            'GPL-3+': 'GPL-3.0-or-later',
-            'LGPL-2': 'LGPL-2.0',
-            'LGPL-2.1': 'LGPL-2.1',
-            'LGPL-3': 'LGPL-3.0',
-            'Apache-2.0': 'Apache-2.0',
-            'MIT': 'MIT',
-            'BSD-3-clause': 'BSD-3-Clause',
-            'BSD-2-clause': 'BSD-2-Clause',
-            'MPL-2.0': 'MPL-2.0',
-            'Artistic': 'Artistic-1.0',
-        }
-        
-        # Check for exact match
-        if license_str in mappings:
-            return mappings[license_str]
-        
-        # Check for partial matches
-        for deb_license, spdx_id in mappings.items():
-            if deb_license.lower() in license_str.lower():
-                return spdx_id
-        
-        return None

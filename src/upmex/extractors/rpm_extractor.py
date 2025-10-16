@@ -83,7 +83,7 @@ class RpmExtractor(BaseExtractor):
                     metadata.licenses = [
                         LicenseInfo(
                             name=license_str,
-                            spdx_id=self._normalize_license_id(license_str),
+                            spdx_id=license_str,  # Pass raw license string - let OSLiLi normalize
                             detection_method="rpm_metadata"
                         )
                     ]
@@ -166,31 +166,3 @@ class RpmExtractor(BaseExtractor):
             path = Path(package_path)
             metadata.name = path.stem
     
-    def _normalize_license_id(self, license_str: str) -> Optional[str]:
-        """Normalize license string to SPDX identifier."""
-        # Common RPM to SPDX mappings
-        mappings = {
-            'GPLv2': 'GPL-2.0',
-            'GPLv2+': 'GPL-2.0-or-later',
-            'GPLv3': 'GPL-3.0',
-            'GPLv3+': 'GPL-3.0-or-later',
-            'LGPLv2': 'LGPL-2.0',
-            'LGPLv2+': 'LGPL-2.0-or-later',
-            'LGPLv3': 'LGPL-3.0',
-            'LGPLv3+': 'LGPL-3.0-or-later',
-            'ASL 2.0': 'Apache-2.0',
-            'MIT': 'MIT',
-            'BSD': 'BSD-3-Clause',
-            'MPLv2.0': 'MPL-2.0',
-        }
-        
-        # Check for exact match
-        if license_str in mappings:
-            return mappings[license_str]
-        
-        # Check for partial matches
-        for rpm_license, spdx_id in mappings.items():
-            if rpm_license.lower() in license_str.lower():
-                return spdx_id
-        
-        return None
