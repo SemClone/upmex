@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.1] - 2025-10-16
+
+### Added
+- **GitHub Actions CI/CD Pipeline**
+  - Automated testing on every PR with Python 3.9, 3.10, 3.11
+  - Functional tests run against all test packages
+  - Unit and integration tests with continue-on-error for non-blocking builds
+  - Linting with ruff for code quality
+
+- **Content Moderation Workflow**
+  - Automated scanning for banned words in PRs, issues, and commits
+  - Configurable banned words list in `.github/banned-words.txt`
+  - Comments on violations to guide contributors
+
+- **License Compliance Workflow**
+  - OSLiLi integration for license scanning on contributed code
+  - Validates against allowed licenses list
+  - Automated PR comments with license report
+
+### Fixed
+- **Test Suite Updates**
+  - Updated unit tests for version 1.6.0 compatibility
+  - Fixed JSON structure assertions (name under 'package' key)
+  - Resolved output formatter test failures
+
+### Removed
+- **Cleanup**
+  - Removed incorrectly committed gin-test extraction output directory
+  - Added gin-test/ to .gitignore to prevent future commits
+
 ## [1.6.0] - 2025-10-16
 
 ### Changed
