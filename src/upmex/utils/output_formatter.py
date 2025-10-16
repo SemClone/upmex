@@ -112,11 +112,24 @@ class OutputFormatter:
         
         if metadata.dependencies:
             lines.append("Dependencies:")
-            for dep_type, deps in metadata.dependencies.items():
-                if deps:
-                    lines.append(f"  {dep_type}:")
-                    for dep in deps:
-                        lines.append(f"    - {dep}")
+            # Handle both dict and list formats
+            if isinstance(metadata.dependencies, dict):
+                for dep_type, deps in metadata.dependencies.items():
+                    if deps:
+                        lines.append(f"  {dep_type}:")
+                        for dep in deps:
+                            lines.append(f"    - {dep}")
+            elif isinstance(metadata.dependencies, list):
+                for dep in metadata.dependencies:
+                    if isinstance(dep, dict):
+                        dep_str = dep.get('name', 'Unknown')
+                        if dep.get('version'):
+                            dep_str += f" {dep['version']}"
+                        if dep.get('phase'):
+                            dep_str += f" ({dep['phase']})"
+                        lines.append(f"  - {dep_str}")
+                    else:
+                        lines.append(f"  - {dep}")
         
         if metadata.keywords:
             lines.append(f"Keywords: {', '.join(metadata.keywords)}")
