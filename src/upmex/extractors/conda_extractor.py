@@ -5,9 +5,15 @@ import tarfile
 import zipfile
 import tempfile
 import os
+import io
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import yaml
+try:
+    import zstandard as zstd
+    HAS_ZSTD = True
+except ImportError:
+    HAS_ZSTD = False
 from .base import BaseExtractor
 from ..core.models import PackageMetadata, PackageType, NO_ASSERTION
 
@@ -94,37 +100,72 @@ class CondaExtractor(BaseExtractor):
     
     def _extract_from_conda_format(self, package_path: str) -> PackageMetadata:
         """Extract metadata from .conda format (zip-based).
-        
+
         Args:
             package_path: Path to .conda package
-            
+
         Returns:
             PackageMetadata object
         """
         metadata_dict = {}
         recipe_dict = {}
-        
+
         try:
             with zipfile.ZipFile(package_path, 'r') as zf:
-                # Extract info/index.json (required)
-                if 'info/index.json' in zf.namelist():
+                # Check for new conda format v2 with .tar.zst files
+                info_files = [f for f in zf.namelist() if f.startswith('info-') and f.endswith('.tar.zst')]
+
+                if info_files and HAS_ZSTD:
+                    # New format with zstandard compression
+                    for info_file in info_files:
+                        with zf.open(info_file) as zst_file:
+                            # Decompress zstd
+                            dctx = zstd.ZstdDecompressor()
+                            decompressed = dctx.decompress(zst_file.read())
+
+                            # Extract tar content
+                            tar_io = io.BytesIO(decompressed)
+                            with tarfile.open(fileobj=tar_io, mode='r') as tar:
+                                # Look for index.json
+                                for member in tar.getmembers():
+                                    if member.name == 'info/index.json':
+                                        f = tar.extractfile(member)
+                                        if f:
+                                            metadata_dict = json.load(f)
+                                            break
+
+                                # Look for recipe files
+                                for member in tar.getmembers():
+                                    if member.name == 'info/recipe/meta.yaml':
+                                        f = tar.extractfile(member)
+                                        if f:
+                                            recipe_dict = yaml.safe_load(f)
+                                            break
+                                    elif member.name == 'info/recipe.json':
+                                        f = tar.extractfile(member)
+                                        if f:
+                                            recipe_dict = json.load(f)
+                                            break
+
+                # Old format: Extract info/index.json (if directly in zip)
+                elif 'info/index.json' in zf.namelist():
                     with zf.open('info/index.json') as f:
                         metadata_dict = json.load(f)
-                
-                # Extract info/recipe/meta.yaml (optional)
-                if 'info/recipe/meta.yaml' in zf.namelist():
-                    with zf.open('info/recipe/meta.yaml') as f:
-                        recipe_dict = yaml.safe_load(f)
-                elif 'info/recipe.json' in zf.namelist():
-                    with zf.open('info/recipe.json') as f:
-                        recipe_dict = json.load(f)
+
+                    # Extract info/recipe/meta.yaml (optional)
+                    if 'info/recipe/meta.yaml' in zf.namelist():
+                        with zf.open('info/recipe/meta.yaml') as f:
+                            recipe_dict = yaml.safe_load(f)
+                    elif 'info/recipe.json' in zf.namelist():
+                        with zf.open('info/recipe.json') as f:
+                            recipe_dict = json.load(f)
         except Exception as e:
             return self._create_minimal_metadata(
                 name=Path(package_path).stem,
                 version=NO_ASSERTION,
                 error=f"Failed to extract .conda package: {e}"
             )
-        
+
         return self._parse_conda_metadata(metadata_dict, recipe_dict)
     
     def _extract_from_tar_bz2(self, package_path: str) -> PackageMetadata:
