@@ -1,0 +1,155 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest ruff
+
+      - name: Lint with ruff
+        run: |
+          ruff check src/ tests/
+
+      - name: Run unit tests
+        run: |
+          pytest tests/unit/ -v
+
+      - name: Run integration tests
+        run: |
+          pytest tests/integration/ -v
+
+      - name: Functional test - Basic extraction
+        run: |
+          echo "Testing basic extraction on all packages..."
+          failed=0
+          for pkg in test-packages/express-4.21.2.tgz test-packages/requests-2.32.3-py3-none-any.whl test-packages/gson-2.10.1.jar test-packages/rails-7.1.5.gem test-packages/serde-1.0.210.crate test-packages/Newtonsoft.Json.13.0.3.nupkg test-packages/hello_2.10-3_amd64.deb test-packages/zsh-5.0.2-34.el7_8.2.x86_64.rpm test-packages/numpy-1.26.4-py312hc5e2394_0.conda test-packages/fmt-10.2.1.tgz test-packages/Capture-Tiny-0.48.tar.gz test-packages/AFNetworking-4.0.1.podspec.json test-packages/build.gradle; do
+            if [ -f "$pkg" ]; then
+              echo "Testing: $(basename $pkg)"
+              if ! upmex extract "$pkg" > /dev/null 2>&1; then
+                echo "  ✗ Failed to extract $(basename $pkg)"
+                failed=1
+              else
+                echo "  ✓ Success"
+              fi
+            fi
+          done
+          if [ $failed -eq 1 ]; then
+            echo "Some extractions failed"
+            exit 1
+          fi
+
+      - name: Functional test - Text format
+        run: |
+          echo "Testing text format output..."
+          upmex extract --format text test-packages/express-4.21.2.tgz > /tmp/npm.txt
+          upmex extract --format text test-packages/requests-2.32.3-py3-none-any.whl > /tmp/python.txt
+          upmex extract --format text test-packages/rails-7.1.5.gem > /tmp/ruby.txt
+          upmex extract --format text test-packages/fmt-10.2.1.tgz > /tmp/conan.txt
+
+          # Verify text output contains expected fields
+          for file in /tmp/npm.txt /tmp/python.txt /tmp/ruby.txt /tmp/conan.txt; do
+            if ! grep -q "Package:" "$file"; then
+              echo "Text output missing Package field in $file"
+              exit 1
+            fi
+            if ! grep -q "Type:" "$file"; then
+              echo "Text output missing Type field in $file"
+              exit 1
+            fi
+          done
+          echo "✓ Text format tests passed"
+
+      - name: Functional test - JSON format
+        run: |
+          echo "Testing JSON format output..."
+          upmex extract test-packages/express-4.21.2.tgz | python -m json.tool > /dev/null
+          upmex extract --pretty test-packages/gson-2.10.1.jar | python -m json.tool > /dev/null
+          echo "✓ JSON format tests passed"
+
+      - name: Functional test - License detection
+        run: |
+          echo "Testing license detection..."
+          license=$(upmex license test-packages/express-4.21.2.tgz 2>/dev/null | head -1)
+          if [[ "$license" != *"MIT"* ]]; then
+            echo "Expected MIT license for express, got: $license"
+            exit 1
+          fi
+
+          license=$(upmex license test-packages/gson-2.10.1.jar 2>/dev/null | head -1)
+          if [[ "$license" != *"Apache-2.0"* ]]; then
+            echo "Expected Apache-2.0 license for gson, got: $license"
+            exit 1
+          fi
+          echo "✓ License detection tests passed"
+
+      - name: Functional test - Package detection
+        run: |
+          echo "Testing package type detection..."
+
+          type=$(upmex detect test-packages/express-4.21.2.tgz 2>/dev/null)
+          if [ "$type" != "npm" ]; then
+            echo "Expected 'npm' for express, got: $type"
+            exit 1
+          fi
+
+          type=$(upmex detect test-packages/rails-7.1.5.gem 2>/dev/null)
+          if [ "$type" != "ruby_gem" ]; then
+            echo "Expected 'ruby_gem' for rails, got: $type"
+            exit 1
+          fi
+
+          type=$(upmex detect test-packages/serde-1.0.210.crate 2>/dev/null)
+          if [ "$type" != "rust_crate" ]; then
+            echo "Expected 'rust_crate' for serde, got: $type"
+            exit 1
+          fi
+          echo "✓ Package detection tests passed"
+
+      - name: Functional test - Output to file
+        run: |
+          echo "Testing output to file..."
+          upmex extract test-packages/gson-2.10.1.jar -o /tmp/output.json
+          if [ ! -f /tmp/output.json ]; then
+            echo "Output file was not created"
+            exit 1
+          fi
+
+          # Verify it's valid JSON
+          python -m json.tool /tmp/output.json > /dev/null
+          echo "✓ Output to file test passed"
+
+      - name: Performance test
+        run: |
+          echo "Testing extraction performance..."
+          start_time=$(date +%s.%N)
+          timeout 5 upmex extract test-packages/guava-33.4.0-jre.jar > /dev/null 2>&1
+          exit_code=$?
+          end_time=$(date +%s.%N)
+
+          if [ $exit_code -eq 124 ]; then
+            echo "✗ Performance test failed: extraction took more than 5 seconds"
+            exit 1
+          fi
+
+          duration=$(echo "$end_time - $start_time" | bc)
+          echo "✓ Performance test passed: extraction took ${duration}s"
