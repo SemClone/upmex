@@ -68,10 +68,9 @@ def cli(ctx, config, verbose, quiet):
 @click.option('--format', '-f', type=click.Choice(['json', 'text']), default='json', help='Output format')
 @click.option('--pretty', '-p', is_flag=True, help='Pretty print output')
 @click.option('--api', type=click.Choice(['clearlydefined', 'ecosystems', 'all', 'none']), default='none', help='API enrichment')
-@click.option('--no-cache', is_flag=True, help='Disable caching')
 @click.option('--online', is_flag=True, help='Enable online mode to fetch missing metadata (e.g., parent POMs)')
 @click.pass_context
-def extract(ctx, package_path, output, format, pretty, api, no_cache, online):
+def extract(ctx, package_path, output, format, pretty, api, online):
     """Extract metadata from a package file.
     
     Examples:
@@ -83,8 +82,6 @@ def extract(ctx, package_path, output, format, pretty, api, no_cache, online):
     verbose = ctx.obj['verbose']
     
     # Update config with CLI options
-    if no_cache:
-        config.set('extraction.cache_enabled', False)
     
     try:
         # Create extractor with online mode

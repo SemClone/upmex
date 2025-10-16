@@ -469,7 +469,7 @@ class ConanExtractor:
         for license_part in license_parts:
             if license_part:
                 license_info = LicenseInfo(
-                    spdx_id=self._normalize_license(license_part),
+                    spdx_id=license_part,  # Pass raw license string - let OSLiLi normalize
                     name=license_part,
                     detection_method='metadata',
                     confidence=1.0
@@ -478,34 +478,6 @@ class ConanExtractor:
         
         return licenses
     
-    def _normalize_license(self, license_str: str) -> str:
-        """Normalize license string to SPDX identifier.
-        
-        Args:
-            license_str: License string
-            
-        Returns:
-            SPDX identifier or original string
-        """
-        # Common mappings
-        mappings = {
-            'mit': 'MIT',
-            'apache-2.0': 'Apache-2.0',
-            'apache 2.0': 'Apache-2.0',
-            'apache2': 'Apache-2.0',
-            'bsd': 'BSD-3-Clause',
-            'bsd-3': 'BSD-3-Clause',
-            'bsd-2': 'BSD-2-Clause',
-            'gpl': 'GPL-3.0',
-            'gpl-2': 'GPL-2.0',
-            'gpl-3': 'GPL-3.0',
-            'lgpl': 'LGPL-3.0',
-            'lgpl-2.1': 'LGPL-2.1',
-            'lgpl-3': 'LGPL-3.0'
-        }
-        
-        lower = license_str.lower()
-        return mappings.get(lower, license_str)
     
     def _extract_dependencies_from_dict(self, metadata_dict: Dict[str, Any]) -> List[Dict[str, str]]:
         """Extract dependencies from metadata dictionary.
