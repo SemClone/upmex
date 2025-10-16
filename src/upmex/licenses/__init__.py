@@ -1,8 +1,7 @@
-"""License detection module with SPDX support."""
+"""License detection module using OSLiLi."""
 
-from .spdx_manager import SPDXLicenseManager, initialize_spdx_data
+from .unified_detector import UnifiedLicenseDetector
 
 __all__ = [
-    'SPDXLicenseManager',
-    'initialize_spdx_data'
+    'UnifiedLicenseDetector'
 ]

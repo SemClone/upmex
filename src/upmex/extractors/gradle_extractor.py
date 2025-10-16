@@ -1,7 +1,6 @@
 """Gradle build file extractor."""
 
 import re
-import json
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from .base import BaseExtractor
