@@ -8,6 +8,9 @@ on:
   pull_request_review_comment:
     types: [created, edited]
 
+permissions:
+  contents: read
+
 jobs:
   check-content:
     runs-on: ubuntu-latest
@@ -28,13 +31,17 @@ jobs:
 
       - name: Check for banned words in PR
         if: github.event_name == 'pull_request' && steps.check-config.outputs.config_exists == 'true'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           echo "Checking PR content for banned words..."
 
           # Create a file with PR content to check
           cat > /tmp/pr_content.txt << 'EOF'
-          ${{ github.event.pull_request.title }}
-          ${{ github.event.pull_request.body }}
+          $PR_TITLE
+          $PR_BODY
           EOF
 
           # Check for banned words
@@ -54,8 +61,8 @@ jobs:
 
           # Check commit messages
           echo "Checking commit messages..."
-          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
-            git log --format=%B ${{ github.event.pull_request.base.sha }}..HEAD > /tmp/commits.txt
+          if [ -n "$BASE_SHA" ]; then
+            git log --format=%B "${BASE_SHA}"..HEAD > /tmp/commits.txt
 
             while IFS= read -r word; do
               if [[ -z "$word" ]] || [[ "$word" =~ ^# ]]; then
@@ -79,13 +86,16 @@ jobs:
 
       - name: Check for banned words in Issue
         if: github.event_name == 'issues' && steps.check-config.outputs.config_exists == 'true'
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
           echo "Checking issue content for banned words..."
 
           # Create a file with issue content
           cat > /tmp/issue_content.txt << 'EOF'
-          ${{ github.event.issue.title }}
-          ${{ github.event.issue.body }}
+          $ISSUE_TITLE
+          $ISSUE_BODY
           EOF
 
           found_banned=0
@@ -109,11 +119,13 @@ jobs:
 
       - name: Check for banned words in Review Comments
         if: github.event_name == 'pull_request_review_comment' && steps.check-config.outputs.config_exists == 'true'
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
           echo "Checking review comment for banned words..."
 
           cat > /tmp/comment_content.txt << 'EOF'
-          ${{ github.event.comment.body }}
+          $COMMENT_BODY
           EOF
 
           found_banned=0

@@ -14,12 +14,13 @@ on:
       - '**.h'
       - '**.sh'
 
+permissions:
+  contents: read
+  pull-requests: write  # For posting comments
+
 jobs:
   scan-licenses:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write  # For posting comments
 
     steps:
       - uses: actions/checkout@v4
