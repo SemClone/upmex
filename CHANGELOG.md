@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2025-10-16
+
+### Changed
+- **Major code cleanup after OSLiLi integration**
+  - Removed 38,000+ lines of obsolete license detection code
+  - Removed entire src/upmex/licenses/data/ directory with 400+ SPDX license files
+  - Removed obsolete oslili_detector.py and spdx_manager.py modules
+  - Cleaned up unused imports across multiple extractors
+  - Removed deprecated CLI flags (--all-methods, --no-cache, --confidence)
+  - Removed obsolete docs folder
+
+### Added
+- **Comprehensive test package coverage**
+  - Added test packages for all 15 supported ecosystems
+  - Achieved 100% test success rate across all package types and CLI functions
+
+- **Enhanced Conda support**
+  - Added support for new Conda format v2 (.conda with zstandard compression)
+  - Improved compatibility with modern conda-forge packages
+
+### Fixed
+- **Output formatter improvements**
+  - Fixed output formatter to handle both dict and list dependency formats
+  - Improved consistency across different package type outputs
+
 ## [1.5.9] - 2025-09-17
 
 ### Fixed
