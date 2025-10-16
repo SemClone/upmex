@@ -1,6 +1,6 @@
 module github.com/gin-gonic/gin
 
-go 1.20
+go 1.23.0
 
 require (
 	github.com/bytedance/sonic v1.11.6
@@ -12,7 +12,7 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.2
 	github.com/stretchr/testify v1.9.0
 	github.com/ugorji/go/codec v1.2.12
-	golang.org/x/net v0.25.0
+	golang.org/x/net v0.38.0
 	google.golang.org/protobuf v1.34.1
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -32,7 +32,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	golang.org/x/arch v0.8.0 // indirect
-	golang.org/x/crypto v0.23.0 // indirect
-	golang.org/x/sys v0.20.0 // indirect
-	golang.org/x/text v0.15.0 // indirect
+	golang.org/x/crypto v0.36.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
 )
