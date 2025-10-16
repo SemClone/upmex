@@ -1,0 +1,29 @@
+# Banned words list for content moderation
+# One word or phrase per line (case-insensitive)
+# Lines starting with # are comments
+
+# AI-related terms to prevent in commits/PRs
+Claude
+Anthropic
+ChatGPT
+OpenAI
+Gemini
+Bard
+Co-Authored-By: AI
+Co-Authored-By: Claude
+Generated with AI
+AI-generated
+AI assistant
+LLM-generated
+
+# Prevent accidental credential exposure
+password123
+secret_key
+api_key_here
+REPLACE_WITH_YOUR
+YOUR_API_KEY_HERE
+dummy_password
+
+# Company/project specific terms (customize as needed)
+# internal_project_name
+# confidential_codename
