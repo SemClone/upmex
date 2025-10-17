@@ -15,12 +15,11 @@ Extract metadata and license information from various package formats with a sin
 - **NO-ASSERTION Handling**: Clear indication for unavailable data
 - **Dependency Mapping**: Full dependency tree with version constraints
 - **Author Parsing**: Intelligent name/email extraction and normalization
-- **Copyright Holder Integration**: Automatically adds copyright holders to authors list
 - **Repository Detection**: Automatic VCS URL extraction
 - **Platform Support**: Architecture and OS requirement detection
 - **Package URL (PURL)**: Generate standard Package URLs for all packages
 - **File Hashing**: SHA-1, MD5, and fuzzy hash (TLSH) for package files
-- **JSON Organization**: Structured output with package, metadata, people, licensing, copyright sections
+- **JSON Organization**: Structured output with package, metadata, people, licensing, dependencies sections
 - **Data Provenance**: Track source of each data field for attestation
 
 #### Supported Ecosystems
@@ -39,14 +38,13 @@ Extract metadata and license information from various package formats with a sin
 - **Debian**: .deb packages
 - **RPM**: .rpm packages
 
-#### Advanced License & Copyright Detection
-- **Powered by OSLiLI**: Integration with [oslili](https://github.com/oscarvalenzuelab/semantic-copycat-oslili) for accurate license and copyright detection
-- **Comprehensive Detection**:
-  - SPDX-License-Identifier exact matching
-  - License tag recognition in metadata files
-  - Full text license detection from LICENSE files
-  - Confidence scoring (0.0-1.0) with detection method tracking
-- **Copyright Extraction**: Automatic extraction of copyright statements from source files
+#### License Detection
+- **Powered by OSLiLi**: Uses the external [semantic-copycat-oslili](https://github.com/oscarvalenzuelab/semantic-copycat-oslili) library (v1.5.0+) for license detection
+- **Simplified Integration**: UPMEX extracts license-related files and delegates detection to OSLiLi
+- **Detection Coverage**:
+  - SPDX identifiers in package metadata
+  - License files (LICENSE, COPYING, etc.)
+  - Package manifest license fields
 
 #### API Integrations
 - **ClearlyDefined**: License and compliance data enrichment
