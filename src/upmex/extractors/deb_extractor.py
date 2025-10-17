@@ -276,7 +276,7 @@ class DebianExtractor(BaseExtractor):
                     capture_output=True,
                     check=False
                 )
-                
+
                 data_tar = Path(temp_dir) / 'data.tar.gz'
                 if not data_tar.exists():
                     # Try data.tar.xz
@@ -287,22 +287,38 @@ class DebianExtractor(BaseExtractor):
                         check=False
                     )
                     data_tar = Path(temp_dir) / 'data.tar.xz'
-                
+
                 if data_tar.exists():
                     # Extract and look for copyright file
+                    extract_dir = Path(temp_dir) / 'extracted'
+                    extract_dir.mkdir(exist_ok=True)
+
                     if str(data_tar).endswith('.gz'):
                         with tarfile.open(data_tar, 'r:gz') as tar:
-                            # Look for usr/share/doc/*/copyright
+                            # Extract copyright files for OSLiLi detection
                             for member in tar.getmembers():
-                                if 'copyright' in member.name.lower():
-                                    file_obj = tar.extractfile(member)
-                                    if file_obj:
-                                        content = file_obj.read().decode('utf-8', errors='ignore')
-                                        license_info = self._parse_copyright_file(content)
-                                        if license_info:
-                                            metadata.licenses = [license_info]
-                                        break
-        
+                                if 'copyright' in member.name.lower() or 'license' in member.name.lower():
+                                    tar.extract(member, extract_dir)
+                    else:
+                        with tarfile.open(data_tar, 'r:xz') as tar:
+                            for member in tar.getmembers():
+                                if 'copyright' in member.name.lower() or 'license' in member.name.lower():
+                                    tar.extract(member, extract_dir)
+
+                    # Use OSLiLi to detect licenses
+                    from ..licenses.unified_detector import detect_licenses_from_directory
+                    detected_licenses = detect_licenses_from_directory(str(extract_dir))
+                    if detected_licenses:
+                        metadata.licenses = [
+                            LicenseInfo(
+                                spdx_id=lic.get('spdx_id', 'Unknown'),
+                                name=lic.get('name', lic.get('spdx_id', 'Unknown')),
+                                confidence=lic.get('confidence', 0.0),
+                                detection_method=lic.get('source', 'debian_copyright')
+                            )
+                            for lic in detected_licenses
+                        ]
+
         except Exception:
             pass
     

@@ -226,8 +226,7 @@ class JavaExtractor(BaseExtractor):
                         metadata.dependencies['dev'] = dev_deps
                     
                     # Set NO-ASSERTION for missing critical fields
-                    if not metadata.authors:
-                        metadata.authors = [{'name': NO_ASSERTION, 'email': NO_ASSERTION}]
+                    # Don't add fake authors - leave empty if not found
                     if not metadata.repository:
                         metadata.repository = NO_ASSERTION
                     

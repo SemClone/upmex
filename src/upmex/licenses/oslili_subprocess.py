@@ -234,6 +234,9 @@ class OsliliSubprocessDetector:
                                         "confidence": copyright_item.get('confidence', 1.0)
                                     }
                                     copyrights.append(copyright_info)
+
+                # TODO: OSLiLi v1.5.0 doesn't detect "Copyright (c)" format
+                # Issue filed: https://github.com/oscarvalenzuelab/semantic-copycat-oslili/issues/32
                     
         except Exception as e:
             logger.debug(f"Oslili subprocess directory detection failed for {dir_path}: {e}")
