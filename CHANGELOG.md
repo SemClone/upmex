@@ -5,29 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.6.1] - 2025-10-16
+## [1.6.2] - 2025-10-16
 
 ### Added
-- **GitHub Actions CI/CD Pipeline**
-  - Automated testing on every PR with Python 3.9, 3.10, 3.11
-  - Functional tests run against all test packages
-  - Unit and integration tests with continue-on-error for non-blocking builds
-  - Linting with ruff for code quality
-
-- **Content Moderation Workflow**
-  - Automated scanning for banned words in PRs, issues, and commits
-  - Configurable banned words list in `.github/banned-words.txt`
-  - Comments on violations to guide contributors
-
-- **License Compliance Workflow**
-  - OSLiLi integration for license scanning on contributed code
-  - Validates against allowed licenses list
-  - Automated PR comments with license report
+- Enhanced online mode with intelligent package-type-specific enrichment strategies
+- Unified `--online` flag that provides appropriate enrichment for each package type
+- Package-type-aware namespace parsing for scoped packages (@scope/name, groupId:artifactId)
+- ClearlyDefined API integration for NPM and Python packages in online mode
+- Enhanced Maven online mode with Parent POM → ClearlyDefined API fallback chain
+- Comprehensive provenance tracking for all enrichment data sources
+- Improved error handling and graceful fallbacks for online enrichment
 
 ### Fixed
-- **Test Suite Updates**
-  - Updated unit tests for version 1.6.0 compatibility
-  - Fixed JSON structure assertions (name under 'package' key)
+- NPM contributor parsing now correctly includes all contributors as authors
+- NuGet copyright field assignment bug that prevented copyright extraction
+- Enhanced copyright detection that prioritizes package metadata over file scanning
+- Function name corrections in OSLiLi subprocess integration
+
+### Changed
+- Maven packages in online mode now use Parent POM fetching with ClearlyDefined fallback
+- NPM and Python packages in online mode now use direct ClearlyDefined enrichment
+- Online mode behavior is now package-type-specific and more intelligent
+- CLI shows compatibility notes when both `--online` and `--api` flags are used together
+
+### Technical
+- Added `enrich_with_clearlydefined()` method to BaseExtractor class
+- Enhanced Java extractor with ClearlyDefined fallback after Parent POM processing
+- Updated CLI integration to unify enrichment under single `--online` flag
+- Improved namespace parsing for Maven (groupId:artifactId) and NPM (@scope/name) formats
+- Maintained backward compatibility with existing `--api` flag
+
+### Testing
+- Comprehensive parity testing shows correct enrichment across all package types
+- NPM Express: 2→3 licenses with ClearlyDefined enrichment
+- Maven GSON: 0→1 authors with Parent POM enrichment
+- Python Requests: 2→3 licenses with ClearlyDefined enrichment
+- Maven Guava: 0→1 authors with Parent POM + ClearlyDefined fallback
+- Output format consistency maintained between offline and online modes
   - Resolved output formatter test failures
 
 ### Removed
