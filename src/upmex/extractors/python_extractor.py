@@ -77,10 +77,13 @@ class PythonExtractor(BaseExtractor):
                         metadata.copyright = copyright_statement
                 except Exception as e:
                     print(f"Error extracting for copyright: {e}")
-                
+
+            # ClearlyDefined enrichment in online mode
+            self.enrich_with_clearlydefined(metadata)
+
         except Exception as e:
             print(f"Error extracting wheel metadata: {e}")
-        
+
         return metadata
     
     def _extract_sdist(self, sdist_path: str) -> PackageMetadata:
@@ -123,10 +126,13 @@ class PythonExtractor(BaseExtractor):
                         metadata.copyright = copyright_statement
                 except Exception as e:
                     print(f"Error extracting for copyright: {e}")
-                
+
+            # ClearlyDefined enrichment in online mode
+            self.enrich_with_clearlydefined(metadata)
+
         except Exception as e:
             print(f"Error extracting sdist metadata: {e}")
-        
+
         return metadata
     
     def _process_metadata_file(self, metadata: PackageMetadata, content: bytes):

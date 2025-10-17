@@ -245,6 +245,7 @@ class NuGetExtractor(BaseExtractor):
                 # Extract copyright
                 copyright_text = self._get_text(metadata_elem, 'copyright', namespaces)
                 if copyright_text:
+                    metadata.copyright = copyright_text
                     metadata.raw_metadata['copyright'] = copyright_text
                 
                 # Require license acceptance

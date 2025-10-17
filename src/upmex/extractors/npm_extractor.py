@@ -71,10 +71,13 @@ class NpmExtractor(BaseExtractor):
                         metadata.copyright = copyright_statement
                 except Exception as e:
                     print(f"Error extracting for copyright: {e}")
-                
+
+            # ClearlyDefined enrichment in online mode
+            self.enrich_with_clearlydefined(metadata)
+
         except Exception as e:
             print(f"Error extracting NPM metadata: {e}")
-        
+
         return metadata
     
     def can_extract(self, package_path: str) -> bool:
@@ -116,7 +119,17 @@ class NpmExtractor(BaseExtractor):
                 parsed = self.parse_author(author)
                 if parsed:
                     metadata.authors.append(parsed)
-            
+
+            # Extract contributors as additional authors
+            contributors = data.get('contributors', [])
+            if isinstance(contributors, list):
+                for contributor in contributors:
+                    parsed = self.parse_author(contributor)
+                    if parsed:
+                        # Add as author with contributor source
+                        parsed['source'] = 'contributor'
+                        metadata.authors.append(parsed)
+
             # Extract maintainers
             maintainers = data.get('maintainers', [])
             if isinstance(maintainers, list):

@@ -157,6 +157,13 @@ class OsliliSubprocessDetector:
                     data = json.loads(json_content)
                 else:
                     data = {}
+
+                # Debug: Check what we got
+                import sys
+                if 'scan_results' in data and data['scan_results']:
+                    for sr in data['scan_results']:
+                        if 'copyright_evidence' in sr and sr['copyright_evidence']:
+                            print(f"DEBUG: Found copyright evidence: {sr['copyright_evidence']}", file=sys.stderr)
                 
                 # Extract licenses from evidence format
                 seen_licenses = set()
@@ -176,7 +183,7 @@ class OsliliSubprocessDetector:
                                     "name": lic.get('name', spdx_id),
                                     "spdx_id": spdx_id,
                                     "confidence": lic.get('confidence', 0.0),
-                                    "confidence_level": get_confidence_level_string(lic.get('confidence', 0.0)),
+                                    "confidence_level": self._get_confidence_level(lic.get('confidence', 0.0)),
                                     "source": f"oslili_{lic.get('detection_method', 'unknown')}",
                                     "file": lic.get('file', 'unknown'),
                                 }
@@ -204,7 +211,7 @@ class OsliliSubprocessDetector:
                                     "name": lic.get('name', lic.get('spdx_id', 'Unknown')),
                                     "spdx_id": lic.get('spdx_id', 'Unknown'),
                                     "confidence": lic.get('confidence', 0.0),
-                                    "confidence_level": get_confidence_level_string(lic.get('confidence', 0.0)),
+                                    "confidence_level": self._get_confidence_level(lic.get('confidence', 0.0)),
                                     "source": f"oslili_{lic.get('detection_method', 'unknown')}",
                                     "file": lic.get('source_file', 'unknown'),
                                 }
@@ -216,14 +223,21 @@ class OsliliSubprocessDetector:
                                     if lic.get('spdx_id') == 'Pixar':
                                         continue
                                     licenses.append(license_info)
-                
+
+                # Extract copyrights from scan_results - moved to correct indentation level
+                # (This was incorrectly nested inside the 'elif results' block)
+
+                # Now at the correct indentation level - outside of the elif block
                 # Extract copyrights from scan_results
                 seen_copyrights = set()
                 if 'scan_results' in data and data['scan_results']:
+                    print(f"DEBUG: Processing {len(data['scan_results'])} scan results for copyrights", file=sys.stderr)
                     for scan_result in data['scan_results']:
                         if 'copyright_evidence' in scan_result:
+                            print(f"DEBUG: Found {len(scan_result['copyright_evidence'])} copyright items", file=sys.stderr)
                             for copyright_item in scan_result['copyright_evidence']:
                                 statement = copyright_item.get('statement', '')
+                                print(f"DEBUG: Processing copyright: statement='{statement}'", file=sys.stderr)
                                 if statement and statement not in seen_copyrights:
                                     seen_copyrights.add(statement)
                                     copyright_info = {
@@ -234,10 +248,10 @@ class OsliliSubprocessDetector:
                                         "confidence": copyright_item.get('confidence', 1.0)
                                     }
                                     copyrights.append(copyright_info)
+                                    print(f"DEBUG: Added copyright: {copyright_info}", file=sys.stderr)
 
-                # TODO: OSLiLi v1.5.0 doesn't detect "Copyright (c)" format
-                # Issue filed: https://github.com/oscarvalenzuelab/semantic-copycat-oslili/issues/32
-                    
+            # TODO: OSLiLi v1.5.0 doesn't detect "Copyright (c)" format - FIXED in v1.5.1
+            # Issue filed: https://github.com/oscarvalenzuelab/semantic-copycat-oslili/issues/32
         except Exception as e:
             logger.debug(f"Oslili subprocess directory detection failed for {dir_path}: {e}")
             

@@ -203,7 +203,20 @@ class JavaExtractor(BaseExtractor):
                                     if not metadata.licenses and parent_metadata.get('licenses'):
                                         metadata.licenses = parent_metadata['licenses']
                                         metadata.provenance['licenses'] = f"parent_pom:{parent_pom_url}"
-                    
+
+                    # ClearlyDefined fallback enrichment in online mode
+                    if self.online_mode:
+                        # Re-check if we still need more data after parent POM
+                        has_real_authors_after_parent = metadata.authors and any(
+                            author.get('name') != NO_ASSERTION or author.get('email') != NO_ASSERTION
+                            for author in metadata.authors
+                        )
+                        has_sufficient_licenses = len(metadata.licenses) >= 1
+                        has_real_repository_after_parent = metadata.repository and metadata.repository != NO_ASSERTION
+
+                        if not has_real_authors_after_parent or not has_sufficient_licenses or not has_real_repository_after_parent:
+                            self._enrich_with_clearlydefined(metadata)
+
                     # Extract dependencies
                     runtime_deps = []
                     dev_deps = []
@@ -462,5 +475,66 @@ class JavaExtractor(BaseExtractor):
             
         except Exception as e:
             print(f"Error parsing POM header: {e}")
-        
+
         return None
+
+    def _enrich_with_clearlydefined(self, metadata: PackageMetadata) -> None:
+        """Enrich metadata using ClearlyDefined API as fallback."""
+        try:
+            from ..api.clearlydefined import ClearlyDefinedAPI
+
+            cd_api = ClearlyDefinedAPI()
+
+            # Parse namespace from name for Maven packages
+            namespace = None
+            name = metadata.name
+            if ':' in metadata.name:
+                # Maven format: groupId:artifactId
+                parts = metadata.name.split(':')
+                if len(parts) >= 2:
+                    namespace = parts[0]
+                    name = parts[1]
+
+            cd_data = cd_api.get_definition(
+                package_type=metadata.package_type,
+                namespace=namespace,
+                name=name,
+                version=metadata.version
+            )
+
+            if cd_data:
+                # Enrich licensing information if insufficient
+                if len(metadata.licenses) < 2:  # Allow additional license sources
+                    cd_license = cd_api.extract_license_info(cd_data)
+                    if cd_license:
+                        from ..core.models import LicenseInfo, LicenseConfidenceLevel
+                        license_obj = LicenseInfo(
+                            spdx_id=cd_license['spdx_id'],
+                            confidence=cd_license['confidence'],
+                            confidence_level=LicenseConfidenceLevel.EXACT if cd_license['confidence'] >= 0.95 else LicenseConfidenceLevel.HIGH,
+                            detection_method='ClearlyDefined API (online)',
+                            file_path='clearlydefined_api'
+                        )
+                        metadata.licenses.append(license_obj)
+                        metadata.provenance['licenses_clearlydefined'] = f"clearlydefined:{cd_api.base_url}"
+
+                # Enrich other metadata if missing
+                if not metadata.homepage or metadata.homepage == NO_ASSERTION:
+                    project_website = cd_data.get('described', {}).get('projectWebsite')
+                    if project_website:
+                        metadata.homepage = project_website
+                        metadata.provenance['homepage'] = f"clearlydefined:{cd_api.base_url}"
+
+                if not metadata.repository or metadata.repository == NO_ASSERTION:
+                    source_location = cd_data.get('described', {}).get('sourceLocation', {})
+                    if source_location and source_location.get('url'):
+                        metadata.repository = source_location['url']
+                        metadata.provenance['repository'] = f"clearlydefined:{cd_api.base_url}"
+
+        except ImportError:
+            # ClearlyDefined API not available
+            pass
+        except Exception as e:
+            # Silently fail - ClearlyDefined enrichment is optional
+            print(f"ClearlyDefined enrichment failed: {e}")
+            pass
