@@ -13,9 +13,9 @@ from ..core.models import PackageMetadata, PackageType, NO_ASSERTION
 class JavaExtractor(BaseExtractor):
     """Extractor for Java JAR and Maven packages."""
     
-    def __init__(self, online_mode: bool = False):
+    def __init__(self, registry_mode: bool = False):
         """Initialize the Java extractor."""
-        super().__init__(online_mode)
+        super().__init__(registry_mode)
         self.maven_central_url = "https://repo1.maven.org/maven2"
     
     def extract(self, package_path: str) -> PackageMetadata:
@@ -171,8 +171,8 @@ class JavaExtractor(BaseExtractor):
                     )
                     has_real_repository = metadata.repository and metadata.repository != NO_ASSERTION
                     
-                    # If missing critical data and online mode is enabled, fetch parent POM
-                    if self.online_mode and (not has_real_authors or not has_real_repository or not metadata.licenses):
+                    # If missing critical data and registry mode is enabled, fetch parent POM
+                    if self.registry_mode and (not has_real_authors or not has_real_repository or not metadata.licenses):
                         parent = root.find('./maven:parent', ns) or root.find('./parent')
                         if parent is not None:
                             parent_group = parent.findtext('maven:groupId', '', ns) or parent.findtext('groupId', '')
@@ -183,29 +183,45 @@ class JavaExtractor(BaseExtractor):
                                 parent_metadata = self._fetch_parent_pom(parent_group, parent_artifact, parent_version)
                                 if parent_metadata:
                                     parent_pom_url = f"https://repo1.maven.org/maven2/{parent_group.replace('.', '/')}/{parent_artifact}/{parent_version}/{parent_artifact}-{parent_version}.pom"
-                                    
+                                    applied_fields = []
+
                                     # Only replace NO-ASSERTION values, don't overwrite real data
                                     if not metadata.description and parent_metadata.get('description'):
                                         metadata.description = parent_metadata['description']
                                         metadata.provenance['description'] = f"parent_pom:{parent_pom_url}"
+                                        applied_fields.append('description')
                                     if not has_real_authors and parent_metadata.get('authors'):
                                         metadata.authors = parent_metadata['authors']
                                         metadata.provenance['authors'] = f"parent_pom:{parent_pom_url}"
+                                        applied_fields.append('authors')
                                     if not metadata.maintainers and parent_metadata.get('maintainers'):
                                         metadata.maintainers = parent_metadata['maintainers']
                                         metadata.provenance['maintainers'] = f"parent_pom:{parent_pom_url}"
+                                        applied_fields.append('maintainers')
                                     if not has_real_repository and parent_metadata.get('repository'):
                                         metadata.repository = parent_metadata['repository']
                                         metadata.provenance['repository'] = f"parent_pom:{parent_pom_url}"
+                                        applied_fields.append('repository')
                                     if not metadata.homepage and parent_metadata.get('homepage'):
                                         metadata.homepage = parent_metadata['homepage']
                                         metadata.provenance['homepage'] = f"parent_pom:{parent_pom_url}"
+                                        applied_fields.append('homepage')
                                     if not metadata.licenses and parent_metadata.get('licenses'):
                                         metadata.licenses = parent_metadata['licenses']
                                         metadata.provenance['licenses'] = f"parent_pom:{parent_pom_url}"
+                                        applied_fields.append('licenses')
 
-                    # ClearlyDefined fallback enrichment in online mode
-                    if self.online_mode:
+                                    # Track registry enrichment
+                                    if applied_fields:
+                                        metadata.add_enrichment(
+                                            source="maven_central",
+                                            source_type="registry",
+                                            data=parent_metadata,
+                                            applied_fields=applied_fields
+                                        )
+
+                    # ClearlyDefined fallback enrichment in registry mode
+                    if self.registry_mode:
                         # Re-check if we still need more data after parent POM
                         has_real_authors_after_parent = metadata.authors and any(
                             author.get('name') != NO_ASSERTION or author.get('email') != NO_ASSERTION

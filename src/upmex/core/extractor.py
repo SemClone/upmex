@@ -34,26 +34,26 @@ class PackageExtractor:
             config: Optional configuration dictionary
         """
         self.config = config or {}
-        self.online_mode = self.config.get('online_mode', False)
+        self.registry_mode = self.config.get('registry_mode', False)
         
-        # Initialize extractors with online mode
+        # Initialize extractors with registry mode
         self.extractors = {
-            PackageType.PYTHON_WHEEL: PythonExtractor(online_mode=self.online_mode),
-            PackageType.PYTHON_SDIST: PythonExtractor(online_mode=self.online_mode),
-            PackageType.NPM: NpmExtractor(online_mode=self.online_mode),
-            PackageType.MAVEN: JavaExtractor(online_mode=self.online_mode),
-            PackageType.JAR: JavaExtractor(online_mode=self.online_mode),
-            PackageType.GRADLE: GradleExtractor(online_mode=self.online_mode),
-            PackageType.COCOAPODS: CocoaPodsExtractor(online_mode=self.online_mode),
-            PackageType.CONDA: CondaExtractor(online_mode=self.online_mode),
+            PackageType.PYTHON_WHEEL: PythonExtractor(registry_mode=self.registry_mode),
+            PackageType.PYTHON_SDIST: PythonExtractor(registry_mode=self.registry_mode),
+            PackageType.NPM: NpmExtractor(registry_mode=self.registry_mode),
+            PackageType.MAVEN: JavaExtractor(registry_mode=self.registry_mode),
+            PackageType.JAR: JavaExtractor(registry_mode=self.registry_mode),
+            PackageType.GRADLE: GradleExtractor(registry_mode=self.registry_mode),
+            PackageType.COCOAPODS: CocoaPodsExtractor(registry_mode=self.registry_mode),
+            PackageType.CONDA: CondaExtractor(registry_mode=self.registry_mode),
             PackageType.CONAN: ConanExtractor(),
             PackageType.PERL: PerlExtractor(),
-            PackageType.RUBY_GEM: RubyExtractor(online_mode=self.online_mode),
-            PackageType.RUST_CRATE: RustExtractor(online_mode=self.online_mode),
-            PackageType.GO_MODULE: GoExtractor(online_mode=self.online_mode),
-            PackageType.NUGET: NuGetExtractor(online_mode=self.online_mode),
-            PackageType.RPM: RpmExtractor(online_mode=self.online_mode),
-            PackageType.DEB: DebianExtractor(online_mode=self.online_mode),
+            PackageType.RUBY_GEM: RubyExtractor(registry_mode=self.registry_mode),
+            PackageType.RUST_CRATE: RustExtractor(registry_mode=self.registry_mode),
+            PackageType.GO_MODULE: GoExtractor(registry_mode=self.registry_mode),
+            PackageType.NUGET: NuGetExtractor(registry_mode=self.registry_mode),
+            PackageType.RPM: RpmExtractor(registry_mode=self.registry_mode),
+            PackageType.DEB: DebianExtractor(registry_mode=self.registry_mode),
         }
     
     def extract(self, package_path: str) -> PackageMetadata:
@@ -103,9 +103,8 @@ class PackageExtractor:
         if metadata.description:
             metadata.description = self._normalize_text(metadata.description)
         
-        # Enrich with APIs if online mode is enabled
-        if self.online_mode:
-            self._enrich_with_apis(metadata)
+        # Registry mode only handles package-specific registry enrichment
+        # Third-party API enrichment (ClearlyDefined, Ecosystems) is handled separately via --api flag
         return metadata
     
     def _enrich_with_apis(self, metadata: PackageMetadata) -> None:

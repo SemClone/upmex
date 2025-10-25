@@ -50,9 +50,13 @@ class EcosystemsAPI:
                     version_response = requests.get(version_url, headers=self.headers, timeout=10)
                     if version_response.status_code == 200:
                         version_data = version_response.json()
-                        # Merge version data into package data, keeping maintainers from package level
-                        version_data['maintainers'] = package_data.get('maintainers', [])
-                        return version_data
+                        # Merge package data into version data, preserving key package-level metadata
+                        merged_data = {**version_data}  # Start with version data
+                        # Add key package-level fields
+                        for field in ['description', 'homepage', 'repository_url', 'keywords_array', 'maintainers', 'licenses', 'normalized_licenses']:
+                            if field in package_data and package_data[field] is not None:
+                                merged_data[field] = package_data[field]
+                        return merged_data
                 
                 return package_data
             
@@ -115,7 +119,9 @@ class EcosystemsAPI:
                 metadata['licenses'] = [package_info['license']]
             
             # Extract keywords
-            if 'keywords' in package_info:
+            if 'keywords_array' in package_info:
+                metadata['keywords'] = package_info['keywords_array']
+            elif 'keywords' in package_info:
                 metadata['keywords'] = package_info['keywords']
             
             # Extract maintainers

@@ -214,8 +214,8 @@ Implementation-Vendor: Test Vendor
         assert metadata.authors[0]["name"] == "Test Vendor"
 
 
-class TestOnlineMode:
-    """Test online mode functionality."""
+class TestRegistryMode:
+    """Test registry mode functionality."""
     
     @patch('requests.get')
     def test_maven_parent_pom_fetch(self, mock_get, tmp_path):
@@ -248,7 +248,7 @@ class TestOnlineMode:
         with zipfile.ZipFile(jar_path, 'w') as zf:
             zf.writestr("META-INF/maven/org.springframework.boot/my-app/pom.xml", child_pom)
         
-        extractor = JavaExtractor(online_mode=True)
+        extractor = JavaExtractor(registry_mode=True)
         metadata = extractor.extract(str(jar_path))
         
         assert metadata.name == "org.springframework.boot:my-app"

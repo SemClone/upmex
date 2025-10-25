@@ -5,6 +5,67 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.5] - 2025-10-25
+
+### Added
+- **PurlDB API Integration**: New enrichment source for comprehensive package metadata
+  - Query packages by PURL (Package URL) for enhanced metadata
+  - Extract detailed licensing, authorship, and dependency information
+  - Support for all package ecosystems with proper namespace handling
+- **VulnerableCode API Integration**: Security vulnerability scanning and assessment
+  - PURL-based vulnerability queries for comprehensive security analysis
+  - CVSS v3.1 severity scoring with automatic categorization (Critical/High/Medium/Low)
+  - Vulnerability aliases (CVE IDs) and fix version recommendations
+  - Summary statistics by severity level for quick assessment
+- **Enhanced CLI Flag Structure**: Improved separation of concerns
+  - Renamed `--online` to `--registry` for clarity (fetches from package registries)
+  - Separate `--api` flag for third-party API integrations (clearlydefined, ecosystems, purldb, vulnerablecode)
+  - Support for combined usage: `--registry --api all` for comprehensive enrichment
+- **Enrichment Tracking System**: Full transparency on data sources
+  - Track all external data sources with timestamps and applied fields
+  - Clear differentiation between package metadata and external API data
+  - Enrichment provenance for compliance and attestation purposes
+- **Vulnerability Information Display**: Comprehensive security reporting
+  - Text format shows vulnerability counts, severity breakdown, and affected packages
+  - JSON format includes detailed vulnerability metadata with CVSS scores
+  - Support for both vulnerable and fixing package information
+
+### Changed
+- **CLI Structure Reorganization**: Improved flag naming and functionality
+  - `--online` flag renamed to `--registry` for clarity
+  - API enrichment separated from registry operations for better control
+  - Updated help text and examples to reflect new flag structure
+- **Info Command Accuracy**: Updated to reflect actual capabilities
+  - Corrected registry support information (only Maven Central currently implemented)
+  - Removed outdated license detection information (now handled by OSLiLi)
+  - Added new API integrations to supported features list
+- **Dependency Updates**: Bumped OSLiLi to v1.5.5 for improved license detection
+
+### Enhanced
+- **API Integration Coverage**: Expanded external data source support
+  - ClearlyDefined: License and compliance data enrichment
+  - Ecosystems: Package registry metadata and dependencies
+  - PurlDB: Comprehensive package metadata from Package URL database
+  - VulnerableCode: Security vulnerability scanning and assessment
+- **Output Format Improvements**: Enhanced text and JSON output
+  - Vulnerability section in text format with severity breakdown
+  - Enrichment data section showing all external data sources
+  - Improved formatting for vulnerability information display
+
+### Technical
+- Added `VulnerableCodeAPI` class for vulnerability scanning integration
+- Added `PurlDBAPI` class for package metadata enrichment
+- Enhanced `PackageMetadata` model with vulnerability tracking field
+- Updated `OutputFormatter` to display vulnerability and enrichment information
+- Improved error handling and API key validation for all integrations
+- Maintained backward compatibility while adding new functionality
+
+### Testing
+- Comprehensive testing across all package types with new API integrations
+- Verified vulnerability scanning functionality (requires API keys for full testing)
+- Validated enrichment tracking and data source transparency
+- Confirmed proper flag separation between registry and API operations
+
 ## [1.6.2] - 2025-10-16
 
 ### Added
