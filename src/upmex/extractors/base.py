@@ -17,13 +17,13 @@ class BaseExtractor(ABC):
     # Common license file patterns (using shared patterns)
     LICENSE_FILE_PATTERNS = LICENSE_FILE_NAMES
     
-    def __init__(self, online_mode: bool = False):
+    def __init__(self, registry_mode: bool = False):
         """Initialize extractor.
 
         Args:
-            online_mode: Whether to fetch additional data from online sources
+            registry_mode: Whether to fetch additional data from package registries
         """
-        self.online_mode = online_mode
+        self.registry_mode = registry_mode
     
     @abstractmethod
     def extract(self, package_path: str) -> PackageMetadata:
@@ -302,8 +302,8 @@ class BaseExtractor(ABC):
                 return extract_from_zip(archive_path, target_patterns)
 
     def enrich_with_clearlydefined(self, metadata: 'PackageMetadata') -> None:
-        """Enrich metadata using ClearlyDefined API for online mode."""
-        if not self.online_mode:
+        """Enrich metadata using ClearlyDefined API for registry mode."""
+        if not self.registry_mode:
             return
 
         try:
@@ -337,6 +337,8 @@ class BaseExtractor(ABC):
             )
 
             if cd_data:
+                applied_fields = []
+
                 # Enrich licensing information
                 cd_license = cd_api.extract_license_info(cd_data)
                 if cd_license:
@@ -345,11 +347,12 @@ class BaseExtractor(ABC):
                         spdx_id=cd_license['spdx_id'],
                         confidence=cd_license['confidence'],
                         confidence_level=LicenseConfidenceLevel.EXACT if cd_license['confidence'] >= 0.95 else LicenseConfidenceLevel.HIGH,
-                        detection_method='ClearlyDefined API (online)',
+                        detection_method='ClearlyDefined API (registry)',
                         file_path='clearlydefined_api'
                     )
                     metadata.licenses.append(license_obj)
                     metadata.provenance['licenses_clearlydefined'] = f"clearlydefined:{cd_api.base_url}"
+                    applied_fields.append('licenses')
 
                 # Enrich other metadata if missing
                 from ..core.models import NO_ASSERTION
@@ -358,12 +361,23 @@ class BaseExtractor(ABC):
                     if project_website:
                         metadata.homepage = project_website
                         metadata.provenance['homepage'] = f"clearlydefined:{cd_api.base_url}"
+                        applied_fields.append('homepage')
 
                 if not metadata.repository or metadata.repository == NO_ASSERTION:
                     source_location = cd_data.get('described', {}).get('sourceLocation', {})
                     if source_location and source_location.get('url'):
                         metadata.repository = source_location['url']
                         metadata.provenance['repository'] = f"clearlydefined:{cd_api.base_url}"
+                        applied_fields.append('repository')
+
+                # Track enrichment data
+                if applied_fields:
+                    metadata.add_enrichment(
+                        source="clearlydefined",
+                        source_type="api",  # ClearlyDefined is a third-party API
+                        data=cd_data,
+                        applied_fields=applied_fields
+                    )
 
         except ImportError:
             # ClearlyDefined API not available

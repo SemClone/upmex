@@ -8,14 +8,16 @@ import ast
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 
+from .base import BaseExtractor
 from ..core.models import PackageMetadata, PackageType, LicenseInfo, NO_ASSERTION
 
 
-class ConanExtractor:
+class ConanExtractor(BaseExtractor):
     """Extractor for Conan C/C++ packages."""
     
-    def __init__(self):
+    def __init__(self, registry_mode: bool = False):
         """Initialize the Conan extractor."""
+        super().__init__(registry_mode)
     
     def extract(self, package_path: str) -> PackageMetadata:
         """Extract metadata from a Conan package.
@@ -569,5 +571,23 @@ class ConanExtractor:
                         'name': dep_name,
                         'version': dep_version
                     })
-        
+
         return dependencies
+
+    def can_extract(self, package_path: str) -> bool:
+        """Check if this extractor can handle the package.
+
+        Args:
+            package_path: Path to the package file
+
+        Returns:
+            True if this extractor can handle the package
+        """
+        path = Path(package_path)
+        # Conan packages can be:
+        # 1. conanfile.py files
+        # 2. conanfile.txt files
+        # 3. .tgz package archives
+        return (path.name == 'conanfile.py' or
+                path.name == 'conanfile.txt' or
+                path.suffix == '.tgz')

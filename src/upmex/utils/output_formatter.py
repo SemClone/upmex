@@ -141,5 +141,30 @@ class OutputFormatter:
             lines.append(f"SHA256: {metadata.file_hash}")
         
         lines.append(f"Schema Version: {metadata.schema_version}")
-        
+
+        # Add enrichment information
+        if metadata.enrichment:
+            lines.append("\nEnrichment Data:")
+            for enrichment in metadata.enrichment:
+                lines.append(f"  Source: {enrichment.source} ({enrichment.source_type})")
+                lines.append(f"    Applied to: {', '.join(enrichment.applied_fields)}")
+                lines.append(f"    Timestamp: {enrichment.timestamp.isoformat()}")
+
+        # Add vulnerability information
+        if metadata.vulnerabilities:
+            lines.append("\nVulnerability Information:")
+            total = metadata.vulnerabilities.get('total_count', 0)
+            lines.append(f"  Total entries: {total}")
+
+            if metadata.vulnerabilities.get('vulnerable_packages'):
+                vulnerable_count = len(metadata.vulnerabilities['vulnerable_packages'])
+                lines.append(f"  Vulnerable packages: {vulnerable_count}")
+
+                summary = metadata.vulnerabilities.get('summary', {})
+                if any(summary.values()):
+                    lines.append("  Severity breakdown:")
+                    for severity, count in summary.items():
+                        if count > 0:
+                            lines.append(f"    {severity.title()}: {count}")
+
         return '\n'.join(lines)

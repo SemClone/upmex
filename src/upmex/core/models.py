@@ -53,6 +53,16 @@ class LicenseInfo:
 
 
 @dataclass
+class EnrichmentData:
+    """Data collected from external sources (registries and APIs)."""
+    source: str  # e.g., "maven_central", "clearlydefined", "ecosystems"
+    source_type: str  # "registry" or "api"
+    timestamp: datetime = field(default_factory=datetime.utcnow)
+    data: Dict[str, Any] = field(default_factory=dict)
+    applied_fields: List[str] = field(default_factory=list)  # Which fields were updated
+
+
+@dataclass
 class PackageMetadata:
     """Core package metadata structure."""
     name: str
@@ -77,6 +87,8 @@ class PackageMetadata:
     schema_version: str = "1.0.0"
     raw_metadata: Dict[str, Any] = field(default_factory=dict)
     provenance: Dict[str, str] = field(default_factory=dict)  # Track data sources
+    enrichment: List[EnrichmentData] = field(default_factory=list)  # External enrichment data
+    vulnerabilities: Dict[str, Any] = field(default_factory=dict)  # Vulnerability information
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert metadata to dictionary format with organized structure."""
@@ -139,5 +151,36 @@ class PackageMetadata:
             },
             
             # Data provenance for attestation
-            "provenance": self.provenance
+            "provenance": self.provenance,
+
+            # External enrichment data
+            "enrichment": [
+                {
+                    "source": enrichment.source,
+                    "source_type": enrichment.source_type,
+                    "timestamp": enrichment.timestamp.isoformat(),
+                    "applied_fields": enrichment.applied_fields,
+                    "data": enrichment.data
+                } for enrichment in self.enrichment
+            ],
+
+            # Vulnerability information
+            "vulnerabilities": self.vulnerabilities
         }
+
+    def add_enrichment(self, source: str, source_type: str, data: Dict[str, Any], applied_fields: List[str] = None) -> None:
+        """Add enrichment data from external sources.
+
+        Args:
+            source: Name of the source (e.g., "maven_central", "clearlydefined")
+            source_type: Type of source ("registry" or "api")
+            data: Raw data received from the source
+            applied_fields: List of metadata fields that were updated with this data
+        """
+        enrichment = EnrichmentData(
+            source=source,
+            source_type=source_type,
+            data=data,
+            applied_fields=applied_fields or []
+        )
+        self.enrichment.append(enrichment)

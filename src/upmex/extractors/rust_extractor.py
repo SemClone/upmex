@@ -237,8 +237,8 @@ class RustExtractor(BaseExtractor):
             except Exception as e:
                 print(f"Error extracting for copyright: {e}")
 
-        # Query online APIs if enabled
-        if self.online_mode and metadata.name != NO_ASSERTION:
+        # Query registry APIs if enabled
+        if self.registry_mode and metadata.name != NO_ASSERTION:
             # This would be handled by the main extractor
             pass
 

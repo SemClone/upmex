@@ -98,8 +98,8 @@ Implementation-Version: 1.0.0
             assert data["package"]["version"] == "2.0.0"
     
     @patch('requests.get')
-    def test_extract_with_online_mode(self, mock_get, tmp_path):
-        """Test extraction with online mode enabled."""
+    def test_extract_with_registry_mode(self, mock_get, tmp_path):
+        """Test extraction with registry mode enabled."""
         # Create Maven package with parent POM
         jar_path = tmp_path / "child.jar"
         
@@ -131,7 +131,7 @@ Implementation-Version: 1.0.0
         runner = CliRunner()
         result = runner.invoke(cli, [
             'extract', str(jar_path),
-            '--online',
+            '--registry',
             '--format', 'json'
         ])
         
@@ -272,8 +272,8 @@ Requires-Dist: pytest>=7.0.0; extra == "dev"
         assert len(metadata.classifiers) == 3
     
     @patch('requests.get')
-    def test_maven_jar_with_online_enrichment(self, mock_get, tmp_path):
-        """Test Maven JAR extraction with online enrichment."""
+    def test_maven_jar_with_registry_enrichment(self, mock_get, tmp_path):
+        """Test Maven JAR extraction with registry enrichment."""
         jar_path = tmp_path / "maven-artifact-1.0.0.jar"
         
         # Create JAR with POM
@@ -327,7 +327,7 @@ Requires-Dist: pytest>=7.0.0; extra == "dev"
             }
         }
         
-        extractor = PackageExtractor({"online_mode": True})
+        extractor = PackageExtractor({"registry_mode": True})
         metadata = extractor.extract(str(jar_path))
         
         assert metadata.name == "com.example:maven-artifact"
@@ -485,7 +485,7 @@ class TestErrorHandling:
         runner = CliRunner()
         result = runner.invoke(cli, [
             'extract', str(package_path),
-            '--online',
+            '--registry',
             '--api', 'clearlydefined'
         ])
         

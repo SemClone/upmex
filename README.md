@@ -46,11 +46,15 @@ Extract metadata and license information from various package formats with a sin
   - License files (LICENSE, COPYING, etc.)
   - Package manifest license fields
 
-#### API Integrations
-- **ClearlyDefined**: License and compliance data enrichment
-- **Ecosyste.ms**: Package registry metadata and dependencies
-- **Maven Central**: Parent POM resolution and inheritance
-- **Offline-First**: All features work without internet connectivity
+#### API Integrations & Enrichment
+- **Registry Mode**: Fetches missing metadata from package registries (Maven Central, etc.)
+- **API Enrichment**: External third-party API integrations for enhanced data
+  - **ClearlyDefined**: License and compliance data enrichment
+  - **Ecosyste.ms**: Package registry metadata and dependencies
+  - **PurlDB**: Comprehensive package metadata from Package URL database
+  - **VulnerableCode**: Security vulnerability scanning and assessment
+- **Enrichment Tracking**: Full transparency on data sources and applied fields
+- **Offline-First**: All core features work without internet connectivity
 
 ## Installation
 
@@ -95,8 +99,18 @@ print(json.dumps(metadata.to_dict(), indent=2))
 # Basic extraction (offline mode - default)
 upmex extract package.whl
 
-# Online mode - fetches parent POMs and queries APIs
-upmex extract --online package.jar
+# Registry mode - fetches missing metadata from package registries
+upmex extract --registry package.jar
+
+# API enrichment - query specific third-party APIs
+upmex extract --api clearlydefined package.whl
+upmex extract --api ecosystems package.jar
+upmex extract --api purldb package.gem
+upmex extract --api vulnerablecode package.jar
+upmex extract --api all package.whl
+
+# Combined registry and API enrichment
+upmex extract --registry --api all package.jar
 
 # With pretty JSON output
 upmex extract --pretty package.whl
@@ -124,6 +138,8 @@ Configuration can be done via JSON files or environment variables:
 # API Keys
 export PME_CLEARLYDEFINED_API_KEY=your-api-key
 export PME_ECOSYSTEMS_API_KEY=your-api-key
+export PME_PURLDB_API_KEY=your-api-key
+export PME_VULNERABLECODE_API_KEY=your-api-key
 
 # Settings
 export PME_LOG_LEVEL=DEBUG
@@ -155,21 +171,21 @@ Create a `config.json`:
 
 | Ecosystem | Formats | Detection | Metadata | Online Mode | Tested |
 |-----------|---------|-----------|----------|-------------|--------|
-| Python | .whl, .tar.gz, .zip | ✓ | ✓ | API enrichment | ✓ |
-| NPM | .tgz, .tar.gz | ✓ | ✓ | API enrichment | ✓ |
-| Java | .jar, .war, .ear | ✓ | ✓ | Parent POM fetch | ✓ |
-| Maven | .jar with POM | ✓ | ✓ | Parent POM fetch | ✓ |
-| Gradle | build.gradle(.kts) | ✓ | ✓ | API enrichment | ✓ |
-| CocoaPods | .podspec(.json) | ✓ | ✓ | API enrichment | ✓ |
-| Conda | .conda, .tar.bz2 | ✓ | ✓ | API enrichment | ✓ |
-| Perl/CPAN | .tar.gz, .zip | ✓ | ✓ | API enrichment | ✓ |
-| Conan | conanfile.py/.txt | ✓ | ✓ | - | ✓ |
-| Ruby | .gem | ✓ | ✓ | API enrichment | ✓ |
-| Rust | .crate | ✓ | ✓ | API enrichment | ✓ |
-| Go | .zip, .mod, go.mod | ✓ | ✓ | API enrichment | ✓ |
-| NuGet | .nupkg | ✓ | ✓ | API enrichment | ✓ |
-| Debian | .deb | ✓ | ✓ | - | ✓ |
-| RPM | .rpm | ✓ | ✓ | - | ✓ |
+| Python | .whl, .tar.gz, .zip | ✓ | ✓ | Registry & API | ✓ |
+| NPM | .tgz, .tar.gz | ✓ | ✓ | Registry & API | ✓ |
+| Java | .jar, .war, .ear | ✓ | ✓ | Registry & API | ✓ |
+| Maven | .jar with POM | ✓ | ✓ | Registry & API | ✓ |
+| Gradle | build.gradle(.kts) | ✓ | ✓ | Registry & API | ✓ |
+| CocoaPods | .podspec(.json) | ✓ | ✓ | Registry & API | ✓ |
+| Conda | .conda, .tar.bz2 | ✓ | ✓ | Registry & API | ✓ |
+| Perl/CPAN | .tar.gz, .zip | ✓ | ✓ | Registry & API | ✓ |
+| Conan | conanfile.py/.txt | ✓ | ✓ | Registry & API | ✓ |
+| Ruby | .gem | ✓ | ✓ | Registry & API | ✓ |
+| Rust | .crate | ✓ | ✓ | Registry & API | ✓ |
+| Go | .zip, .mod, go.mod | ✓ | ✓ | Registry & API | ✓ |
+| NuGet | .nupkg | ✓ | ✓ | Registry & API | ✓ |
+| Debian | .deb | ✓ | ✓ | Registry & API | ✓ |
+| RPM | .rpm | ✓ | ✓ | Registry & API | ✓ |
 
 
 ## Changelog
