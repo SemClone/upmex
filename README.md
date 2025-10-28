@@ -60,8 +60,8 @@ Extract metadata and license information from various package formats with a sin
 
 ```bash
 # Install from source
-git clone https://github.com/oscarvalenzuelab/semantic-copycat-upmex.git
-cd semantic-copycat-upmex
+git clone https://github.com/SemClone/upmex.git
+cd upmex
 pip install -e .
 
 # Install with all dependencies

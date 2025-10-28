@@ -3,8 +3,8 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "semantic-copycat-upmex"
-version = "1.6.5"
+name = "upmex"
+version = "1.6.6"
 description = "Universal Package Metadata Extractor - Extract metadata from various package formats"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -58,18 +58,18 @@ ml = [
     "numpy>=1.21.0",
 ]
 all = [
-    "semantic-copycat-upmex[dev,ml]",
+    "upmex[dev,ml]",
 ]
 
 [project.scripts]
 upmex = "upmex.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/oscarvalenzuelab/semantic-copycat-upmex"
-Repository = "https://github.com/oscarvalenzuelab/semantic-copycat-upmex"
-Issues = "https://github.com/oscarvalenzuelab/semantic-copycat-upmex/issues"
-Documentation = "https://github.com/oscarvalenzuelab/semantic-copycat-upmex#readme"
-Changelog = "https://github.com/oscarvalenzuelab/semantic-copycat-upmex/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/SemClone/upmex"
+Repository = "https://github.com/SemClone/upmex"
+Issues = "https://github.com/SemClone/upmex/issues"
+Documentation = "https://github.com/SemClone/upmex#readme"
+Changelog = "https://github.com/SemClone/upmex/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]
