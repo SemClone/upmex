@@ -1,5 +1,5 @@
 """
-License detection using oslili CLI subprocess.
+License detection using osslili CLI subprocess.
 """
 
 import subprocess
@@ -13,12 +13,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class OsliliSubprocessDetector:
-    """License detector using oslili CLI."""
+class OssliliSubprocessDetector:
+    """License detector using osslili CLI."""
     
     def detect_from_file(self, file_path: str, content: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        Detect licenses from a file using oslili CLI.
+        Detect licenses from a file using osslili CLI.
         
         Args:
             file_path: Path to the file (used for naming)
@@ -33,7 +33,7 @@ class OsliliSubprocessDetector:
             return licenses
             
         try:
-            # Write content to temporary file for oslili to process
+            # Write content to temporary file for osslili to process
             # Use .txt suffix if file has no extension (e.g., LICENSE files)
             suffix = Path(file_path).suffix or '.txt'
             with tempfile.NamedTemporaryFile(mode='w', suffix=suffix, delete=False) as tmp:
@@ -41,9 +41,9 @@ class OsliliSubprocessDetector:
                 tmp_path = tmp.name
             
             try:
-                # Run oslili CLI without similarity threshold for better tag detection
+                # Run osslili CLI without similarity threshold for better tag detection
                 result = subprocess.run(
-                    ['oslili', '-f', 'evidence', tmp_path],
+                    ['osslili', '-f', 'evidence', tmp_path],
                     capture_output=True,
                     text=True,
                     timeout=10
@@ -77,7 +77,7 @@ class OsliliSubprocessDetector:
                                         "spdx_id": spdx_id,
                                         "confidence": lic.get('confidence', 0.0),
                                         "confidence_level": self._get_confidence_level(lic.get('confidence', 0.0)),
-                                        "source": f"oslili_{lic.get('detection_method', 'unknown')}",
+                                        "source": f"osslili_{lic.get('detection_method', 'unknown')}",
                                         "file": file_path,
                                     }
                                     
@@ -99,7 +99,7 @@ class OsliliSubprocessDetector:
                                         "spdx_id": lic.get('spdx_id', 'Unknown'),
                                         "confidence": lic.get('confidence', 0.0),
                                         "confidence_level": self._get_confidence_level(lic.get('confidence', 0.0)),
-                                        "source": f"oslili_{lic.get('detection_method', 'unknown')}",
+                                        "source": f"osslili_{lic.get('detection_method', 'unknown')}",
                                         "file": file_path,
                                     }
                                     
@@ -117,13 +117,13 @@ class OsliliSubprocessDetector:
                 os.unlink(tmp_path)
                 
         except Exception as e:
-            logger.debug(f"Oslili subprocess detection failed for {file_path}: {e}")
+            logger.debug(f"Osslili subprocess detection failed for {file_path}: {e}")
             
         return licenses
     
     def detect_from_directory(self, dir_path: str) -> Dict[str, List[Dict[str, Any]]]:
         """
-        Detect licenses and copyrights from a directory using oslili CLI.
+        Detect licenses and copyrights from a directory using osslili CLI.
         
         Args:
             dir_path: Path to the directory
@@ -135,9 +135,9 @@ class OsliliSubprocessDetector:
         copyrights = []
         
         try:
-            # Run oslili CLI on directory without similarity threshold for better tag detection
+            # Run osslili CLI on directory without similarity threshold for better tag detection
             result = subprocess.run(
-                ['oslili', '-f', 'evidence', '--max-depth', '3', dir_path],
+                ['osslili', '-f', 'evidence', '--max-depth', '3', dir_path],
                 capture_output=True,
                 text=True,
                 timeout=30
@@ -184,7 +184,7 @@ class OsliliSubprocessDetector:
                                     "spdx_id": spdx_id,
                                     "confidence": lic.get('confidence', 0.0),
                                     "confidence_level": self._get_confidence_level(lic.get('confidence', 0.0)),
-                                    "source": f"oslili_{lic.get('detection_method', 'unknown')}",
+                                    "source": f"osslili_{lic.get('detection_method', 'unknown')}",
                                     "file": lic.get('file', 'unknown'),
                                 }
                                 
@@ -212,7 +212,7 @@ class OsliliSubprocessDetector:
                                     "spdx_id": lic.get('spdx_id', 'Unknown'),
                                     "confidence": lic.get('confidence', 0.0),
                                     "confidence_level": self._get_confidence_level(lic.get('confidence', 0.0)),
-                                    "source": f"oslili_{lic.get('detection_method', 'unknown')}",
+                                    "source": f"osslili_{lic.get('detection_method', 'unknown')}",
                                     "file": lic.get('source_file', 'unknown'),
                                 }
                                 
@@ -250,10 +250,10 @@ class OsliliSubprocessDetector:
                                     copyrights.append(copyright_info)
                                     print(f"DEBUG: Added copyright: {copyright_info}", file=sys.stderr)
 
-            # TODO: OSLiLi v1.5.0 doesn't detect "Copyright (c)" format - FIXED in v1.5.1
-            # Issue filed: https://github.com/oscarvalenzuelab/semantic-copycat-oslili/issues/32
+            # TODO: OSSlili v1.5.0 doesn't detect "Copyright (c)" format - FIXED in v1.5.1
+            # Issue filed: https://github.com/oscarvalenzuelab/osslili/issues/32
         except Exception as e:
-            logger.debug(f"Oslili subprocess directory detection failed for {dir_path}: {e}")
+            logger.debug(f"Osslili subprocess directory detection failed for {dir_path}: {e}")
             
         return {"licenses": licenses, "copyrights": copyrights}
 

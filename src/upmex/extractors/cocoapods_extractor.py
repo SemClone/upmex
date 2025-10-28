@@ -309,7 +309,7 @@ class CocoaPodsExtractor(BaseExtractor):
                 license_type = license_data.get('type')
                 license_file = license_data.get('file')
                 if license_type:
-                    # Format license text for better oslili detection
+                    # Format license text for better osslili detection
                     if len(license_type) < 20 and ':' not in license_type:
                         formatted_text = f"License: {license_type}"
                     else:
@@ -330,7 +330,7 @@ class CocoaPodsExtractor(BaseExtractor):
                         except Exception:
                             pass
             elif isinstance(license_data, str):
-                # Format license text for better oslili detection
+                # Format license text for better osslili detection
                 if len(license_data) < 20 and ':' not in license_data:
                     formatted_text = f"License: {license_data}"
                 else:

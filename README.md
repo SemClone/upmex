@@ -39,7 +39,7 @@ Extract metadata and license information from various package formats with a sin
 - **RPM**: .rpm packages
 
 #### License Detection
-- **Powered by OSLiLi**: Uses the external [semantic-copycat-oslili](https://github.com/oscarvalenzuelab/semantic-copycat-oslili) library (v1.5.0+) for license detection
+- **Powered by OSLiLi**: Uses the external [osslili](https://github.com/oscarvalenzuelab/osslili) library (v1.5.0+) for license detection
 - **Simplified Integration**: UPMEX extracts license-related files and delegates detection to OSLiLi
 - **Detection Coverage**:
   - SPDX identifiers in package metadata

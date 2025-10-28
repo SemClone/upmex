@@ -126,7 +126,7 @@ class RustExtractor(BaseExtractor):
                         # Extract license
                         if package.get('license'):
                             license_text = package['license']
-                            # Format license text for better oslili detection
+                            # Format license text for better osslili detection
                             if len(license_text) < 20 and ':' not in license_text:
                                 formatted_text = f"License: {license_text}"
                             else:

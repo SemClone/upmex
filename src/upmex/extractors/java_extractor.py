@@ -152,7 +152,7 @@ class JavaExtractor(BaseExtractor):
                         for license_elem in license_elems:
                             license_name = license_elem.findtext('maven:name', '', ns) or license_elem.findtext('name', '')
                             if license_name:
-                                # Format license text for better oslili detection
+                                # Format license text for better osslili detection
                                 if len(license_name) < 20 and ':' not in license_name:
                                     formatted_text = f"License: {license_name}"
                                 else:
@@ -409,7 +409,7 @@ class JavaExtractor(BaseExtractor):
                         if license_name:
                             # Use the same license detection as in main extraction
                             try:
-                                # Format license text for better oslili detection
+                                # Format license text for better osslili detection
                                 if len(license_name) < 20 and ':' not in license_name:
                                     formatted_text = f"License: {license_name}"
                                 else:
@@ -438,7 +438,7 @@ class JavaExtractor(BaseExtractor):
                     if 'license' in header_data and not parent_data.get('licenses'):
                         # Convert header license text to proper format
                         license_text = header_data['license']
-                        # Format license text for better oslili detection
+                        # Format license text for better osslili detection
                         if len(license_text) < 20 and ':' not in license_text:
                             formatted_text = f"License: {license_text}"
                         else:
