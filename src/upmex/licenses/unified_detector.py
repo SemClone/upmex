@@ -1,5 +1,5 @@
 """
-Unified license detector that uses OSLiLi for all license detection.
+Unified license detector that uses OSSlili for all license detection.
 """
 
 import os
@@ -8,24 +8,24 @@ from typing import List, Dict, Optional, Any
 from pathlib import Path
 import logging
 
-# OSLiLi detection is now handled via subprocess only
+# OSSlili detection is now handled via subprocess only
 
-from .oslili_subprocess import OsliliSubprocessDetector
+from .osslili_subprocess import OssliliSubprocessDetector
 
 logger = logging.getLogger(__name__)
 
 
 class UnifiedLicenseDetector:
-    """Unified license detector using OSLiLi."""
+    """Unified license detector using OSSlili."""
 
     def __init__(self):
         """Initialize the detector."""
         # Use subprocess version for copyright support
-        self.oslili_detector = OsliliSubprocessDetector()
+        self.osslili_detector = OssliliSubprocessDetector()
 
     def detect_licenses(self, file_path: str, content: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        Detect licenses using OSLiLi.
+        Detect licenses using OSSlili.
 
         Args:
             file_path: Path to the file
@@ -37,10 +37,10 @@ class UnifiedLicenseDetector:
         licenses = []
         seen_licenses = set()
 
-        # Use OSLiLi for all detection
+        # Use OSSlili for all detection
         try:
-            oslili_licenses = self.oslili_detector.detect_from_file(file_path, content)
-            for license_info in oslili_licenses:
+            osslili_licenses = self.osslili_detector.detect_from_file(file_path, content)
+            for license_info in osslili_licenses:
                 # Filter known false positives
                 if license_info.get('spdx_id') == 'Pixar':
                     continue
@@ -49,7 +49,7 @@ class UnifiedLicenseDetector:
                     licenses.append(license_info)
                     seen_licenses.add(key)
         except Exception as e:
-            logger.debug(f"OSLiLi detection failed: {e}")
+            logger.debug(f"OSSlili detection failed: {e}")
 
         return licenses
 
@@ -67,15 +67,15 @@ class UnifiedLicenseDetector:
         copyrights = []
         seen_licenses = set()
 
-        # Use OSLiLi for directory scanning
+        # Use OSSlili for directory scanning
         try:
-            oslili_result = self.oslili_detector.detect_from_directory(dir_path)
+            osslili_result = self.osslili_detector.detect_from_directory(dir_path)
 
             # Handle new format with separate licenses and copyrights
-            if isinstance(oslili_result, dict):
+            if isinstance(osslili_result, dict):
                 # Handle licenses
-                if 'licenses' in oslili_result:
-                    for license_info in oslili_result['licenses']:
+                if 'licenses' in osslili_result:
+                    for license_info in osslili_result['licenses']:
                         # Filter known false positives
                         if license_info.get('spdx_id') == 'Pixar':
                             continue
@@ -85,11 +85,11 @@ class UnifiedLicenseDetector:
                             seen_licenses.add(key)
 
                 # Handle copyrights
-                if 'copyrights' in oslili_result:
-                    copyrights = oslili_result['copyrights']
-            elif isinstance(oslili_result, list):
+                if 'copyrights' in osslili_result:
+                    copyrights = osslili_result['copyrights']
+            elif isinstance(osslili_result, list):
                 # Backward compatibility - old format
-                for license_info in oslili_result:
+                for license_info in osslili_result:
                     if license_info.get('spdx_id') == 'Pixar':
                         continue
                     key = (license_info.get('spdx_id'), license_info.get('file'))
@@ -97,14 +97,14 @@ class UnifiedLicenseDetector:
                         licenses.append(license_info)
                         seen_licenses.add(key)
         except Exception as e:
-            logger.debug(f"OSLiLi directory detection failed: {e}")
+            logger.debug(f"OSSlili directory detection failed: {e}")
 
         return {"licenses": licenses, "copyrights": copyrights}
 
     def detect_from_metadata(self, metadata: Dict, file_path: str = "metadata") -> Optional[Dict[str, Any]]:
         """
         Detect license from metadata dictionary.
-        OSLiLi now handles metadata extraction internally.
+        OSSlili now handles metadata extraction internally.
 
         Args:
             metadata: Metadata dictionary
@@ -117,7 +117,7 @@ class UnifiedLicenseDetector:
         if 'license' in metadata:
             license_value = metadata['license']
             if isinstance(license_value, str) and license_value:
-                # Create a simple package.json-like content for OSLiLi to parse
+                # Create a simple package.json-like content for OSSlili to parse
                 content = f'{{"license": "{license_value}"}}'
                 try:
                     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp:
@@ -125,13 +125,13 @@ class UnifiedLicenseDetector:
                         tmp_path = tmp.name
 
                     try:
-                        licenses = self.oslili_detector.detect_from_file(file_path, content)
+                        licenses = self.osslili_detector.detect_from_file(file_path, content)
                         if licenses:
                             return licenses[0]  # Return first detected license
                     finally:
                         os.unlink(tmp_path)
                 except Exception as e:
-                    logger.debug(f"Metadata detection via OSLiLi failed: {e}")
+                    logger.debug(f"Metadata detection via OSSlili failed: {e}")
 
         return None
 

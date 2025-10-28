@@ -272,7 +272,7 @@ class GradleExtractor(BaseExtractor):
             match = re.search(pattern, content, re.MULTILINE | re.DOTALL)
             if match:
                 license_text = match.group(1)
-                # Format license text for better oslili detection
+                # Format license text for better osslili detection
                 if len(license_text) < 20 and ':' not in license_text:
                     formatted_text = f"License: {license_text}"
                 else:

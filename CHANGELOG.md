@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.7] - 2025-10-27
+
+### Changed
+- **License Detection Library Migration**: Migrated from deprecated `semantic-copycat-oslili` to `osslili`
+  - Updated dependency from `semantic-copycat-oslili>=1.5.5` to `osslili>=1.5.5`
+  - Renamed license detection module: `oslili_subprocess.py` → `osslili_subprocess.py`
+  - Renamed detector class: `OsliliSubprocessDetector` → `OssliliSubprocessDetector`
+  - Updated all function names, comments, and references to use "osslili" naming convention
+  - Updated GitHub workflow to install `osslili` instead of deprecated package
+  - Updated documentation references to point to new osslili repository
+
+### Technical
+- Maintained full backward compatibility for license detection functionality
+- CLI commands from `oslili` to `osslili` for consistency with new package naming
+- Updated all variable names and method references throughout codebase
+- All extractors now reference "osslili" for detection method tracking
+
+### Dependencies
+- **Breaking**: Removed deprecated `semantic-copycat-oslili` dependency
+- **Added**: `osslili>=1.5.5` (successor package with improved functionality)
+
 ## [1.6.6] - 2025-10-27
 
 ### Changed

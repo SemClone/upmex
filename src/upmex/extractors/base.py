@@ -100,7 +100,7 @@ class BaseExtractor(ABC):
                 confidence_level=LicenseConfidenceLevel(
                     license_dict.get('confidence_level', 'low')
                 ),
-                detection_method=license_dict.get('source', 'oslili')
+                detection_method=license_dict.get('source', 'osslili')
             )
             licenses.append(license_info)
 

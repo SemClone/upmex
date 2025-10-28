@@ -167,7 +167,7 @@ class NpmExtractor(BaseExtractor):
         
         if isinstance(license_data, str):
             # Simple string license
-            # Format license text for better oslili detection
+            # Format license text for better osslili detection
             if len(license_data) < 20 and ':' not in license_data:
                 formatted_text = f"License: {license_data}"
             else:
@@ -180,7 +180,7 @@ class NpmExtractor(BaseExtractor):
             # Dict with 'type' field
             license_type = license_data.get('type')
             if license_type:
-                # Format license text for better oslili detection
+                # Format license text for better osslili detection
                 if len(license_type) < 20 and ':' not in license_type:
                     formatted_text = f"License: {license_type}"
                 else:
@@ -199,7 +199,7 @@ class NpmExtractor(BaseExtractor):
                     license_text = lic.get('type')
                 
                 if license_text:
-                    # Format license text for better oslili detection
+                    # Format license text for better osslili detection
                     if len(license_text) < 20 and ':' not in license_text:
                         formatted_text = f"License: {license_text}"
                     else:

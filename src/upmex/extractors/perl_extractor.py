@@ -180,7 +180,7 @@ class PerlExtractor(BaseExtractor):
                         confidence_level=LicenseConfidenceLevel(
                             license_dict.get('confidence_level', 'low')
                         ),
-                        detection_method=license_dict.get('source', 'oslili')
+                        detection_method=license_dict.get('source', 'osslili')
                     )
                 for detected in detected_licenses:
                     if not any(l.spdx_id == detected.spdx_id for l in metadata.licenses):

@@ -34,7 +34,7 @@ jobs:
 
       - name: Install OSLiLi
         run: |
-          pip install semantic-copycat-oslili
+          pip install osslili
 
       - name: Get changed files
         id: changed-files
