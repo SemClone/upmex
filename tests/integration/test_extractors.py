@@ -248,13 +248,15 @@ class TestExtractorAutoDetection:
     def test_detect_and_extract_wheel(self, tmp_path):
         """Test detection and extraction of wheel files."""
         wheel_path = tmp_path / "package-1.0.0-py3-none-any.whl"
-        wheel_path.touch()
-        
+
+        # Create a minimal valid wheel file
+        import zipfile
+        with zipfile.ZipFile(wheel_path, 'w') as zf:
+            zf.writestr("package/__init__.py", "")
+            zf.writestr("package-1.0.0.dist-info/METADATA", "Name: package\nVersion: 1.0.0\n")
+
         from upmex.core.extractor import PackageExtractor
-        
+
         extractor = PackageExtractor()
-        # This should auto-detect as wheel and use PythonExtractor
-        with patch.object(PythonExtractor, 'extract') as mock_extract:
-            mock_extract.return_value = Mock(package_type=PackageType.PYTHON_WHEEL)
-            metadata = extractor.extract(str(wheel_path))
-            assert mock_extract.called
+        metadata = extractor.extract(str(wheel_path))
+        assert metadata.package_type == PackageType.PYTHON_WHEEL
