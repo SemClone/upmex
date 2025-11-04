@@ -1,6 +1,7 @@
 """Tests for Perl/CPAN package extractor."""
 
 import os
+import io
 import json
 import tempfile
 import tarfile
@@ -48,17 +49,17 @@ class TestPerlExtractor:
         }
         
         # Create a temporary Perl package
+        import io
         with tempfile.NamedTemporaryFile(suffix='.tar.gz', delete=False) as tmp_file:
             tmp_path = tmp_file.name
-            
+
             # Create tarball with META.json
             with tarfile.open(tmp_path, 'w:gz') as tar:
                 # Create META.json
                 meta_info = tarfile.TarInfo(name='Test-Module-1.23/META.json')
                 meta_data = json.dumps(meta_content).encode('utf-8')
                 meta_info.size = len(meta_data)
-                tar.addfile(meta_info, fileobj=tempfile.SpooledTemporaryFile(max_size=len(meta_data)))
-                tar.fileobj.write(meta_data)
+                tar.addfile(meta_info, fileobj=io.BytesIO(meta_data))
         
         try:
             # Extract metadata
@@ -111,8 +112,7 @@ license: mit
                 yml_info = tarfile.TarInfo(name='YAML-Module-2.34/META.yml')
                 yml_data = yml_content.encode('utf-8')
                 yml_info.size = len(yml_data)
-                tar.addfile(yml_info, fileobj=tempfile.SpooledTemporaryFile(max_size=len(yml_data)))
-                tar.fileobj.write(yml_data)
+                tar.addfile(yml_info, fileobj=io.BytesIO(yml_data))
         
         try:
             # Extract metadata

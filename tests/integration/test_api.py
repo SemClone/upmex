@@ -72,7 +72,8 @@ class TestClearlyDefinedAPI:
         )
         
         assert result is not None
-        assert "npm/@angular/core/12.0.0" in mock_get.call_args[0][0]
+        # ClearlyDefined uses npmjs as provider for scoped packages
+        assert "npm/npmjs/@angular/core/12.0.0" in mock_get.call_args[0][0]
     
     @patch('requests.get')
     def test_get_definition_not_found(self, mock_get):
@@ -109,12 +110,12 @@ class TestClearlyDefinedAPI:
     def test_map_package_type(self):
         """Test package type mapping."""
         api = ClearlyDefinedAPI()
-        
-        assert api._map_package_type(PackageType.PYTHON_WHEEL) == "pypi"
-        assert api._map_package_type(PackageType.PYTHON_SDIST) == "pypi"
-        assert api._map_package_type(PackageType.NPM) == "npm"
-        assert api._map_package_type(PackageType.MAVEN) == "maven"
-        assert api._map_package_type(PackageType.JAR) == "maven"
+
+        assert api._map_package_type(PackageType.PYTHON_WHEEL) == {"type": "pypi", "provider": "pypi"}
+        assert api._map_package_type(PackageType.PYTHON_SDIST) == {"type": "pypi", "provider": "pypi"}
+        assert api._map_package_type(PackageType.NPM) == {"type": "npm", "provider": "npmjs"}
+        assert api._map_package_type(PackageType.MAVEN) == {"type": "maven", "provider": "mavencentral"}
+        assert api._map_package_type(PackageType.JAR) == {"type": "maven", "provider": "mavencentral"}
         assert api._map_package_type(PackageType.UNKNOWN) is None
     
     def test_extract_license_info_declared(self):
@@ -199,8 +200,12 @@ class TestEcosystemsAPI:
         assert result is not None
         assert result["name"] == "requests"
         assert result["repository_url"] == "https://github.com/psf/requests"
-        mock_get.assert_called_once()
-        assert "pypi.org/packages/requests/versions/2.28.0" in mock_get.call_args[0][0]
+        # API makes two calls: one for package info, one for version info
+        assert mock_get.call_count == 2
+        # Check that both package and version endpoints were called
+        call_urls = [call[0][0] for call in mock_get.call_args_list]
+        assert any("pypi.org/packages/requests" in url for url in call_urls)
+        assert any("pypi.org/packages/requests/versions/2.28.0" in url for url in call_urls)
     
     @patch('requests.get')
     def test_get_package_info_without_version(self, mock_get):

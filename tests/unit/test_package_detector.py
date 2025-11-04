@@ -12,9 +12,9 @@ from upmex.core.models import PackageType
 class TestPackageDetection:
     """Test package type detection."""
     
-    def test_detect_python_wheel(self, temp_dir):
+    def test_detect_python_wheel(self, tmp_path):
         """Test detecting Python wheel files."""
-        wheel_file = temp_dir / "test_package-1.0.0-py3-none-any.whl"
+        wheel_file = tmp_path / "test_package-1.0.0-py3-none-any.whl"
         
         # Create a minimal wheel file
         with zipfile.ZipFile(wheel_file, 'w') as zf:
@@ -24,9 +24,9 @@ class TestPackageDetection:
         detected_type = detect_package_type(str(wheel_file))
         assert detected_type == PackageType.PYTHON_WHEEL
     
-    def test_detect_python_sdist_tar_gz(self, temp_dir):
+    def test_detect_python_sdist_tar_gz(self, tmp_path):
         """Test detecting Python source distribution tar.gz."""
-        sdist_file = temp_dir / "test_package-1.0.0.tar.gz"
+        sdist_file = tmp_path / "test_package-1.0.0.tar.gz"
         
         # Create a minimal sdist
         with tarfile.open(sdist_file, 'w:gz') as tf:
@@ -42,9 +42,9 @@ class TestPackageDetection:
         detected_type = detect_package_type(str(sdist_file))
         assert detected_type == PackageType.PYTHON_SDIST
     
-    def test_detect_npm_package(self, temp_dir):
+    def test_detect_npm_package(self, tmp_path):
         """Test detecting NPM package."""
-        npm_file = temp_dir / "test-package-1.0.0.tgz"
+        npm_file = tmp_path / "test-package-1.0.0.tgz"
         
         # Create a minimal NPM package
         with tarfile.open(npm_file, 'w:gz') as tf:
@@ -61,9 +61,9 @@ class TestPackageDetection:
         detected_type = detect_package_type(str(npm_file))
         assert detected_type == PackageType.NPM
     
-    def test_detect_jar_file(self, temp_dir):
+    def test_detect_jar_file(self, tmp_path):
         """Test detecting JAR file."""
-        jar_file = temp_dir / "test.jar"
+        jar_file = tmp_path / "test.jar"
         
         # Create a minimal JAR file
         with zipfile.ZipFile(jar_file, 'w') as zf:
@@ -73,9 +73,9 @@ class TestPackageDetection:
         detected_type = detect_package_type(str(jar_file))
         assert detected_type == PackageType.JAR
     
-    def test_detect_maven_jar(self, temp_dir):
+    def test_detect_maven_jar(self, tmp_path):
         """Test detecting Maven JAR with POM."""
-        jar_file = temp_dir / "maven-artifact.jar"
+        jar_file = tmp_path / "maven-artifact.jar"
         
         # Create a Maven JAR with pom.xml
         with zipfile.ZipFile(jar_file, 'w') as zf:
@@ -93,18 +93,18 @@ class TestPackageDetection:
         detected_type = detect_package_type(str(jar_file))
         assert detected_type == PackageType.MAVEN
     
-    def test_detect_unknown_file(self, temp_dir):
+    def test_detect_unknown_file(self, tmp_path):
         """Test detecting unknown file type."""
-        unknown_file = temp_dir / "unknown.xyz"
+        unknown_file = tmp_path / "unknown.xyz"
         unknown_file.write_text("Some random content")
         
         detected_type = detect_package_type(str(unknown_file))
         assert detected_type == PackageType.UNKNOWN
     
-    def test_detect_by_extension_priority(self, temp_dir):
+    def test_detect_by_extension_priority(self, tmp_path):
         """Test that extension detection has priority."""
         # Create a file with .whl extension but NPM content
-        weird_file = temp_dir / "weird.whl"
+        weird_file = tmp_path / "weird.whl"
         
         with zipfile.ZipFile(weird_file, 'w') as zf:
             # Add NPM-like content to a .whl file

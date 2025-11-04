@@ -49,14 +49,14 @@ class TestConfig:
         assert config.get("extraction.cache_enabled") is False
         assert config.get("license_detection.methods") == ["regex", "dice_sorensen"]
     
-    def test_load_from_json_file(self, temp_dir, monkeypatch):
+    def test_load_from_json_file(self, tmp_path, monkeypatch):
         """Test loading configuration from JSON file."""
         # Clear all PME environment variables to avoid interference
         for key in list(os.environ.keys()):
             if key.startswith('PME_'):
                 monkeypatch.delenv(key, raising=False)
         
-        config_file = temp_dir / "config.json"
+        config_file = tmp_path / "config.json"
         config_data = {
             "api": {
                 "clearlydefined": {
@@ -78,12 +78,12 @@ class TestConfig:
         # Check that other defaults are preserved
         assert config.get("logging.level") in ["INFO", "DEBUG"]  # Allow both since env might affect it
     
-    def test_save_config(self, temp_dir):
+    def test_save_config(self, tmp_path):
         """Test saving configuration to file."""
         config = Config()
         config.set("test.value", "saved")
         
-        config_file = temp_dir / "saved_config.json"
+        config_file = tmp_path / "saved_config.json"
         config.save(str(config_file))
         
         assert config_file.exists()

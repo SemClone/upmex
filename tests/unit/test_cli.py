@@ -17,12 +17,12 @@ class TestCLI:
         return CliRunner()
     
     @pytest.fixture
-    def sample_package(self, temp_dir):
+    def sample_package(self, tmp_path):
         """Create a sample package file."""
         import zipfile
         
         # Create a minimal wheel file
-        wheel_path = temp_dir / "test_package-1.0.0-py3-none-any.whl"
+        wheel_path = tmp_path / "test_package-1.0.0-py3-none-any.whl"
         with zipfile.ZipFile(wheel_path, 'w') as zf:
             # Add minimal metadata
             metadata = """Name: test-package
@@ -41,7 +41,7 @@ License: MIT
         """Test version option."""
         result = runner.invoke(cli, ['--version'])
         assert result.exit_code == 0
-        assert '1.6.0' in result.output
+        assert '1.6.6' in result.output
     
     def test_info_command(self, runner):
         """Test info command."""
@@ -56,7 +56,7 @@ License: MIT
         result = runner.invoke(cli, ['info', '--json'])
         assert result.exit_code == 0
         data = json.loads(result.output)
-        assert data['version'] == '1.6.0'
+        assert data['version'] == '1.6.6'
         assert 'supported_packages' in data
     
     def test_detect_command(self, runner, sample_package):
@@ -105,9 +105,9 @@ License: MIT
         assert 'Version: 1.0.0' in result.output
         assert 'Type: python_wheel' in result.output
     
-    def test_extract_with_output_file(self, runner, sample_package, temp_dir):
+    def test_extract_with_output_file(self, runner, sample_package, tmp_path):
         """Test extract command with output file."""
-        output_file = temp_dir / 'output.json'
+        output_file = tmp_path / 'output.json'
         result = runner.invoke(cli, ['extract', sample_package, '-o', str(output_file)])
         assert result.exit_code == 0
         assert output_file.exists()
@@ -116,9 +116,9 @@ License: MIT
         data = json.loads(output_file.read_text())
         assert data['package']['name'] == 'test-package'
     
-    def test_extract_quiet_mode(self, runner, sample_package, temp_dir):
+    def test_extract_quiet_mode(self, runner, sample_package, tmp_path):
         """Test extract command in quiet mode."""
-        output_file = temp_dir / 'output.json'
+        output_file = tmp_path / 'output.json'
         result = runner.invoke(cli, ['--quiet', 'extract', sample_package, '-o', str(output_file)])
         assert result.exit_code == 0
         assert 'Output written to' not in result.output
@@ -130,9 +130,9 @@ License: MIT
         # Note: Our sample doesn't have license detection yet
         # This will show "No license information found" for now
     
-    def test_cli_with_config_file(self, runner, sample_package, temp_dir):
+    def test_cli_with_config_file(self, runner, sample_package, tmp_path):
         """Test CLI with custom config file."""
-        config_file = temp_dir / 'config.json'
+        config_file = tmp_path / 'config.json'
         config_file.write_text(json.dumps({
             "output": {"format": "json", "pretty_print": True}
         }))

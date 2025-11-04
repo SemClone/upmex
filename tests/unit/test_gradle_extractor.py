@@ -15,9 +15,9 @@ class TestGradleExtractor:
         return GradleExtractor()
     
     @pytest.fixture
-    def sample_gradle_groovy(self, temp_dir):
+    def sample_gradle_groovy(self, tmp_path):
         """Create a sample build.gradle file (Groovy DSL)."""
-        gradle_file = temp_dir / "build.gradle"
+        gradle_file = tmp_path / "build.gradle"
         gradle_file.write_text("""
 plugins {
     id 'java'
@@ -71,9 +71,9 @@ publishing {
         return str(gradle_file)
     
     @pytest.fixture
-    def sample_gradle_kotlin(self, temp_dir):
+    def sample_gradle_kotlin(self, tmp_path):
         """Create a sample build.gradle.kts file (Kotlin DSL)."""
-        gradle_file = temp_dir / "build.gradle.kts"
+        gradle_file = tmp_path / "build.gradle.kts"
         gradle_file.write_text("""
 plugins {
     kotlin("jvm") version "1.9.0"
@@ -187,9 +187,9 @@ publishing {
         assert len(metadata.licenses) > 0
         assert metadata.licenses[0].spdx_id == 'MIT'
     
-    def test_extract_minimal_gradle(self, extractor, temp_dir):
+    def test_extract_minimal_gradle(self, extractor, tmp_path):
         """Test extraction from minimal build.gradle."""
-        gradle_file = temp_dir / "build.gradle"
+        gradle_file = tmp_path / "build.gradle"
         gradle_file.write_text("""
 group = 'minimal.example'
 version = '0.1.0'
@@ -207,9 +207,9 @@ dependencies {
         assert 'implementation' in metadata.dependencies
         assert 'com.example:lib:1.0' in metadata.dependencies['implementation']
     
-    def test_extract_settings_gradle(self, extractor, temp_dir):
+    def test_extract_settings_gradle(self, extractor, tmp_path):
         """Test extraction from settings.gradle."""
-        settings_file = temp_dir / "settings.gradle"
+        settings_file = tmp_path / "settings.gradle"
         settings_file.write_text("""
 rootProject.name = 'my-project'
 """)
