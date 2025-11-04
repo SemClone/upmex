@@ -1,6 +1,7 @@
 """Tests for Perl/CPAN package extractor."""
 
 import os
+import io
 import json
 import tempfile
 import tarfile
