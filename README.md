@@ -1,78 +1,75 @@
 # UPMEX - Universal Package Metadata Extractor
 
-Extract metadata and license information from various package formats with a single tool.
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![PyPI version](https://img.shields.io/pypi/v/upmex.svg)](https://pypi.org/project/upmex/)
+
+Extract metadata and license information from packages across 15+ ecosystems with a single tool. Native extraction without external package managers, providing standardized JSON output with dependency mapping, license detection, and API enrichment capabilities.
 
 ## Features
 
-### Core Capabilities
-- **Universal Package Support**: Extract metadata from 15 package ecosystems
-- **Multi-Format Detection**: Automatic package type identification
+- **Universal Package Support**: Extract metadata from 15+ package ecosystems
 - **Standardized Output**: Consistent JSON structure across all formats
 - **Native Extraction**: No dependency on external package managers
-- **High Performance**: Process packages up to 500MB in under 10 seconds
-
-#### Advanced Features
-- **NO-ASSERTION Handling**: Clear indication for unavailable data
-- **Dependency Mapping**: Full dependency tree with version constraints
-- **Author Parsing**: Intelligent name/email extraction and normalization
-- **Repository Detection**: Automatic VCS URL extraction
-- **Platform Support**: Architecture and OS requirement detection
-- **Package URL (PURL)**: Generate standard Package URLs for all packages
-- **File Hashing**: SHA-1, MD5, and fuzzy hash (TLSH) for package files
-- **JSON Organization**: Structured output with package, metadata, people, licensing, dependencies sections
-- **Data Provenance**: Track source of each data field for attestation
-
-#### Supported Ecosystems
-- **Python**: wheel (.whl), sdist (.tar.gz, .zip)
-- **NPM/Node.js**: .tgz, .tar.gz packages
-- **Java/Maven**: .jar, .war, .ear with POM support
-- **Gradle**: build.gradle, build.gradle.kts files
-- **CocoaPods**: .podspec, .podspec.json files
-- **Conda**: .conda (zip), .tar.bz2 packages
-- **Perl/CPAN**: .tar.gz, .zip with META.json/yml
-- **Conan C/C++**: conanfile.py, conanfile.txt, .tgz packages
-- **Ruby Gems**: .gem packages
-- **Rust Crates**: .crate packages
-- **Go Modules**: .zip archives, go.mod files
-- **NuGet/.NET**: .nupkg packages
-- **Debian**: .deb packages
-- **RPM**: .rpm packages
-
-#### License Detection
-- **Powered by OSLiLi**: Uses the external [osslili](https://github.com/oscarvalenzuelab/osslili) library (v1.5.0+) for license detection
-- **Simplified Integration**: UPMEX extracts license-related files and delegates detection to OSLiLi
-- **Detection Coverage**:
-  - SPDX identifiers in package metadata
-  - License files (LICENSE, COPYING, etc.)
-  - Package manifest license fields
-
-#### API Integrations & Enrichment
-- **Registry Mode**: Fetches missing metadata from package registries (Maven Central, etc.)
-- **API Enrichment**: External third-party API integrations for enhanced data
-  - **ClearlyDefined**: License and compliance data enrichment
-  - **Ecosyste.ms**: Package registry metadata and dependencies
-  - **PurlDB**: Comprehensive package metadata from Package URL database
-  - **VulnerableCode**: Security vulnerability scanning and assessment
-- **Enrichment Tracking**: Full transparency on data sources and applied fields
-- **Offline-First**: All core features work without internet connectivity
+- **SEMCL.ONE Integration**: Works seamlessly with osslili, purl2notices, and ecosystem tools
 
 ## Installation
 
 ```bash
-# Install from source
+pip install upmex
+```
+
+For development:
+```bash
 git clone https://github.com/SemClone/upmex.git
 cd upmex
 pip install -e .
-
-# Install with all dependencies
-pip install -e .
-
-# Install for development
-pip install -e ".[dev]"
-
 ```
 
 ## Quick Start
+
+```bash
+# Extract metadata from any package
+upmex extract package.whl
+
+# With API enrichment
+upmex extract --api all package.jar
+
+# Output to file with pretty formatting
+upmex extract --pretty package.gem -o metadata.json
+```
+
+## Usage
+
+### CLI Usage
+
+```bash
+# Basic extraction (offline mode)
+upmex extract package.whl
+
+# Registry mode - fetch missing metadata
+upmex extract --registry package.jar
+
+# API enrichment modes
+upmex extract --api clearlydefined package.whl
+upmex extract --api ecosystems package.tgz
+upmex extract --api purldb package.gem
+upmex extract --api vulnerablecode package.jar
+
+# Combined enrichment
+upmex extract --registry --api all package.jar
+
+# Detect package type
+upmex detect package.jar
+
+# Extract license information
+upmex license package.tgz
+
+# Text format output
+upmex extract --format text package.tar.gz
+```
+
+### Python API
 
 ```python
 from upmex import PackageExtractor
@@ -80,7 +77,7 @@ from upmex import PackageExtractor
 # Create extractor
 extractor = PackageExtractor()
 
-# Extract metadata from a package
+# Extract metadata
 metadata = extractor.extract("path/to/package.whl")
 
 # Access metadata
@@ -93,44 +90,90 @@ import json
 print(json.dumps(metadata.to_dict(), indent=2))
 ```
 
-## CLI Usage
+## Supported Package Types
 
+| Ecosystem | Formats | Registry | API Support |
+|-----------|---------|----------|-------------|
+| Python | .whl, .tar.gz, .zip | PyPI | ClearlyDefined, Ecosyste.ms |
+| NPM/Node.js | .tgz, .tar.gz | NPM | ClearlyDefined, Ecosyste.ms |
+| Java/Maven | .jar, .war, .ear | Maven Central | ClearlyDefined, PurlDB |
+| Ruby | .gem | RubyGems | ClearlyDefined, Ecosyste.ms |
+| Rust | .crate | crates.io | ClearlyDefined, Ecosyste.ms |
+| Go | .zip, go.mod | Go Modules | ClearlyDefined, PurlDB |
+| NuGet/.NET | .nupkg | NuGet | ClearlyDefined, Ecosyste.ms |
+| Conda | .conda, .tar.bz2 | Anaconda | Ecosyste.ms |
+| Perl/CPAN | .tar.gz, .zip | CPAN | Ecosyste.ms |
+| CocoaPods | .podspec, .podspec.json | CocoaPods | Ecosyste.ms |
+| Conan C/C++ | conanfile.py/.txt, .tgz | Conan Center | Limited |
+| Gradle | build.gradle(.kts) | Maven/Gradle | Limited |
+| Debian | .deb | Debian | Limited |
+| RPM | .rpm | RPM repos | Limited |
+
+## Advanced Features
+
+### Metadata Extraction
+
+- **Package Information**: Name, version, description, homepage
+- **Author Parsing**: Intelligent name/email extraction and normalization
+- **Repository Detection**: Automatic VCS URL extraction
+- **Platform Support**: Architecture and OS requirement detection
+- **Package URL (PURL)**: Generate standard Package URLs
+- **File Hashing**: SHA-1, MD5, and fuzzy hash (TLSH)
+- **Data Provenance**: Track source of each data field
+
+### License Detection
+
+Powered by [osslili](https://github.com/SemClone/osslili) v1.5.0+:
+
+- SPDX identifier detection in metadata
+- License file extraction (LICENSE, COPYING, etc.)
+- Package manifest license field parsing
+- Three-tier detection system with high accuracy
+
+### Dependency Mapping
+
+- Full dependency tree with version constraints
+- Development vs. runtime dependency classification
+- Optional dependency tracking
+- Version range resolution
+
+### API Enrichment
+
+Enhance metadata with third-party APIs:
+
+#### ClearlyDefined
 ```bash
-# Basic extraction (offline mode - default)
-upmex extract package.whl
-
-# Registry mode - fetches missing metadata from package registries
-upmex extract --registry package.jar
-
-# API enrichment - query specific third-party APIs
 upmex extract --api clearlydefined package.whl
-upmex extract --api ecosystems package.jar
-upmex extract --api purldb package.gem
-upmex extract --api vulnerablecode package.jar
-upmex extract --api all package.whl
-
-# Combined registry and API enrichment
-upmex extract --registry --api all package.jar
-
-# With pretty JSON output
-upmex extract --pretty package.whl
-
-# Output to file
-upmex extract package.whl -o metadata.json
-
-# Text format output
-upmex extract --format text package.tar.gz
-
-# Detect package type
-upmex detect package.jar
-
-# Extract license information
-upmex license package.tgz
 ```
+- License and compliance data
+- Attribution information
+- Security assessments
+
+#### Ecosyste.ms
+```bash
+upmex extract --api ecosystems package.jar
+```
+- Package registry metadata
+- Dependency information
+- Version history
+
+#### PurlDB
+```bash
+upmex extract --api purldb package.gem
+```
+- Comprehensive package metadata
+- Cross-ecosystem information
+- Historical data
+
+#### VulnerableCode
+```bash
+upmex extract --api vulnerablecode package.jar
+```
+- Security vulnerability scanning
+- CVE mapping
+- Risk assessment
 
 ## Configuration
-
-Configuration can be done via JSON files or environment variables:
 
 ### Environment Variables
 
@@ -145,12 +188,11 @@ export PME_VULNERABLECODE_API_KEY=your-api-key
 export PME_LOG_LEVEL=DEBUG
 export PME_CACHE_DIR=/path/to/cache
 export PME_OUTPUT_FORMAT=json
-
 ```
 
 ### Configuration File
 
-Create a `config.json`:
+Create `config.json`:
 
 ```json
 {
@@ -158,40 +200,135 @@ Create a `config.json`:
     "clearlydefined": {
       "enabled": true,
       "api_key": null
+    },
+    "ecosystems": {
+      "enabled": true,
+      "api_key": null
     }
   },
   "output": {
     "format": "json",
     "pretty_print": true
+  },
+  "cache": {
+    "enabled": true,
+    "directory": "~/.cache/upmex"
   }
 }
 ```
 
-## Supported Package Types
+## Output Format
 
-| Ecosystem | Formats | Detection | Metadata | Online Mode | Tested |
-|-----------|---------|-----------|----------|-------------|--------|
-| Python | .whl, .tar.gz, .zip | ✓ | ✓ | Registry & API | ✓ |
-| NPM | .tgz, .tar.gz | ✓ | ✓ | Registry & API | ✓ |
-| Java | .jar, .war, .ear | ✓ | ✓ | Registry & API | ✓ |
-| Maven | .jar with POM | ✓ | ✓ | Registry & API | ✓ |
-| Gradle | build.gradle(.kts) | ✓ | ✓ | Registry & API | ✓ |
-| CocoaPods | .podspec(.json) | ✓ | ✓ | Registry & API | ✓ |
-| Conda | .conda, .tar.bz2 | ✓ | ✓ | Registry & API | ✓ |
-| Perl/CPAN | .tar.gz, .zip | ✓ | ✓ | Registry & API | ✓ |
-| Conan | conanfile.py/.txt | ✓ | ✓ | Registry & API | ✓ |
-| Ruby | .gem | ✓ | ✓ | Registry & API | ✓ |
-| Rust | .crate | ✓ | ✓ | Registry & API | ✓ |
-| Go | .zip, .mod, go.mod | ✓ | ✓ | Registry & API | ✓ |
-| NuGet | .nupkg | ✓ | ✓ | Registry & API | ✓ |
-| Debian | .deb | ✓ | ✓ | Registry & API | ✓ |
-| RPM | .rpm | ✓ | ✓ | Registry & API | ✓ |
+### Standard JSON Structure
 
+```json
+{
+  "package": {
+    "name": "example-package",
+    "version": "1.2.3",
+    "type": "pypi",
+    "purl": "pkg:pypi/example-package@1.2.3",
+    "description": "Package description"
+  },
+  "metadata": {
+    "homepage": "https://example.com",
+    "repository": "https://github.com/example/package",
+    "documentation": "https://docs.example.com"
+  },
+  "people": {
+    "authors": [
+      {
+        "name": "John Doe",
+        "email": "john@example.com"
+      }
+    ],
+    "maintainers": []
+  },
+  "licensing": {
+    "licenses": [
+      {
+        "spdx_id": "MIT",
+        "name": "MIT License",
+        "text": "..."
+      }
+    ]
+  },
+  "dependencies": {
+    "runtime": [
+      {
+        "name": "requests",
+        "version_constraint": ">=2.0.0"
+      }
+    ],
+    "development": []
+  },
+  "provenance": {
+    "source": "package_metadata",
+    "enrichment": ["clearlydefined", "ecosystems"]
+  }
+}
+```
 
-## Changelog
+## Integration with SEMCL.ONE
 
-See [CHANGELOG.md](CHANGELOG.md) for a detailed history of changes.
+UPMEX is a core component of the SEMCL.ONE ecosystem:
+
+- Powers **purl2notices** for legal notice generation
+- Uses **osslili** for enhanced license detection
+- Supports **src2purl** for package identification
+- Integrates with **ospac** for policy evaluation
+- Works with **purl2src** for source retrieval
+
+### Workflow Example
+
+```bash
+# 1. Extract metadata from package
+upmex extract library.jar -o metadata.json
+
+# 2. Generate legal notices
+purl2notices -i metadata.json -o NOTICE.txt
+
+# 3. Validate compliance
+ospac evaluate NOTICE.txt --policy compliance.yaml
+```
+
+## Performance
+
+- Process packages up to 500MB in under 10 seconds
+- Efficient caching for API responses
+- Parallel processing for batch operations
+- Memory-efficient streaming for large files
+
+## Documentation
+
+- [User Guide](docs/user-guide.md) - Comprehensive usage documentation
+- [API Reference](docs/api.md) - Python API documentation
+- [Configuration Guide](docs/configuration.md) - Detailed configuration options
+- [Examples](docs/examples.md) - Common use cases and workflows
+
+## Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details on:
+- Code of conduct
+- Development setup
+- Submitting pull requests
+- Reporting issues
+
+## Support
+
+For support and questions:
+- [GitHub Issues](https://github.com/SemClone/upmex/issues) - Bug reports and feature requests
+- [Documentation](https://github.com/SemClone/upmex) - Complete project documentation
+- [SEMCL.ONE Community](https://semcl.one) - Ecosystem support and discussions
 
 ## License
 
-Apache License 2.0 - see LICENSE file for details.
+Apache License 2.0 - see [LICENSE](LICENSE) file for details.
+
+## Authors
+
+See [AUTHORS.md](AUTHORS.md) for a list of contributors.
+
+---
+
+*Part of the [SEMCL.ONE](https://semcl.one) ecosystem for comprehensive OSS compliance and code analysis.*
