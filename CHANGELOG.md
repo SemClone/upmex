@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.8] - 2026-07-24
+
+### Fixed
+- **NPM declared licenses no longer dropped**: an npm `license`/`licenses` field is an authoritative declared SPDX expression, but the extractor only kept values `osslili` could re-detect from fuzzy text — silently dropping valid values like `Proprietary` and `UNLICENSED`. This surfaced as an empty `licenses` list on Python 3.13+, where newer `osslili` no longer fuzzy-matches the bare word. Declared values are now recorded verbatim (`detection_method="declared"`) when `osslili` returns nothing, with `osslili` detection kept as primary for recognised licenses.
+- **Version consistency**: `src/upmex/__init__.py` had drifted to `1.6.6` while `pyproject.toml` was `1.6.7`; both are now `1.6.8`.
+
 ## [1.6.7] - 2025-10-27
 
 ### Changed

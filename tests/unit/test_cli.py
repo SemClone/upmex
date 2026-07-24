@@ -39,9 +39,10 @@ License: MIT
     
     def test_cli_version(self, runner):
         """Test version option."""
+        from upmex import __version__
         result = runner.invoke(cli, ['--version'])
         assert result.exit_code == 0
-        assert '1.6.6' in result.output
+        assert __version__ in result.output
     
     def test_info_command(self, runner):
         """Test info command."""
@@ -56,7 +57,8 @@ License: MIT
         result = runner.invoke(cli, ['info', '--json'])
         assert result.exit_code == 0
         data = json.loads(result.output)
-        assert data['version'] == '1.6.6'
+        from upmex import __version__
+        assert data['version'] == __version__
         assert 'supported_packages' in data
     
     def test_detect_command(self, runner, sample_package):
