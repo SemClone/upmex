@@ -4,7 +4,13 @@ import json
 from pathlib import Path
 from typing import Dict, Any
 from .base import BaseExtractor
-from ..core.models import PackageMetadata, PackageType, NO_ASSERTION
+from ..core.models import (
+    PackageMetadata,
+    PackageType,
+    LicenseInfo,
+    LicenseConfidenceLevel,
+    NO_ASSERTION,
+)
 
 
 class NpmExtractor(BaseExtractor):
@@ -161,34 +167,20 @@ class NpmExtractor(BaseExtractor):
     def _extract_license(self, metadata: PackageMetadata, data: Dict):
         """Extract license information from package.json."""
         license_data = data.get('license') or data.get('licenses')
-        
+
         if not license_data:
             return
-        
+
         if isinstance(license_data, str):
             # Simple string license
-            # Format license text for better osslili detection
-            if len(license_data) < 20 and ':' not in license_data:
-                formatted_text = f"License: {license_data}"
-            else:
-                formatted_text = license_data
-            detected = self.detect_licenses_from_text(formatted_text, 'package.json')
-            if detected:
-                metadata.licenses.extend(detected)
-                
+            self._record_declared_license(metadata, license_data)
+
         elif isinstance(license_data, dict):
             # Dict with 'type' field
             license_type = license_data.get('type')
             if license_type:
-                # Format license text for better osslili detection
-                if len(license_type) < 20 and ':' not in license_type:
-                    formatted_text = f"License: {license_type}"
-                else:
-                    formatted_text = license_type
-                detected = self.detect_licenses_from_text(formatted_text, 'package.json')
-                if detected:
-                    metadata.licenses.extend(detected)
-                    
+                self._record_declared_license(metadata, license_type)
+
         elif isinstance(license_data, list):
             # Multiple licenses
             for lic in license_data:
@@ -197,13 +189,39 @@ class NpmExtractor(BaseExtractor):
                     license_text = lic
                 elif isinstance(lic, dict):
                     license_text = lic.get('type')
-                
+
                 if license_text:
-                    # Format license text for better osslili detection
-                    if len(license_text) < 20 and ':' not in license_text:
-                        formatted_text = f"License: {license_text}"
-                    else:
-                        formatted_text = license_text
-                    detected = self.detect_licenses_from_text(formatted_text, 'package.json')
-                    if detected:
-                        metadata.licenses.extend(detected)
+                    self._record_declared_license(metadata, license_text)
+
+    def _record_declared_license(self, metadata: PackageMetadata, declared: str):
+        """Record a license declared in package.json.
+
+        The npm ``license``/``licenses`` field is an authoritative, declared
+        SPDX expression. We still run osslili text detection first so that
+        recognised licenses get osslili's richer metadata (confidence, exact
+        SPDX tag). But when osslili cannot classify the string — e.g.
+        ``"Proprietary"`` or ``"UNLICENSED"``, which are valid npm values but
+        not detectable license *text* — we fall back to recording the declared
+        value verbatim rather than dropping it.
+        """
+        # Format license text for better osslili detection.
+        if len(declared) < 20 and ':' not in declared:
+            formatted_text = f"License: {declared}"
+        else:
+            formatted_text = declared
+        detected = self.detect_licenses_from_text(formatted_text, 'package.json')
+        if detected:
+            metadata.licenses.extend(detected)
+            return
+
+        # osslili produced nothing; keep the declared value.
+        metadata.licenses.append(
+            LicenseInfo(
+                spdx_id=declared,
+                name=declared,
+                confidence=1.0,
+                confidence_level=LicenseConfidenceLevel.HIGH,
+                detection_method="declared",
+                file_path="package.json",
+            )
+        )
