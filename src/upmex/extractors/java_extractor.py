@@ -105,27 +105,34 @@ class JavaExtractor(BaseExtractor):
                     
                     metadata = self.create_metadata(package_type=PackageType.MAVEN)
                     
-                    # Extract basic info - check parent if not found directly
+                    # Extract basic info - check parent if not found directly.
+                    # Every lookup here is deliberately a direct child of <project>:
+                    # a descendant search reaches into <parent>, <licenses> and
+                    # <dependencies>, whose values belong to something else.
+                    parent = root.find('./maven:parent', ns) or root.find('./parent')
+
                     group_id = root.findtext('./maven:groupId', '', ns) or root.findtext('./groupId', '')
-                    if not group_id:
-                        # Try parent groupId
-                        parent = root.find('./maven:parent', ns) or root.find('./parent')
-                        if parent is not None:
-                            group_id = parent.findtext('maven:groupId', '', ns) or parent.findtext('groupId', '')
-                    
+                    if not group_id and parent is not None:
+                        # Inherited from the parent, which is legitimate Maven
+                        group_id = parent.findtext('maven:groupId', '', ns) or parent.findtext('groupId', '')
+
                     artifact_id = root.findtext('./maven:artifactId', '', ns) or root.findtext('./artifactId', '')
-                    
+
                     if group_id and artifact_id:
                         metadata.name = f"{group_id}:{artifact_id}"
                     elif artifact_id:
                         metadata.name = artifact_id
-                    
-                    metadata.version = root.findtext('.//maven:version', None, ns) or root.findtext('.//version')
-                    metadata.description = root.findtext('.//maven:description', None, ns) or root.findtext('.//description')
-                    metadata.homepage = root.findtext('.//maven:url', None, ns) or root.findtext('.//url')
-                    
+
+                    metadata.version = root.findtext('./maven:version', None, ns) or root.findtext('./version')
+                    if not metadata.version and parent is not None:
+                        # Only a module that declares no version of its own inherits
+                        metadata.version = (parent.findtext('maven:version', None, ns) or
+                                            parent.findtext('version'))
+                    metadata.description = root.findtext('./maven:description', None, ns) or root.findtext('./description')
+                    metadata.homepage = root.findtext('./maven:url', None, ns) or root.findtext('./url')
+
                     # Extract SCM/repository information
-                    scm = root.find('.//maven:scm', ns) or root.find('.//scm')
+                    scm = root.find('./maven:scm', ns) or root.find('./scm')
                     if scm is not None:
                         # Try different SCM URLs in order of preference
                         repo_url = (scm.findtext('maven:url', None, ns) or 
@@ -141,7 +148,8 @@ class JavaExtractor(BaseExtractor):
                             metadata.repository = repo_url
                     
                     # Extract developers (authors)
-                    developers = root.findall('.//maven:developer', ns) or root.findall('.//developer')
+                    developers = (root.findall('./maven:developers/maven:developer', ns) or
+                                  root.findall('./developers/developer'))
                     for dev in developers:
                         dev_name = dev.findtext('maven:name', None, ns) or dev.findtext('name')
                         dev_email = dev.findtext('maven:email', None, ns) or dev.findtext('email')
@@ -162,7 +170,7 @@ class JavaExtractor(BaseExtractor):
                             })
                     
                     # Extract license from embedded POM first
-                    licenses_elem = root.find('.//maven:licenses', ns) or root.find('.//licenses')
+                    licenses_elem = root.find('./maven:licenses', ns) or root.find('./licenses')
                     if licenses_elem is not None:
                         metadata.licenses.extend(self._detect_pom_licenses(
                             licenses_elem,
@@ -199,7 +207,10 @@ class JavaExtractor(BaseExtractor):
                     # Extract dependencies
                     runtime_deps = []
                     dev_deps = []
-                    for dep in root.findall('.//maven:dependency', ns) or root.findall('.//dependency'):
+                    # Direct children only: <dependencyManagement> holds version
+                    # pins for modules to opt into, not dependencies of this artifact
+                    for dep in (root.findall('./maven:dependencies/maven:dependency', ns) or
+                                root.findall('./dependencies/dependency')):
                         dep_group = dep.findtext('maven:groupId', '', ns) or dep.findtext('groupId', '')
                         dep_artifact = dep.findtext('maven:artifactId', '', ns) or dep.findtext('artifactId', '')
                         dep_scope = dep.findtext('maven:scope', 'compile', ns) or dep.findtext('scope', 'compile')
@@ -557,8 +568,9 @@ class JavaExtractor(BaseExtractor):
 
             pom_data = {}
 
-            # Extract SCM/repository
-            scm = root.find('.//maven:scm', ns) or root.find('.//scm')
+            # Extract SCM/repository. Direct children only: a descendant
+            # search reaches into <licenses> and <dependencies>.
+            scm = root.find('./maven:scm', ns) or root.find('./scm')
             if scm is not None:
                 repo_url = (scm.findtext('maven:url', None, ns) or
                            scm.findtext('url') or
@@ -572,7 +584,8 @@ class JavaExtractor(BaseExtractor):
             # Extract developers (as both authors and maintainers)
             developers = []
             maintainers = []
-            for dev in root.findall('.//maven:developer', ns) or root.findall('.//developer'):
+            for dev in (root.findall('./maven:developers/maven:developer', ns) or
+                        root.findall('./developers/developer')):
                 dev_name = dev.findtext('maven:name', None, ns) or dev.findtext('name')
                 dev_email = dev.findtext('maven:email', None, ns) or dev.findtext('email')
                 dev_id = dev.findtext('maven:id', None, ns) or dev.findtext('id')
@@ -608,7 +621,8 @@ class JavaExtractor(BaseExtractor):
                 pom_data['maintainers'] = maintainers
 
             # Also extract contributors as additional maintainers
-            for contrib in root.findall('.//maven:contributor', ns) or root.findall('.//contributor'):
+            for contrib in (root.findall('./maven:contributors/maven:contributor', ns) or
+                            root.findall('./contributors/contributor')):
                 contrib_name = contrib.findtext('maven:name', None, ns) or contrib.findtext('name')
                 contrib_email = contrib.findtext('maven:email', None, ns) or contrib.findtext('email')
                 contrib_org = contrib.findtext('maven:organization', None, ns) or contrib.findtext('organization')
@@ -627,17 +641,17 @@ class JavaExtractor(BaseExtractor):
                     pom_data['maintainers'].append(maintainer_info)
 
             # Extract description
-            description = root.findtext('.//maven:description', None, ns) or root.findtext('.//description')
+            description = root.findtext('./maven:description', None, ns) or root.findtext('./description')
             if description:
                 pom_data['description'] = description
 
             # Extract homepage
-            homepage = root.findtext('.//maven:url', None, ns) or root.findtext('.//url')
+            homepage = root.findtext('./maven:url', None, ns) or root.findtext('./url')
             if homepage:
                 pom_data['homepage'] = homepage
 
             # Extract licenses
-            licenses_elem = root.find('.//maven:licenses', ns) or root.find('.//licenses')
+            licenses_elem = root.find('./maven:licenses', ns) or root.find('./licenses')
             if licenses_elem is not None:
                 licenses = self._detect_pom_licenses(
                     licenses_elem,
