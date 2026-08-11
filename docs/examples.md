@@ -97,9 +97,11 @@ def generate_sbom(directory):
         try:
             metadata = extractor.extract(str(package_file))
 
+            # purl is None when the package cannot be identified, but a
+            # CycloneDX bom-ref must be present and unique
             component = {
                 "type": "library",
-                "bom-ref": metadata.purl,
+                "bom-ref": metadata.purl or f"{metadata.name}@{metadata.version}",
                 "name": metadata.name,
                 "version": metadata.version,
                 "purl": metadata.purl,
@@ -381,13 +383,15 @@ def complete_analysis(package_path):
     with open("metadata.json", "w") as f:
         json.dump(metadata.to_dict(), f, indent=2)
 
-    # Generate notices
+    # Generate notices. purl is None when the package cannot be identified,
+    # so there is nothing to look attribution up by.
     purl = metadata.purl
-    subprocess.run([
-        "purl2notices",
-        "-i", purl,
-        "-o", "NOTICE.txt"
-    ])
+    if purl:
+        subprocess.run([
+            "purl2notices",
+            "-i", purl,
+            "-o", "NOTICE.txt"
+        ])
 
     # Check compliance
     result = subprocess.run([
