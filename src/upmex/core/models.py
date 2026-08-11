@@ -31,6 +31,40 @@ class PackageType(Enum):
     UNKNOWN = "unknown"
 
 
+# A Gradle or plain JAR artifact is identified by Maven coordinates just as much
+# as a MAVEN one, so anything splitting a coordinate must treat all three alike
+MAVEN_PACKAGE_TYPES = (PackageType.MAVEN, PackageType.JAR, PackageType.GRADLE)
+
+
+def split_namespace(package_type: 'PackageType', name: str) -> tuple:
+    """Split a package name into its namespace and name.
+
+    Maven-family names carry the groupId as ``groupId:artifactId`` and npm scoped
+    names carry the scope as ``@scope/name``. PURL construction and every registry
+    lookup needs the two parts separately.
+
+    Args:
+        package_type: Type of package the name belongs to
+        name: Package name, possibly carrying a namespace
+
+    Returns:
+        Tuple of (namespace, name); namespace is None when the name carries none
+    """
+    if not name:
+        return (None, name)
+
+    if package_type in MAVEN_PACKAGE_TYPES and ':' in name:
+        namespace, _, artifact = name.partition(':')
+        if namespace and artifact:
+            return (namespace, artifact)
+    elif package_type == PackageType.NPM and name.startswith('@') and '/' in name:
+        scope, _, package = name[1:].partition('/')
+        if scope and package:
+            return (scope, package)
+
+    return (None, name)
+
+
 class LicenseConfidenceLevel(Enum):
     """Confidence levels for license detection."""
     EXACT = "exact"

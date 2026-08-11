@@ -13,6 +13,7 @@ from ..core.models import (
     PackageMetadata,
     PackageType,
     NO_ASSERTION,
+    split_namespace,
 )
 
 
@@ -732,14 +733,7 @@ class JavaExtractor(BaseExtractor):
             cd_api = ClearlyDefinedAPI()
 
             # Parse namespace from name for Maven packages
-            namespace = None
-            name = metadata.name
-            if ':' in metadata.name:
-                # Maven format: groupId:artifactId
-                parts = metadata.name.split(':')
-                if len(parts) >= 2:
-                    namespace = parts[0]
-                    name = parts[1]
+            namespace, name = split_namespace(metadata.package_type, metadata.name)
 
             cd_data = cd_api.get_definition(
                 package_type=metadata.package_type,
