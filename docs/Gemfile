@@ -1,0 +1,12 @@
+source "https://rubygems.org"
+
+# Matches what GitHub Pages builds with, so a local preview behaves the same
+# way the published site does.
+gem "github-pages", group: :jekyll_plugins
+gem "jekyll-remote-theme"
+
+# Needed on Ruby 3.0 and later, where these left the standard library.
+gem "webrick"
+gem "csv"
+gem "base64"
+gem "bigdecimal"

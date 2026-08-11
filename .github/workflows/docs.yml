@@ -1,0 +1,45 @@
+name: Docs
+
+# The published site is built by GitHub Pages from docs/ on main. Pages only
+# reports a failure after the merge, so build the same way here and catch a
+# broken site while it is still a pull request.
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+
+jobs:
+  build:
+    name: Build the site
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: docs
+
+      - name: Build with Jekyll
+        working-directory: docs
+        run: bundle exec jekyll build --strict_front_matter --trace
+
+      - name: Check for broken internal links
+        working-directory: docs
+        run: |
+          # Every page the navigation and the pages themselves point at must exist
+          missing=0
+          for target in $(grep -rho '{{ site.baseurl }}/[a-z-]*/' *.md | sed 's|{{ site.baseurl }}/||; s|/$||' | sort -u); do
+            if [ ! -f "${target}.md" ]; then
+              echo "link target does not exist: ${target}.md"
+              missing=1
+            fi
+          done
+          exit $missing

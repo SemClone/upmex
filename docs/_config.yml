@@ -1,0 +1,44 @@
+title: upmex
+description: Universal Package Metadata Extractor
+url: https://semclone.github.io
+baseurl: /upmex
+
+remote_theme: just-the-docs/just-the-docs
+
+plugins:
+  - jekyll-remote-theme
+
+# Sidebar and search
+search_enabled: true
+search:
+  heading_level: 2
+  previews: 2
+
+heading_anchors: true
+
+aux_links:
+  upmex on GitHub:
+    - https://github.com/SemClone/upmex
+  upmex on PyPI:
+    - https://pypi.org/project/upmex/
+aux_links_new_tab: true
+
+back_to_top: true
+back_to_top_text: Back to top
+
+footer_content: >
+  Documentation for upmex, part of the SEMCL.ONE toolchain.
+  Licensed under Apache-2.0.
+
+# Link each page back to its source so fixes are easy to contribute
+gh_edit_link: true
+gh_edit_link_text: Edit this page on GitHub
+gh_edit_repository: https://github.com/SemClone/upmex
+gh_edit_branch: main
+gh_edit_source: docs
+gh_edit_view_mode: tree
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - vendor
