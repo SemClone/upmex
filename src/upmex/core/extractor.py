@@ -4,7 +4,13 @@ import os
 import hashlib
 from pathlib import Path
 from typing import Optional, Dict, Any
-from .models import PackageMetadata, PackageType, NO_ASSERTION
+from .models import (
+    MAVEN_PACKAGE_TYPES,
+    PackageMetadata,
+    PackageType,
+    NO_ASSERTION,
+    split_namespace,
+)
 from ..extractors.python_extractor import PythonExtractor
 from ..extractors.npm_extractor import NpmExtractor
 from ..extractors.java_extractor import JavaExtractor
@@ -115,22 +121,7 @@ class PackageExtractor:
         """
         try:
             # Extract namespace and name for API calls
-            namespace = None
-            name = metadata.name
-            
-            # Handle namespaced packages
-            if metadata.package_type in [PackageType.MAVEN, PackageType.JAR]:
-                # Maven format: groupId:artifactId
-                if ':' in name:
-                    parts = name.split(':', 1)
-                    namespace = parts[0]
-                    name = parts[1]
-            elif metadata.package_type == PackageType.NPM:
-                # NPM scoped packages: @scope/package
-                if name.startswith('@') and '/' in name:
-                    parts = name.split('/', 1)
-                    namespace = parts[0][1:]  # Remove @
-                    name = parts[1]
+            namespace, name = split_namespace(metadata.package_type, metadata.name)
             
             # Try ClearlyDefined
             cd_api = ClearlyDefinedAPI(api_key=self.config.get('clearlydefined_api_key'))
@@ -325,31 +316,22 @@ class PackageExtractor:
         if not purl_type:
             return None
         
+        # The groupId is the namespace and keeps its dots: the PURL spec writes
+        # pkg:maven/org.apache.commons/commons-lang3@3.12.0
+        namespace, name = split_namespace(metadata.package_type, metadata.name)
+
+        # A maven PURL requires its namespace, so an artifact whose groupId we could
+        # not determine has no valid identifier. Emitting a namespace-less one would
+        # look usable while failing to match anything.
+        if not namespace and metadata.package_type in MAVEN_PACKAGE_TYPES:
+            return None
+
         # Build PURL
         purl = f"pkg:{purl_type}/"
-        
-        # Handle namespace for Maven packages
-        if metadata.package_type in [PackageType.MAVEN, PackageType.JAR, PackageType.GRADLE]:
-            if ':' in metadata.name:
-                # The groupId is the namespace and keeps its dots: the PURL spec
-                # writes pkg:maven/org.apache.commons/commons-lang3@3.12.0
-                parts = metadata.name.split(':', 1)
-                namespace = parts[0]
-                name = parts[1]
-                purl += f"{namespace}/{name}"
-            else:
-                purl += metadata.name
-        # Handle scoped NPM packages
-        elif metadata.package_type == PackageType.NPM and metadata.name.startswith('@'):
-            if '/' in metadata.name:
-                parts = metadata.name.split('/', 1)
-                namespace = parts[0][1:]  # Remove @
-                name = parts[1]
-                purl += f"{namespace}/{name}"
-            else:
-                purl += metadata.name
+        if namespace:
+            purl += f"{namespace}/{name}"
         else:
-            purl += metadata.name
+            purl += name
         
         # Add version if available
         if metadata.version:

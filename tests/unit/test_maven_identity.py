@@ -5,6 +5,7 @@ A POM nests <version> and <url> inside <parent>, <licenses>, <scm> and
 else. These tests pin each field to the project's own declaration.
 """
 
+import xml.etree.ElementTree as ET
 import zipfile
 
 import pytest
@@ -158,6 +159,163 @@ class TestDependencies:
         assert metadata.dependencies['runtime'] == ["org.real:actually-used"]
         assert metadata.dependencies['dev'] == ["org.test:only-for-tests"]
 
+    def test_profile_dependencies_are_excluded(self, tmp_path):
+        """Deliberate: whether a profile was active is unknowable from the archive.
+
+        A profile's dependencies apply only when the profile was activated, which
+        depends on build-time properties, the JDK and the OS. Reporting them
+        unconditionally attributes components to an artifact that may never have
+        shipped them, so they are left out rather than guessed at.
+        """
+        pom = """<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <groupId>com.example</groupId>
+    <artifactId>app</artifactId>
+    <version>1.0.0</version>
+    <dependencies>
+        <dependency>
+            <groupId>org.real</groupId>
+            <artifactId>actually-used</artifactId>
+        </dependency>
+    </dependencies>
+    <profiles>
+        <profile>
+            <id>jdk8</id>
+            <activation><jdk>1.8</jdk></activation>
+            <dependencies>
+                <dependency>
+                    <groupId>org.conditional</groupId>
+                    <artifactId>only-on-jdk8</artifactId>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
+</project>"""
+        metadata = JavaExtractor().extract(make_jar(tmp_path / "app.jar", pom))
+
+        assert metadata.dependencies['runtime'] == ["org.real:actually-used"]
+
+    def test_build_plugin_dependencies_are_excluded(self, tmp_path):
+        pom = """<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <groupId>com.example</groupId>
+    <artifactId>app</artifactId>
+    <version>1.0.0</version>
+    <dependencies>
+        <dependency>
+            <groupId>org.real</groupId>
+            <artifactId>actually-used</artifactId>
+        </dependency>
+    </dependencies>
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.puppycrawl.tools</groupId>
+                        <artifactId>checkstyle</artifactId>
+                    </dependency>
+                </dependencies>
+            </plugin>
+        </plugins>
+    </build>
+</project>"""
+        metadata = JavaExtractor().extract(make_jar(tmp_path / "app.jar", pom))
+
+        assert metadata.dependencies['runtime'] == ["org.real:actually-used"]
+
+
+class TestOtherIdentityFields:
+    """description, scm, developers and contributors are project-scoped too."""
+
+    def test_nested_values_are_not_picked_up(self, tmp_path):
+        # Every nested element here would be reached by a descendant search
+        pom = """<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <groupId>com.example</groupId>
+    <artifactId>app</artifactId>
+    <version>1.0.0</version>
+    <dependencies>
+        <dependency>
+            <groupId>org.other</groupId>
+            <artifactId>lib</artifactId>
+            <version>9.9.9</version>
+        </dependency>
+    </dependencies>
+    <profiles>
+        <profile>
+            <id>release</id>
+            <description>Profile description, not the project's</description>
+            <scm><url>https://example.invalid/wrong-scm</url></scm>
+            <developers>
+                <developer><name>Profile Person</name></developer>
+            </developers>
+        </profile>
+    </profiles>
+</project>"""
+        metadata = JavaExtractor().extract(make_jar(tmp_path / "app.jar", pom))
+
+        assert metadata.description is None
+        assert metadata.repository == "NO-ASSERTION"
+        assert metadata.authors == []
+
+    def test_project_values_are_picked_up(self, tmp_path):
+        pom = """<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <groupId>com.example</groupId>
+    <artifactId>app</artifactId>
+    <version>1.0.0</version>
+    <description>The project description</description>
+    <scm><connection>scm:git:https://github.com/example/app.git</connection></scm>
+    <developers>
+        <developer><name>Real Person</name><email>real@example.com</email></developer>
+    </developers>
+</project>"""
+        metadata = JavaExtractor().extract(make_jar(tmp_path / "app.jar", pom))
+
+        assert metadata.description == "The project description"
+        assert metadata.repository == "https://github.com/example/app.git"
+        assert [a['name'] for a in metadata.authors] == ["Real Person"]
+
+
+class TestFetchedPomParsing:
+    """The remote-POM parser is scoped the same way as the embedded one."""
+
+    def test_nested_values_are_not_picked_up(self, tmp_path):
+        pom = """<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <groupId>com.example</groupId>
+    <artifactId>example-parent</artifactId>
+    <version>1.0.0</version>
+    <licenses>
+        <license>
+            <name>Apache-2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+    <profiles>
+        <profile>
+            <id>release</id>
+            <url>https://example.invalid/wrong-url</url>
+            <description>Profile description</description>
+        </profile>
+    </profiles>
+</project>"""
+        root = ET.fromstring(pom)
+
+        parsed = JavaExtractor()._parse_pom_metadata(
+            root, pom,
+            detection_method='parent_pom_regex',
+            license_file_path='parent:example-parent-1.0.0.pom',
+            license_filename='parent_pom.xml'
+        )
+
+        # No project <url> or <description>, so neither may be invented
+        assert 'homepage' not in parsed
+        assert 'description' not in parsed
+        assert [lic.spdx_id for lic in parsed['licenses']] == ["Apache-2.0"]
+
 
 class TestMavenPurl:
     """The groupId is the PURL namespace and keeps its dots."""
@@ -178,14 +336,34 @@ class TestMavenPurl:
 
         assert purl == "pkg:maven/com.squareup.okhttp3/okhttp@4.11.0"
 
-    def test_name_without_a_group_id(self):
+    def test_no_purl_without_a_group_id(self):
+        """A maven PURL requires its namespace, so there is no valid identifier."""
         metadata = PackageMetadata(
             name="standalone",
             version="1.0.0",
             package_type=PackageType.JAR,
         )
 
-        assert PackageExtractor()._generate_purl(metadata) == "pkg:maven/standalone@1.0.0"
+        assert PackageExtractor()._generate_purl(metadata) is None
+
+    def test_unidentifiable_jar_has_no_purl(self, tmp_path):
+        jar_path = tmp_path / "mystery.jar"
+        with zipfile.ZipFile(jar_path, 'w') as zf:
+            zf.writestr('META-INF/MANIFEST.MF', "Manifest-Version: 1.0\nImplementation-Title: Mystery\n")
+
+        metadata = PackageExtractor().extract(str(jar_path))
+
+        assert metadata.name == "Mystery"
+        assert metadata.purl is None
+
+    def test_npm_scope_is_still_a_namespace(self):
+        metadata = PackageMetadata(
+            name="@babel/core",
+            version="7.0.0",
+            package_type=PackageType.NPM,
+        )
+
+        assert PackageExtractor()._generate_purl(metadata) == "pkg:npm/babel/core@7.0.0"
 
     def test_purl_of_an_extracted_jar(self, tmp_path):
         pom = """<?xml version="1.0" encoding="UTF-8"?>

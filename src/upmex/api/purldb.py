@@ -2,7 +2,7 @@
 
 import requests
 from typing import Optional, Dict, Any, List
-from ..core.models import PackageType, NO_ASSERTION
+from ..core.models import PackageType, NO_ASSERTION, split_namespace
 
 
 class PurlDBAPI:
@@ -66,21 +66,7 @@ class PurlDBAPI:
                 return None
 
             # Parse namespace from name for certain package types
-            namespace = None
-            package_name = name
-
-            if package_type == PackageType.MAVEN and ':' in name:
-                # Maven format: groupId:artifactId
-                parts = name.split(':')
-                if len(parts) >= 2:
-                    namespace = parts[0]
-                    package_name = parts[1]
-            elif package_type == PackageType.NPM and name.startswith('@'):
-                # NPM scoped packages: @scope/name
-                parts = name[1:].split('/', 1)
-                if len(parts) == 2:
-                    namespace = parts[0]
-                    package_name = parts[1]
+            namespace, package_name = split_namespace(package_type, name)
 
             # Query packages endpoint with filters
             url = f"{self.base_url}/api/packages/"
