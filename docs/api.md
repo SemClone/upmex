@@ -65,7 +65,8 @@ class PackageMetadata:
     name: str
     version: str
     package_type: PackageType
-    purl: str
+    purl: Optional[str]  # None when the package cannot be identified, e.g. a
+                         # Maven-family artifact whose groupId is unknown
     description: Optional[str]
     homepage: Optional[str]
     repository: Optional[str]
