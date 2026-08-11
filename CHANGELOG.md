@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.6.9] - 2026-08-11
+## [1.7.0] - 2026-08-11
 
 ### Added
 - **Maven coordinates resolved from a file hash**: a jar that carries no POM declares no coordinates and has no `<parent>` to follow, so registry mode had nothing to look up — shaded, relocated and repackaged artifacts extracted as `name: "unknown"` with no licence. In registry mode the artifact's SHA-1 is now resolved to coordinates through the Maven Central index, and the published POM is then read for the licence and project metadata, falling through to the existing `<parent>` hop when the resolved POM inherits its licence. `okhttp-4.11.0.jar` now yields `com.squareup.okhttp3:okhttp@4.11.0` and Apache-2.0 instead of nothing. Locally declared data always wins, the offline path makes no requests, lookups are cached by hash for the process lifetime, and `provenance` plus the enrichment record identify what was hash-resolved (closes #91).
