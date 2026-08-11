@@ -316,10 +316,17 @@ ospac evaluate NOTICE.txt --policy compliance.yaml
 
 ## Documentation
 
-- [User Guide](docs/user-guide.md) - Comprehensive usage documentation
-- [API Reference](docs/api.md) - Python API documentation
-- [Configuration Guide](docs/configuration.md) - Detailed configuration options
-- [Examples](docs/examples.md) - Common use cases and workflows
+Full documentation is at **[semclone.github.io/upmex](https://semclone.github.io/upmex/)**.
+
+- [Overview](https://semclone.github.io/upmex/) - what upmex does, installing, first run
+- [Commands](https://semclone.github.io/upmex/commands/) - every CLI command and flag
+- [Ecosystems](https://semclone.github.io/upmex/ecosystems/) - supported formats and what is read from each
+- [Python API](https://semclone.github.io/upmex/api/) - using upmex as a library
+- [Integration](https://semclone.github.io/upmex/integration/) - registry lookups, enrichment APIs, CI, SBOM
+- [Configuration](https://semclone.github.io/upmex/configuration/) - config file and environment variables
+
+The pages are built from `docs/` in this repository, so corrections can go straight
+into a pull request.
 
 ## Contributing
 
