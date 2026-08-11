@@ -179,10 +179,10 @@ class ConanExtractor(BaseExtractor):
         Returns:
             Extracted value
         """
+        # ast.Constant covers every literal on the Python versions upmex supports.
+        # The ast.Str alias it replaced was removed in Python 3.12.
         if isinstance(node, ast.Constant):
             return node.value
-        elif isinstance(node, ast.Str):
-            return node.s
         elif isinstance(node, ast.List):
             return [self._extract_value(elt, content) for elt in node.elts]
         elif isinstance(node, ast.Tuple):
