@@ -6,7 +6,13 @@ from abc import ABC, abstractmethod
 from typing import Optional, Dict, Any, List, Union
 from pathlib import Path
 
-from ..core.models import PackageMetadata, LicenseInfo, LicenseConfidenceLevel, NO_ASSERTION
+from ..core.models import (
+    PackageMetadata,
+    LicenseInfo,
+    LicenseConfidenceLevel,
+    NO_ASSERTION,
+    split_namespace,
+)
 from ..utils.patterns import LICENSE_FILE_NAMES
 from ..utils.author_parser import parse_author_string, parse_author_list
 from ..utils.archive_utils import find_file_in_archive, extract_from_tar, extract_from_zip
@@ -331,22 +337,7 @@ class BaseExtractor(ABC):
             cd_api = ClearlyDefinedAPI()
 
             # Parse namespace based on package type
-            namespace = None
-            name = metadata.name
-
-            # Handle package-specific namespace parsing
-            if metadata.package_type.value == 'maven' and ':' in metadata.name:
-                # Maven format: groupId:artifactId
-                parts = metadata.name.split(':')
-                if len(parts) >= 2:
-                    namespace = parts[0]
-                    name = parts[1]
-            elif metadata.package_type.value == 'npm' and metadata.name.startswith('@'):
-                # NPM scoped packages: @scope/name
-                parts = metadata.name[1:].split('/', 1)
-                if len(parts) == 2:
-                    namespace = parts[0]
-                    name = parts[1]
+            namespace, name = split_namespace(metadata.package_type, metadata.name)
 
             cd_data = cd_api.get_definition(
                 package_type=metadata.package_type,

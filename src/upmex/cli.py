@@ -20,7 +20,7 @@ import logging
 
 from upmex import __version__
 from upmex.core.extractor import PackageExtractor
-from upmex.core.models import PackageType
+from upmex.core.models import PackageType, split_namespace
 from upmex.config import Config
 from upmex.utils.package_detector import detect_package_type
 from upmex.utils.output_formatter import OutputFormatter
@@ -123,14 +123,7 @@ def extract(ctx, package_path, output, format, pretty, api, registry):
                         cd_api = ClearlyDefinedAPI()
 
                         # Parse namespace from name for Maven packages
-                        namespace = None
-                        name = metadata.name
-                        if ':' in metadata.name:
-                            # Maven format: groupId:artifactId
-                            parts = metadata.name.split(':')
-                            if len(parts) >= 2:
-                                namespace = parts[0]
-                                name = parts[1]
+                        namespace, name = split_namespace(metadata.package_type, metadata.name)
 
                         cd_data = cd_api.get_definition(
                             package_type=metadata.package_type,
