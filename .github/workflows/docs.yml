@@ -31,15 +31,20 @@ jobs:
         working-directory: docs
         run: bundle exec jekyll build --strict_front_matter --trace
 
-      - name: Check for broken internal links
+      - name: Check that internal links resolve in the built site
         working-directory: docs
         run: |
-          # Every page the navigation and the pages themselves point at must exist
+          # Checked against _site rather than the sources, so a link that points
+          # at a path the permalink style does not produce is caught too.
           missing=0
           for target in $(grep -rho '{{ site.baseurl }}/[a-z-]*/' *.md | sed 's|{{ site.baseurl }}/||; s|/$||' | sort -u); do
-            if [ ! -f "${target}.md" ]; then
-              echo "link target does not exist: ${target}.md"
+            if [ ! -f "_site/${target}/index.html" ] && [ ! -f "_site/${target}.html" ]; then
+              echo "link target is not in the built site: /${target}/"
               missing=1
             fi
           done
+
+          if [ $missing -eq 0 ]; then
+            echo "all internal links resolve"
+          fi
           exit $missing

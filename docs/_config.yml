@@ -5,6 +5,9 @@ baseurl: /upmex
 
 remote_theme: just-the-docs/just-the-docs
 
+# Pages are linked as /commands/ rather than /commands.html
+permalink: pretty
+
 plugins:
   - jekyll-remote-theme
 
