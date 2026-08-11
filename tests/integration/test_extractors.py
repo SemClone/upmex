@@ -1,6 +1,7 @@
 """Integration tests for package extractors."""
 
 import pytest
+import requests
 import tempfile
 import zipfile
 import tarfile
@@ -231,15 +232,46 @@ class TestRegistryMode:
         
         mock_get.return_value.status_code = 200
         mock_get.return_value.text = parent_pom
-        
+        mock_get.return_value.content = parent_pom.encode('utf-8')
+
         with zipfile.ZipFile(jar_path, 'w') as zf:
             zf.writestr("META-INF/maven/org.springframework.boot/my-app/pom.xml", child_pom)
-        
+
         extractor = JavaExtractor(registry_mode=True)
         metadata = extractor.extract(str(jar_path))
-        
+
         assert metadata.name == "org.springframework.boot:my-app"
         assert mock_get.called
+        # The parent POM is the only source of a description here
+        assert metadata.description == "Parent POM for Spring Boot"
+        assert metadata.provenance['description'].startswith('parent_pom:')
+
+    @patch('requests.get')
+    def test_parent_pom_failure_keeps_local_metadata(self, mock_get, tmp_path):
+        """A registry failure must not discard what the archive itself declared."""
+        jar_path = tmp_path / "child.jar"
+
+        child_pom = """<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <parent>
+        <groupId>com.example</groupId>
+        <artifactId>example-parent</artifactId>
+        <version>1.0.0</version>
+    </parent>
+    <artifactId>my-app</artifactId>
+    <version>3.2.1</version>
+    <description>Declared locally</description>
+</project>"""
+
+        mock_get.side_effect = requests.Timeout("rate limited")
+
+        with zipfile.ZipFile(jar_path, 'w') as zf:
+            zf.writestr("META-INF/maven/com.example/my-app/pom.xml", child_pom)
+
+        metadata = JavaExtractor(registry_mode=True).extract(str(jar_path))
+
+        assert metadata.name == "com.example:my-app"
+        assert metadata.description == "Declared locally"
 
 
 class TestExtractorAutoDetection:

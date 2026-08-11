@@ -510,7 +510,9 @@ def info(ctx, output_json):
         ],
         "registry_integrations": {
             "implemented": ["maven_central"],
-            "note": "Direct package registry API calls for metadata enrichment"
+            "note": "Direct package registry API calls for metadata enrichment "
+                    "(Maven Central also resolves coordinates from a file hash "
+                    "when a jar carries no POM)"
         },
         "api_integrations": {
             "implemented": ["clearlydefined", "ecosystems", "purldb", "vulnerablecode"],

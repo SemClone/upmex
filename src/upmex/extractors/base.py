@@ -1,5 +1,6 @@
 """Base extractor class for all package types."""
 
+import hashlib
 import os
 from abc import ABC, abstractmethod
 from typing import Optional, Dict, Any, List, Union
@@ -71,6 +72,24 @@ class BaseExtractor(ABC):
         """
         return parse_author_list(authors)
     
+    def file_sha1(self, file_path: str) -> Optional[str]:
+        """Calculate the SHA-1 of a file.
+
+        Args:
+            file_path: Path to the file
+
+        Returns:
+            Hex digest, or None if the file could not be read
+        """
+        try:
+            digest = hashlib.sha1()
+            with open(file_path, 'rb') as f:
+                for chunk in iter(lambda: f.read(8192), b''):
+                    digest.update(chunk)
+            return digest.hexdigest()
+        except Exception:
+            return None
+
     def detect_licenses_from_text(self,
                                  text: str,
                                  filename: Optional[str] = None) -> List[LicenseInfo]:

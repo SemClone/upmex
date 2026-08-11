@@ -137,6 +137,21 @@ Powered by [osslili](https://github.com/SemClone/osslili) v1.5.0+:
 - Optional dependency tracking
 - Version range resolution
 
+### Registry Mode
+
+`--registry` fills gaps from the package's own registry:
+
+```bash
+upmex extract --registry package.jar
+```
+
+- Inherited Maven metadata resolved by following `<parent>` to its POM
+- Coordinates for jars that carry no POM at all — shaded, relocated and
+  repackaged artifacts — resolved from the file's SHA-1 via Maven Central, then
+  used to fetch the licence and project metadata from the published POM
+- Every value records its source in `provenance`, so a hash-resolved licence is
+  distinguishable from a locally declared one
+
 ### API Enrichment
 
 Enhance metadata with third-party APIs:
