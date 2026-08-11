@@ -2,7 +2,7 @@
 
 import requests
 from typing import Optional, Dict, Any, List
-from ..core.models import PackageType, split_namespace
+from ..core.models import MAVEN_PACKAGE_TYPES, PackageType, split_namespace
 
 
 class VulnerableCodeAPI:
@@ -74,6 +74,12 @@ class VulnerableCodeAPI:
 
             # Parse namespace from name for certain package types
             namespace, package_name = split_namespace(package_type, name)
+
+            # A maven coordinate is only unique with its groupId. Querying by
+            # artifactId alone can match a different project entirely, so its
+            # metadata must never be attributed to this artifact.
+            if package_type in MAVEN_PACKAGE_TYPES and not namespace:
+                return None
 
             # Construct PURL
             purl_parts = [f"pkg:{purl_type}"]
