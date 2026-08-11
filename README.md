@@ -340,7 +340,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 
 For support and questions:
 - [GitHub Issues](https://github.com/SemClone/upmex/issues) - Bug reports and feature requests
-- [Documentation](https://github.com/SemClone/upmex) - Complete project documentation
+- [Documentation](https://semclone.github.io/upmex/) - Complete project documentation
 - [SEMCL.ONE Community](https://semcl.one) - Ecosystem support and discussions
 
 ## License
