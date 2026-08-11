@@ -54,29 +54,46 @@ def _search_by_sha1(sha1: str, search_url: str, timeout: int) -> Optional[Tuple[
         raise LookupFailed("search returned an unexpected body shape")
 
     payload = payload['response']
-    docs = [doc for doc in (payload.get('docs') or []) if isinstance(doc, dict)]
-    if not docs:
+    docs = payload.get('docs')
+    if docs is None:
+        docs = []
+    if not isinstance(docs, list):
+        raise LookupFailed("search returned an unexpected docs shape")
+
+    candidates = [doc for doc in docs if isinstance(doc, dict)]
+    if not candidates:
+        if docs:
+            # Documents came back in a shape we cannot read, which says nothing
+            # about the artifact
+            raise LookupFailed("search returned no readable documents")
         return None
 
     # A hash can match several coordinates when an artifact is republished or
     # relocated. The index sorts by score then recency; prefer a jar among the
-    # top matches and report the total so a consumer can see it was ambiguous.
-    doc = next((d for d in docs if d.get('p') == 'jar'), docs[0])
-    group_id = doc.get('g')
-    artifact_id = doc.get('a')
-    version = doc.get('v')
-    if not all(isinstance(field, str) and field for field in (group_id, artifact_id, version)):
-        return None
+    # matches and report the total so a consumer can see it was ambiguous.
+    ordered = ([doc for doc in candidates if doc.get('p') == 'jar'] +
+               [doc for doc in candidates if doc.get('p') != 'jar'])
 
-    packaging = doc.get('p')
-    match_count = payload.get('numFound', len(docs))
-    return (
-        group_id,
-        artifact_id,
-        version,
-        packaging if isinstance(packaging, str) else '',
-        match_count if isinstance(match_count, int) else len(docs),
-    )
+    for doc in ordered:
+        group_id = doc.get('g')
+        artifact_id = doc.get('a')
+        version = doc.get('v')
+        if not all(isinstance(field, str) and field for field in (group_id, artifact_id, version)):
+            continue
+
+        packaging = doc.get('p')
+        match_count = payload.get('numFound')
+        return (
+            group_id,
+            artifact_id,
+            version,
+            packaging if isinstance(packaging, str) else '',
+            match_count if isinstance(match_count, int) else len(candidates),
+        )
+
+    # Matches exist but none carries complete coordinates, so the response is
+    # malformed rather than a definitive "this hash is unknown"
+    raise LookupFailed("search returned no complete coordinates")
 
 
 @lru_cache(maxsize=512)
@@ -102,6 +119,18 @@ def _fetch_pom_bytes(group_id: str, artifact_id: str, version: str, base_url: st
         raise LookupFailed(f"POM request failed: {e}") from e
 
     if response.status_code == 200:
+        # A proxy or CDN can answer 200 with an error page, which may even be
+        # well-formed XML. Caching that would stand in for the POM for the rest of
+        # the run, so the body has to look like a POM before it counts as an answer.
+        try:
+            root = ET.fromstring(response.content)
+        except Exception as e:
+            raise LookupFailed(f"POM body is not readable XML: {e}") from e
+
+        # The tag carries the POM namespace, so compare the local name
+        if root.tag.rsplit('}', 1)[-1] != 'project':
+            raise LookupFailed(f"POM body is rooted at <{root.tag}>, not <project>")
+
         return response.content
     if response.status_code == 404:
         return None

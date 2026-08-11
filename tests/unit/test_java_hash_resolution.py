@@ -333,6 +333,49 @@ class TestHashResolutionFailures:
 
         assert len(registry.search_calls) == 1
 
+    def test_unreadable_search_body_is_not_a_miss(self, tmp_path, monkeypatch):
+        """A garbled 200 says nothing about the hash, so it must not be cached."""
+        jar_path = make_jar(tmp_path / "okhttp.jar")
+
+        garbled = FakeMavenCentral(docs=["not a document"])
+        monkeypatch.setattr(requests, 'get', garbled)
+        assert JavaExtractor(registry_mode=True).extract(jar_path).name == "unknown"
+
+        recovered = okhttp_registry()
+        monkeypatch.setattr(requests, 'get', recovered)
+        metadata = JavaExtractor(registry_mode=True).extract(jar_path)
+
+        assert metadata.name == "com.squareup.okhttp3:okhttp"
+        assert len(recovered.search_calls) == 1
+
+    def test_incomplete_coordinates_are_skipped(self, tmp_path, monkeypatch):
+        registry = okhttp_registry(docs=[
+            {'a': 'missing-group', 'v': '1.0.0', 'p': 'jar'},
+            {'g': 'com.squareup.okhttp3', 'a': 'okhttp', 'v': '4.11.0', 'p': 'jar'},
+        ])
+        monkeypatch.setattr(requests, 'get', registry)
+
+        metadata = JavaExtractor(registry_mode=True).extract(make_jar(tmp_path / "okhttp.jar"))
+
+        assert metadata.name == "com.squareup.okhttp3:okhttp"
+
+    def test_unreadable_pom_body_is_not_cached(self, tmp_path, monkeypatch):
+        """A 200 carrying an error page must not stick as the POM for a version."""
+        jar_path = make_jar(tmp_path / "okhttp.jar")
+
+        broken = okhttp_registry(poms={'okhttp-4.11.0.pom': '<html>503 from a proxy</html>'})
+        monkeypatch.setattr(requests, 'get', broken)
+        first = JavaExtractor(registry_mode=True).extract(jar_path)
+        # Coordinates still resolve; only the POM was unusable
+        assert first.name == "com.squareup.okhttp3:okhttp"
+        assert first.licenses == []
+
+        recovered = okhttp_registry()
+        monkeypatch.setattr(requests, 'get', recovered)
+        metadata = JavaExtractor(registry_mode=True).extract(jar_path)
+
+        assert [lic.spdx_id for lic in metadata.licenses] == ["Apache-2.0"]
+
     def test_missing_pom_still_yields_coordinates(self, tmp_path, monkeypatch):
         registry = okhttp_registry(poms={})
         monkeypatch.setattr(requests, 'get', registry)

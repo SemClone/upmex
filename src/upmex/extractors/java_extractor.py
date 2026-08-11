@@ -265,6 +265,9 @@ class JavaExtractor(BaseExtractor):
             package_path: Path to the archive
             metadata: Metadata to enrich in place
         """
+        # Hashed here rather than reusing PackageExtractor's digest, which is not
+        # assigned until after extract() returns. An extractor also has to work
+        # when used directly, which is how consumers reach this path.
         sha1 = self.file_sha1(package_path)
         if not sha1:
             return
@@ -557,9 +560,9 @@ class JavaExtractor(BaseExtractor):
             # Extract SCM/repository
             scm = root.find('.//maven:scm', ns) or root.find('.//scm')
             if scm is not None:
-                repo_url = (scm.findtext('maven:url', None, ns) or 
+                repo_url = (scm.findtext('maven:url', None, ns) or
                            scm.findtext('url') or
-                           scm.findtext('maven:connection', None, ns) or 
+                           scm.findtext('maven:connection', None, ns) or
                            scm.findtext('connection'))
                 if repo_url:
                     if repo_url.startswith('scm:'):
@@ -598,12 +601,12 @@ class JavaExtractor(BaseExtractor):
                     if role_text:
                         maintainer_info['role'] = role_text
                     maintainers.append(maintainer_info)
-            
+
             if developers:
                 pom_data['authors'] = developers
             if maintainers:
                 pom_data['maintainers'] = maintainers
-            
+
             # Also extract contributors as additional maintainers
             for contrib in root.findall('.//maven:contributor', ns) or root.findall('.//contributor'):
                 contrib_name = contrib.findtext('maven:name', None, ns) or contrib.findtext('name')
@@ -622,17 +625,17 @@ class JavaExtractor(BaseExtractor):
                     if 'maintainers' not in pom_data:
                         pom_data['maintainers'] = []
                     pom_data['maintainers'].append(maintainer_info)
-            
+
             # Extract description
             description = root.findtext('.//maven:description', None, ns) or root.findtext('.//description')
             if description:
                 pom_data['description'] = description
-            
+
             # Extract homepage
             homepage = root.findtext('.//maven:url', None, ns) or root.findtext('.//url')
             if homepage:
                 pom_data['homepage'] = homepage
-            
+
             # Extract licenses
             licenses_elem = root.find('.//maven:licenses', ns) or root.find('.//licenses')
             if licenses_elem is not None:
@@ -645,7 +648,7 @@ class JavaExtractor(BaseExtractor):
                 )
                 if licenses:
                     pom_data['licenses'] = licenses
-            
+
             # Also check for license/author info in header comments
             header_data = self._parse_pom_header(pom_text)
             if header_data:
@@ -655,11 +658,16 @@ class JavaExtractor(BaseExtractor):
                     # Convert header license text to proper format
                     license_infos = self.detect_licenses_from_text(
                         self._format_license_text(header_data['license']),
-                        filename='pom.xml'
+                        filename=license_filename
                     )
                     if license_infos:
+                        # Same source attribution as a declared <licenses> entry,
+                        # so a consumer can tell which POM it came from
+                        for info in license_infos:
+                            info.detection_method = detection_method
+                            info.file_path = license_file_path
                         pom_data['licenses'] = license_infos
-            
+
         except Exception as e:
             print(f"Error parsing POM metadata: {e}")
 

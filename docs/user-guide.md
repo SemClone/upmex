@@ -440,9 +440,14 @@ extractor = PackageExtractor(config=config)
    ```
    For a jar that carries no POM — shaded, relocated or repackaged artifacts —
    registry mode resolves the Maven coordinates from the file's SHA-1 via Maven
-   Central and then reads the licence from the published POM. Nothing declared
-   inside the archive is overwritten, and `provenance` records what came from
-   where.
+   Central and then reads the licence from the published POM. `provenance`
+   records what came from where.
+
+   Values declared inside the archive win, with one deliberate exception: on this
+   path `name` and `version` are set from the resolved coordinates. A manifest's
+   `Implementation-Title` is a display name rather than a coordinate, and an exact
+   file-hash match identifies the artifact more reliably, which is also what makes
+   the PURL resolvable. The full manifest remains under `raw_metadata`.
 
 2. **Verify Licenses**: Cross-check with multiple sources
    ```bash
