@@ -6,9 +6,9 @@ Thank you for using this project! Here are the best ways to get help:
 
 ### Documentation
 
+- Read the full documentation at [semclone.github.io/upmex](https://semclone.github.io/upmex/)
 - Check the [README](README.md) for basic usage and setup instructions
 - Review the [CONTRIBUTING](CONTRIBUTING.md) guide for development setup
-- Look through existing documentation in the `/docs` folder (if available)
 
 ### Getting Answers
 

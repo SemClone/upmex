@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.7.2] - 2026-08-11
 
 ### Changed
-- The `Documentation` project URL points at the published documentation site, `https://semclone.github.io/upmex/`, rather than the README anchor on GitHub. The site went up with the Jekyll rewrite and the metadata still sent readers to the README.
+- The `Documentation` project URL points at the published documentation site, `https://semclone.github.io/upmex/`, rather than the README anchor on GitHub. The site went up with the Jekyll rewrite and the metadata still sent readers to the README. The stale "Complete project documentation" link in the README's Support section pointed at the repository root and now points at the site too, and `SUPPORT.md` leads with it rather than with the `docs/` folder.
 
 ## [1.7.1] - 2026-08-11
 
