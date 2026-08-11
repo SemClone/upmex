@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-08-11
+
+### Added
+- **Maven coordinates resolved from a file hash**: a jar that carries no POM declares no coordinates and has no `<parent>` to follow, so registry mode had nothing to look up — shaded, relocated and repackaged artifacts extracted as `name: "unknown"` with no licence. In registry mode the artifact's SHA-1 is now resolved to coordinates through the Maven Central index, and the published POM is then read for the licence and project metadata, falling through to the existing `<parent>` hop when the resolved POM inherits its licence. `okhttp-4.11.0.jar` now yields `com.squareup.okhttp3:okhttp@4.11.0` and Apache-2.0 instead of nothing. Locally declared data always wins, the offline path makes no requests, lookups are cached by hash for the process lifetime, and `provenance` plus the enrichment record identify what was hash-resolved (closes #91).
+
+### Fixed
+- **POM licences no longer dropped when unclassifiable**: a POM declares its licence as prose, and the most common spelling in the ecosystem — `The Apache Software License, Version 2.0` — is not something `osslili` can classify, so the declaration was silently discarded. The declared `<url>` is now tried as a second signal, and a declaration that still cannot be classified is recorded verbatim with `detection_method="declared"` rather than dropped. This mirrors the npm fix in 1.6.8.
+- **Non-ASCII POM text mangled**: remote POMs are served without a charset, so decoding them as text fell back to ISO-8859-1 and corrupted any non-ASCII value. POMs are now parsed from the raw bytes, letting the XML declaration decide.
+- **Registry failures no longer discard local metadata**: an error while fetching a parent POM propagated out of POM parsing, which downgraded a fully described package to the no-POM path. Enrichment failures are now contained.
+- **Failed lookups are no longer cached as misses**: a timeout or rate-limit response was remembered as "hash not found" for the rest of the run. Only definitive answers are cached now, so a transient failure is retried.
+- **Enrichment records are serializable**: the parent-POM enrichment record held `LicenseInfo` objects, which made the JSON output unserializable whenever a parent supplied the licence. Licences are now recorded as SPDX ids in that record.
+
+### Technical
+- New `upmex.api.maven_central` client for coordinate and POM lookups, joining the other registry and API clients
+- `JavaExtractor._fetch_parent_pom` split into fetch, parse and apply steps so both the parent hop and the hash-resolved path share one implementation
+- `BaseExtractor.file_sha1` for extractors that need to hash the artifact they are reading
+
 ## [1.6.8] - 2026-07-24
 
 ### Fixed
