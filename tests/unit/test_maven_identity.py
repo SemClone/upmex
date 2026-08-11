@@ -9,7 +9,11 @@ import xml.etree.ElementTree as ET
 import zipfile
 
 import pytest
+import requests
 
+from upmex.api.clearlydefined import ClearlyDefinedAPI
+from upmex.api.purldb import PurlDBAPI
+from upmex.api.vulnerablecode import VulnerableCodeAPI
 from upmex.core.extractor import PackageExtractor
 from upmex.core.models import PackageMetadata, PackageType
 from upmex.extractors.java_extractor import JavaExtractor
@@ -315,6 +319,107 @@ class TestFetchedPomParsing:
         assert 'homepage' not in parsed
         assert 'description' not in parsed
         assert [lic.spdx_id for lic in parsed['licenses']] == ["Apache-2.0"]
+
+    def test_nested_people_and_scm_are_not_picked_up(self, tmp_path):
+        pom = """<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <groupId>com.example</groupId>
+    <artifactId>example-parent</artifactId>
+    <version>1.0.0</version>
+    <profiles>
+        <profile>
+            <id>release</id>
+            <scm><url>https://example.invalid/wrong-scm</url></scm>
+            <developers>
+                <developer><name>Profile Person</name></developer>
+            </developers>
+            <contributors>
+                <contributor><name>Profile Contributor</name></contributor>
+            </contributors>
+        </profile>
+    </profiles>
+</project>"""
+        root = ET.fromstring(pom)
+
+        parsed = JavaExtractor()._parse_pom_metadata(
+            root, pom,
+            detection_method='parent_pom_regex',
+            license_file_path='parent:example-parent-1.0.0.pom',
+            license_filename='parent_pom.xml'
+        )
+
+        assert 'repository' not in parsed
+        assert 'authors' not in parsed
+        assert 'maintainers' not in parsed
+
+    def test_project_people_and_scm_are_picked_up(self, tmp_path):
+        pom = """<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <groupId>com.example</groupId>
+    <artifactId>example-parent</artifactId>
+    <version>1.0.0</version>
+    <scm><url>https://github.com/example/parent</url></scm>
+    <developers>
+        <developer><name>Real Person</name></developer>
+    </developers>
+    <contributors>
+        <contributor><name>Real Contributor</name></contributor>
+    </contributors>
+</project>"""
+        root = ET.fromstring(pom)
+
+        parsed = JavaExtractor()._parse_pom_metadata(
+            root, pom,
+            detection_method='parent_pom_regex',
+            license_file_path='parent:example-parent-1.0.0.pom',
+            license_filename='parent_pom.xml'
+        )
+
+        assert parsed['repository'] == "https://github.com/example/parent"
+        assert [a['name'] for a in parsed['authors']] == ["Real Person"]
+        assert {m['name'] for m in parsed['maintainers']} == {"Real Person", "Real Contributor"}
+
+
+class TestNamespacelessLookups:
+    """A maven coordinate is only unique with its groupId."""
+
+    @pytest.fixture
+    def refuse_requests(self, monkeypatch):
+        """Any outbound request is a failure for these cases."""
+        sent = []
+
+        def spy(url, **kwargs):
+            sent.append(url)
+            raise AssertionError(f"a namespace-less maven lookup was sent to {url}")
+
+        monkeypatch.setattr(requests, 'get', spy)
+        return sent
+
+    def test_purldb_refuses(self, refuse_requests):
+        assert PurlDBAPI().get_package_info(PackageType.JAR, "standalone", "1.0.0") is None
+        assert refuse_requests == []
+
+    def test_vulnerablecode_refuses(self, refuse_requests):
+        assert VulnerableCodeAPI().get_vulnerabilities(PackageType.GRADLE, "standalone", "1.0.0") is None
+        assert refuse_requests == []
+
+    def test_clearlydefined_refuses(self, refuse_requests):
+        assert ClearlyDefinedAPI().get_definition(PackageType.JAR, None, "standalone", "1.0.0") is None
+        assert refuse_requests == []
+
+    def test_a_coordinate_with_a_group_id_is_still_queried(self, monkeypatch):
+        sent = []
+
+        def spy(url, **kwargs):
+            sent.append((url, kwargs.get('params')))
+            raise RuntimeError("stop here")
+
+        monkeypatch.setattr(requests, 'get', spy)
+        PurlDBAPI().get_package_info(PackageType.JAR, "com.example:app", "1.0.0")
+
+        assert len(sent) == 1
+        assert sent[0][1]['namespace'] == "com.example"
+        assert sent[0][1]['name'] == "app"
 
 
 class TestMavenPurl:

@@ -2,7 +2,7 @@
 
 import requests
 from typing import Optional, Dict, Any, List
-from ..core.models import PackageType, NO_ASSERTION, split_namespace
+from ..core.models import MAVEN_PACKAGE_TYPES, PackageType, NO_ASSERTION, split_namespace
 
 
 class PurlDBAPI:
@@ -67,6 +67,12 @@ class PurlDBAPI:
 
             # Parse namespace from name for certain package types
             namespace, package_name = split_namespace(package_type, name)
+
+            # A maven coordinate is only unique with its groupId. Querying by
+            # artifactId alone can match a different project entirely, so its
+            # metadata must never be attributed to this artifact.
+            if package_type in MAVEN_PACKAGE_TYPES and not namespace:
+                return None
 
             # Query packages endpoint with filters
             url = f"{self.base_url}/api/packages/"

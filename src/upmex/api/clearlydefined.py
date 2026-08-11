@@ -2,7 +2,7 @@
 
 import requests
 from typing import Optional, Dict, Any
-from ..core.models import PackageType, NO_ASSERTION
+from ..core.models import MAVEN_PACKAGE_TYPES, PackageType, NO_ASSERTION
 
 
 class ClearlyDefinedAPI:
@@ -40,7 +40,13 @@ class ClearlyDefinedAPI:
             
             cd_type = cd_info['type']
             provider = cd_info['provider']
-            
+
+            # A maven coordinate is only unique with its groupId. Querying by
+            # artifactId alone can match a different project entirely, so its
+            # metadata must never be attributed to this artifact.
+            if package_type in MAVEN_PACKAGE_TYPES and not namespace:
+                return None
+
             # Construct coordinates: type/provider/namespace/name/revision
             if namespace:
                 coordinates = f"{cd_type}/{provider}/{namespace}/{name}/{version}"

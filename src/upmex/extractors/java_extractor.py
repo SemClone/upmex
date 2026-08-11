@@ -181,15 +181,8 @@ class JavaExtractor(BaseExtractor):
                             filename='pom.xml'
                         ))
                     
-                    # Check if we have real data or just NO-ASSERTION placeholders
-                    has_real_authors = metadata.authors and any(
-                        author.get('name') != NO_ASSERTION or author.get('email') != NO_ASSERTION 
-                        for author in metadata.authors
-                    )
-                    has_real_repository = metadata.repository and metadata.repository != NO_ASSERTION
-                    
                     # If missing critical data and registry mode is enabled, fetch parent POM
-                    if self.registry_mode and (not has_real_authors or not has_real_repository or not metadata.licenses):
+                    if self.registry_mode and self._needs_parent_pom(metadata):
                         self._apply_parent_pom(root, ns, metadata)
 
                     # ClearlyDefined fallback enrichment in registry mode
@@ -317,9 +310,9 @@ class JavaExtractor(BaseExtractor):
                 self._apply_pom_data(metadata, pom_data, f"maven_central_pom:{pom_url}")
             )
 
-            # The resolved POM may inherit its licences, so fall through to the
-            # existing parent hop when it declares none of its own.
-            if not metadata.licenses:
+            # The resolved POM may inherit any of these, so fall through to the
+            # parent hop on the same condition the embedded-POM path uses.
+            if self._needs_parent_pom(metadata):
                 self._apply_parent_pom(root, ns, metadata)
 
         metadata.add_enrichment(
@@ -336,6 +329,26 @@ class JavaExtractor(BaseExtractor):
             },
             applied_fields=applied_fields
         )
+
+    def _needs_parent_pom(self, metadata: PackageMetadata) -> bool:
+        """Check whether a POM's <parent> is worth fetching for missing fields.
+
+        Any of authors, repository or licences may be declared only in the parent,
+        so all three are worth a hop. NO-ASSERTION counts as missing.
+
+        Args:
+            metadata: Metadata extracted so far
+
+        Returns:
+            True if the parent POM could still fill something in
+        """
+        has_real_authors = metadata.authors and any(
+            author.get('name') != NO_ASSERTION or author.get('email') != NO_ASSERTION
+            for author in metadata.authors
+        )
+        has_real_repository = metadata.repository and metadata.repository != NO_ASSERTION
+
+        return not has_real_authors or not has_real_repository or not metadata.licenses
 
     def _apply_parent_pom(self, root: Any, ns: Dict[str, str], metadata: PackageMetadata) -> List[str]:
         """Follow a POM's <parent> and fill missing fields from it.

@@ -257,6 +257,48 @@ class TestHashResolution:
         assert metadata.provenance['licenses'].startswith('parent_pom:')
         assert len(registry.pom_calls) == 2
 
+    def test_parent_fills_fields_other_than_the_license(self, tmp_path, monkeypatch):
+        """A resolved POM may declare its licence but inherit its people and SCM."""
+        own_pom = """<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <parent>
+        <groupId>com.example</groupId>
+        <artifactId>example-parent</artifactId>
+        <version>1.0.0</version>
+    </parent>
+    <groupId>com.example</groupId>
+    <artifactId>shaded-lib</artifactId>
+    <version>2.3.4</version>
+    <licenses>
+        <license><name>Apache-2.0</name></license>
+    </licenses>
+</project>"""
+        parent_pom = """<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+    <groupId>com.example</groupId>
+    <artifactId>example-parent</artifactId>
+    <version>1.0.0</version>
+    <scm><url>https://github.com/example/shaded-lib</url></scm>
+    <developers>
+        <developer><name>Example Team</name></developer>
+    </developers>
+</project>"""
+        registry = FakeMavenCentral(
+            docs=[{'g': 'com.example', 'a': 'shaded-lib', 'v': '2.3.4', 'p': 'jar'}],
+            poms={
+                'shaded-lib-2.3.4.pom': own_pom,
+                'example-parent-1.0.0.pom': parent_pom,
+            }
+        )
+        monkeypatch.setattr(requests, 'get', registry)
+
+        metadata = JavaExtractor(registry_mode=True).extract(make_jar(tmp_path / "shaded.jar"))
+
+        assert [lic.spdx_id for lic in metadata.licenses] == ["Apache-2.0"]
+        # The licence came from the artifact's own POM, but these did not
+        assert metadata.repository == "https://github.com/example/shaded-lib"
+        assert [author['name'] for author in metadata.authors] == ["Example Team"]
+
     def test_local_license_file_is_not_overwritten(self, tmp_path, monkeypatch):
         registry = okhttp_registry()
         monkeypatch.setattr(requests, 'get', registry)
