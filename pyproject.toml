@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "upmex"
-version = "1.7.1"
+version = "1.7.2"
 description = "Universal Package Metadata Extractor - Extract metadata from various package formats"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -68,7 +68,7 @@ upmex = "upmex.cli:main"
 Homepage = "https://github.com/SemClone/upmex"
 Repository = "https://github.com/SemClone/upmex"
 Issues = "https://github.com/SemClone/upmex/issues"
-Documentation = "https://github.com/SemClone/upmex#readme"
+Documentation = "https://semclone.github.io/upmex/"
 Changelog = "https://github.com/SemClone/upmex/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
