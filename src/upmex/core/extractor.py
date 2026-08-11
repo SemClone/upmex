@@ -331,8 +331,10 @@ class PackageExtractor:
         # Handle namespace for Maven packages
         if metadata.package_type in [PackageType.MAVEN, PackageType.JAR, PackageType.GRADLE]:
             if ':' in metadata.name:
+                # The groupId is the namespace and keeps its dots: the PURL spec
+                # writes pkg:maven/org.apache.commons/commons-lang3@3.12.0
                 parts = metadata.name.split(':', 1)
-                namespace = parts[0].replace('.', '/')
+                namespace = parts[0]
                 name = parts[1]
                 purl += f"{namespace}/{name}"
             else:
