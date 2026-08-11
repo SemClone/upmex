@@ -41,38 +41,16 @@ class NuGetExtractor(BaseExtractor):
         try:
             with zipfile.ZipFile(package_path, 'r') as zip_file:
                 nuspec_file = None
-                license_files = []
-                
-                # Find .nuspec file and LICENSE files
+
                 for file_info in zip_file.namelist():
                     if file_info.endswith('.nuspec'):
                         nuspec_file = file_info
-                    elif 'LICENSE' in file_info.upper() or 'LICENCE' in file_info.upper():
-                        license_files.append(file_info)
-                
+                        break
+
                 if nuspec_file:
                     # Parse .nuspec XML file
                     nuspec_content = zip_file.read(nuspec_file)
-                    self._parse_nuspec(nuspec_content, metadata)
-                
-                # Try to detect license from LICENSE files if not found in nuspec
-                if not metadata.licenses and license_files:
-                    for license_file in license_files:
-                        license_content = zip_file.read(license_file).decode('utf-8', errors='ignore')
-                        license_info = self.detect_licenses_from_text(
-                            license_content,
-                            filename=license_file
-                        )
-                        if license_info:
-                            from ..core.models import LicenseInfo, LicenseConfidenceLevel
-                            metadata.licenses.append(LicenseInfo(
-                                spdx_id=license_info.spdx_id,
-                                confidence=license_info.confidence,
-                                confidence_level=LicenseConfidenceLevel(license_info.confidence_level),
-                                detection_method=license_info.detection_method,
-                                file_path=license_info.file_path
-                            ))
-                            break
+                    self._parse_nuspec(nuspec_content, metadata, package_path)
 
         except Exception as e:
             logger.error(f"Error extracting NuGet metadata: {e}")
@@ -80,12 +58,14 @@ class NuGetExtractor(BaseExtractor):
 
         return metadata
 
-    def _parse_nuspec(self, nuspec_content: bytes, metadata: PackageMetadata) -> None:
+    def _parse_nuspec(self, nuspec_content: bytes, metadata: PackageMetadata,
+                      package_path: str) -> None:
         """Parse .nuspec XML content and populate metadata.
-        
+
         Args:
             nuspec_content: XML content of .nuspec file
             metadata: PackageMetadata object to populate
+            package_path: Path to the .nupkg, for reading files it references
         """
         try:
             root = ET.fromstring(nuspec_content)
@@ -157,56 +137,35 @@ class NuGetExtractor(BaseExtractor):
                 if license_elem is not None:
                     license_type = license_elem.get('type', 'expression')
                     if license_type == 'expression':
-                        # SPDX expression
-                        license_text = license_elem.text
-                        if license_text:
-                            # Format license text for better osslili detection
-                            if len(license_text) < 20 and ':' not in license_text:
-                                formatted_text = f"License: {license_text}"
-                            else:
-                                formatted_text = license_text
-                            license_infos = self.detect_licenses_from_text(
-                                formatted_text,
-                                filename='.nuspec'
-                            )
-                            if license_infos:
-                                metadata.licenses.extend(license_infos)
+                        self._record_declared_license(
+                            metadata, license_elem.text, source='.nuspec'
+                        )
                     elif license_type == 'file':
-                        # License is in a file
+                        # The named file ships inside the package, so read it
                         license_file = license_elem.text
                         if license_file:
                             metadata.raw_metadata['license_file'] = license_file
-                
+                            self._detect_license_from_packaged_file(
+                                metadata, package_path, license_file
+                            )
+
                 # Fallback to licenseUrl for older packages
                 if not metadata.licenses:
                     license_url = self._get_text(metadata_elem, 'licenseUrl', namespaces)
                     if license_url:
-                        # Try to detect license from URL
-                        if 'opensource.org/licenses/' in license_url.lower():
-                            # Extract license ID from URL
-                            parts = license_url.split('/')
-                            if parts:
-                                license_id = parts[-1].upper()
-                                # Format license text for better osslili detection
-                                if len(license_id) < 20 and ':' not in license_id:
-                                    formatted_text = f"License: {license_id}"
-                                else:
-                                    formatted_text = license_id
-                                license_info = self.detect_licenses_from_text(
-                                    formatted_text,
-                                    filename='licenseUrl'
-                                )
-                                if license_info:
-                                    from ..core.models import LicenseInfo, LicenseConfidenceLevel
-                                    metadata.licenses.append(LicenseInfo(
-                                        spdx_id=license_info.spdx_id,
-                                        confidence=license_info.confidence,
-                                        confidence_level=LicenseConfidenceLevel(license_info.confidence_level),
-                                        detection_method=license_info.detection_method,
-                                        file_path='licenseUrl'
-                                    ))
+                        license_id = self._license_id_from_url(license_url)
+                        if license_id:
+                            self._record_declared_license(
+                                metadata, license_id, source='licenseUrl'
+                            )
                         metadata.raw_metadata['license_url'] = license_url
-                
+
+                # Last resort: a licence file shipped without being declared
+                if not metadata.licenses:
+                    detected = self.find_and_detect_licenses(archive_path=str(package_path))
+                    if detected:
+                        metadata.licenses.extend(detected)
+
                 # Extract dependencies
                 dependencies_elem = metadata_elem.find(f'{ns_prefix}dependencies', namespaces)
                 if dependencies_elem is None:
@@ -256,6 +215,135 @@ class NuGetExtractor(BaseExtractor):
         except ET.ParseError as e:
             logger.error(f"Error parsing nuspec XML: {e}")
             raise
+
+    def _record_declared_license(self, metadata: PackageMetadata,
+                                 declared: Optional[str], source: str) -> None:
+        """Record a licence a .nuspec declares.
+
+        A NuGet ``<license type="expression">`` holds an SPDX expression, which is
+        authoritative even when osslili cannot classify it. ``LicenseRef-`` values
+        and compound expressions are both valid and both undetectable as licence
+        *text*, so the declared value is kept verbatim rather than dropped. This
+        matches how the npm extractor treats its declared field.
+
+        Args:
+            metadata: Metadata to append to
+            declared: The declared expression, may be None or empty
+            source: Where it was declared, recorded as the licence's file path
+        """
+        if not declared:
+            return
+
+        declared = declared.strip()
+        if not declared:
+            return
+
+        # A compound expression is a single statement about the licensing, and
+        # osslili reports only the first identifier it recognises. Reporting one
+        # arm of "MIT OR Apache-2.0" would change its meaning, so keep it whole.
+        if self._is_compound_expression(declared):
+            from ..core.models import LicenseInfo, LicenseConfidenceLevel
+            metadata.licenses.append(LicenseInfo(
+                spdx_id=declared,
+                name=declared,
+                confidence=1.0,
+                confidence_level=LicenseConfidenceLevel.HIGH,
+                detection_method='declared',
+                file_path=source
+            ))
+            return
+
+        # Format short values so osslili recognises them as a licence tag
+        if len(declared) < 20 and ':' not in declared:
+            formatted_text = f"License: {declared}"
+        else:
+            formatted_text = declared
+
+        detected = self.detect_licenses_from_text(formatted_text, filename=source)
+        if detected:
+            for info in detected:
+                info.file_path = source
+            metadata.licenses.extend(detected)
+            return
+
+        # osslili produced nothing, so keep what the package declared
+        from ..core.models import LicenseInfo, LicenseConfidenceLevel
+        metadata.licenses.append(LicenseInfo(
+            spdx_id=declared,
+            name=declared,
+            confidence=1.0,
+            confidence_level=LicenseConfidenceLevel.HIGH,
+            detection_method='declared',
+            file_path=source
+        ))
+
+    @staticmethod
+    def _is_compound_expression(declared: str) -> bool:
+        """Check whether a declared licence combines several identifiers.
+
+        Args:
+            declared: The declared SPDX expression
+
+        Returns:
+            True if it uses an SPDX operator
+        """
+        tokens = declared.replace('(', ' ').replace(')', ' ').split()
+        return any(token.upper() in ('OR', 'AND', 'WITH') for token in tokens)
+
+    def _detect_license_from_packaged_file(self, metadata: PackageMetadata,
+                                           package_path: str, license_file: str) -> None:
+        """Detect a licence from a file the .nuspec points at.
+
+        ``<license type="file">`` names a file shipped inside the package, so the
+        text is available without a network lookup.
+
+        Args:
+            metadata: Metadata to append to
+            package_path: Path to the .nupkg
+            license_file: Path of the licence file within the package
+        """
+        try:
+            with zipfile.ZipFile(package_path, 'r') as zip_file:
+                # The nuspec may use either separator, and may name a nested path
+                wanted = license_file.replace('\\', '/').lstrip('./')
+                match = next(
+                    (n for n in zip_file.namelist()
+                     if n.replace('\\', '/') == wanted or n.endswith('/' + wanted)),
+                    None
+                )
+                if not match:
+                    return
+
+                text = zip_file.read(match).decode('utf-8', errors='ignore')
+
+            detected = self.detect_licenses_from_text(text, filename=license_file)
+            for info in detected:
+                info.file_path = license_file
+            metadata.licenses.extend(detected)
+        except Exception as e:
+            logger.error(f"Error reading declared license file '{license_file}': {e}")
+
+    def _license_id_from_url(self, license_url: str) -> Optional[str]:
+        """Recover a licence identifier from a licenseUrl.
+
+        Older packages declare only a URL. NuGet's own canonical form is
+        ``https://licenses.nuget.org/<expression>``; ``opensource.org/licenses/<id>``
+        is the other common one.
+
+        Args:
+            license_url: The declared URL
+
+        Returns:
+            The identifier, or None if the URL is not one we can read
+        """
+        lowered = license_url.lower()
+        for marker in ('licenses.nuget.org/', 'opensource.org/licenses/'):
+            position = lowered.find(marker)
+            if position != -1:
+                # Everything after the marker, so a bare host URL yields nothing
+                identifier = license_url[position + len(marker):].strip('/')
+                return identifier or None
+        return None
 
     def _parse_dependencies(self, dependencies_elem, metadata: PackageMetadata, namespaces: dict) -> None:
         """Parse dependencies from nuspec.

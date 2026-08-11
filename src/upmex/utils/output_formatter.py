@@ -138,7 +138,7 @@ class OutputFormatter:
             lines.append(f"File Size: {metadata.file_size:,} bytes")
         
         if metadata.file_hash:
-            lines.append(f"SHA256: {metadata.file_hash}")
+            lines.append(f"SHA1: {metadata.file_hash}")
         
         lines.append(f"Schema Version: {metadata.schema_version}")
 

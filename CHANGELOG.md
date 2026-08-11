@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **NuGet licences are no longer dropped or crashed on** (closes #100). A `.nuspec` can declare its licence four ways and only one of them worked:
+  - An SPDX expression `osslili` cannot classify, such as `LicenseRef-Proprietary`, was discarded. It is now recorded verbatim with `detection_method="declared"`, as the npm and Maven paths already do.
+  - A compound expression reported only its first identifier, so `MIT OR Apache-2.0` became `MIT`, which states something the package does not. Compound expressions are now kept whole.
+  - `<license type="file">` stored the filename and never read it, even though the file ships inside the package. It is now read, including nested paths and Windows separators.
+  - `licenseUrl` only recognised `opensource.org/licenses/`, missing `licenses.nuget.org/<expression>`, which is the form NuGet itself generates.
+  - Two paths passed a list where a single licence was expected and raised `AttributeError`. A package shipping a recognisable `LICENSE` file with no `<license>` element failed extraction outright, since that error propagated out of `extract()`.
+- **Conan packages no longer fail to extract on Python 3.12 and later** (closes #101): `ConanExtractor` branched on `ast.Str`, which was removed in that release, and the error propagated out of `extract()` rather than being contained, so a scan over a directory stopped at the first Conan artifact. The branch was already redundant, since `ast.Constant` covers string literals on every supported version. No test exercised Conan extraction; one now does.
+- **The text output labelled the SHA-1 as SHA256.** The value was always the SHA-1, matching `file_info.hashes.sha1` in the JSON output; only the label was wrong.
+
 ## [1.7.0] - 2026-08-11
 
 ### Added
