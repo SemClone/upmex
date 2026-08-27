@@ -3,12 +3,9 @@
 import tarfile
 import gzip
 import yaml
-import json
 from pathlib import Path
-from typing import Dict, Any, List, Optional
-from datetime import datetime
+from typing import Optional
 import logging
-import re
 
 from .base import BaseExtractor
 from ..core.models import NO_ASSERTION, PackageMetadata, PackageType
@@ -59,7 +56,6 @@ class RubyExtractor(BaseExtractor):
         )
         metadata.dependencies = {'runtime': [], 'development': []}
         build_tools = []
-        documentation_url = NO_ASSERTION
 
         try:
             # Open the gem file (tar archive)
@@ -111,9 +107,6 @@ class RubyExtractor(BaseExtractor):
                                     if 'github.com' in repo_url or 'gitlab.com' in repo_url:
                                         metadata.repository = repo_url
                                 
-                                if gem_metadata.get('documentation_uri'):
-                                    documentation_url = gem_metadata['documentation_uri']
-                        
                         if metadata.repository == NO_ASSERTION and metadata.homepage != NO_ASSERTION:
                             if 'github.com' in metadata.homepage or 'gitlab.com' in metadata.homepage:
                                 metadata.repository = metadata.homepage
@@ -238,7 +231,6 @@ class RubyExtractor(BaseExtractor):
 
         # Extract copyright information
         import tempfile
-        import os
         with tempfile.TemporaryDirectory() as temp_dir:
             try:
                 with tarfile.open(str(package_path), 'r:*') as tar:

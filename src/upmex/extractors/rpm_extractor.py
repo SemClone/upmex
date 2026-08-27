@@ -1,13 +1,12 @@
 """RPM package extractor."""
 
-import os
+import logging
 import subprocess
-import tempfile
-import json
 from pathlib import Path
-from typing import Optional, List, Dict, Any
 from .base import BaseExtractor
 from ..core.models import PackageMetadata, LicenseInfo, NO_ASSERTION
+
+logger = logging.getLogger(__name__)
 
 
 class RpmExtractor(BaseExtractor):
@@ -102,8 +101,9 @@ class RpmExtractor(BaseExtractor):
             self._extract_dependencies(package_path, metadata)
             
         except Exception as e:
-            # Silently fall back to archive extraction
-            pass
+            logger.debug(
+                "rpm query failed, falling back to archive extraction: %s", e
+            )
     
     def _extract_dependencies(self, package_path: str, metadata: PackageMetadata):
         """Extract dependencies using rpm command."""

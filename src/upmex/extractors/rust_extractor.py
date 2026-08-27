@@ -1,12 +1,9 @@
 """Rust crate package extractor."""
 
 import tarfile
-import gzip
 import toml
-import json
 from pathlib import Path
-from typing import Dict, Any, List, Optional
-from datetime import datetime
+from typing import Optional
 import logging
 
 from .base import BaseExtractor
@@ -210,7 +207,6 @@ class RustExtractor(BaseExtractor):
 
         # Extract copyright information
         import tempfile
-        import os
         with tempfile.TemporaryDirectory() as temp_dir:
             try:
                 with tarfile.open(str(package_path), 'r:*') as tar:

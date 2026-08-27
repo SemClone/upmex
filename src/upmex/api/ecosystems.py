@@ -4,7 +4,7 @@ import logging
 import requests
 from typing import Optional, Dict, Any
 from ..config import setting
-from ..core.models import PackageType, NO_ASSERTION
+from ..core.models import PackageType
 
 logger = logging.getLogger(__name__)
 

@@ -4,7 +4,6 @@ import logging
 import json
 import email
 from pathlib import Path
-from typing import Dict, Any, Optional
 from .base import BaseExtractor
 from ..core.models import PackageMetadata, PackageType, NO_ASSERTION
 
@@ -61,7 +60,6 @@ class PythonExtractor(BaseExtractor):
             # Extract copyright information
             import tempfile
             import zipfile
-            import os
             with tempfile.TemporaryDirectory() as temp_dir:
                 try:
                     with zipfile.ZipFile(wheel_path, 'r') as z:
@@ -111,7 +109,6 @@ class PythonExtractor(BaseExtractor):
             # Extract copyright information
             import tempfile
             import tarfile
-            import os
             with tempfile.TemporaryDirectory() as temp_dir:
                 try:
                     with tarfile.open(sdist_path, 'r:*') as tar:

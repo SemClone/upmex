@@ -1,11 +1,8 @@
 """Integration tests for license extraction with regex detection."""
 
-import pytest
-import tempfile
 import zipfile
 import tarfile
 import json
-from pathlib import Path
 
 from upmex.core.extractor import PackageExtractor
 from upmex.core.models import LicenseConfidenceLevel

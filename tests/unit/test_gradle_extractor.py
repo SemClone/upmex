@@ -1,7 +1,6 @@
 """Tests for Gradle extractor."""
 
 import pytest
-from pathlib import Path
 from upmex.extractors.gradle_extractor import GradleExtractor
 from upmex.core.models import PackageType
 

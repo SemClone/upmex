@@ -1,10 +1,8 @@
 """Tests for package type detection."""
 
-import pytest
 import zipfile
 import tarfile
 import json
-from pathlib import Path
 from upmex.utils.package_detector import detect_package_type
 from upmex.core.models import PackageType
 

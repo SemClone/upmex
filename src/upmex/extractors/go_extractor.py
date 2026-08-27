@@ -1,10 +1,8 @@
 """Go module package extractor."""
 
 import zipfile
-import re
 from pathlib import Path
-from typing import Dict, Any, List, Optional
-from datetime import datetime
+from typing import Optional
 import logging
 
 from .base import BaseExtractor
@@ -119,7 +117,6 @@ class GoExtractor(BaseExtractor):
         
         # Extract copyright information
         import tempfile
-        import os
         with tempfile.TemporaryDirectory() as temp_dir:
             try:
                 with zipfile.ZipFile(str(package_path), 'r') as zf:
@@ -151,7 +148,6 @@ class GoExtractor(BaseExtractor):
         lines = content.split('\n')
         in_require_block = False
         in_replace_block = False
-        in_exclude_block = False
         
         for line in lines:
             line = line.strip()
@@ -179,19 +175,18 @@ class GoExtractor(BaseExtractor):
             elif line == 'require (':
                 in_require_block = True
                 in_replace_block = False
-                in_exclude_block = False
             elif line == 'replace (':
                 in_replace_block = True
                 in_require_block = False
-                in_exclude_block = False
             elif line == 'exclude (':
-                in_exclude_block = True
+                # An excluded module is one this module refuses, so it is not a
+                # dependency. Clearing both flags is what drops its lines: they
+                # match no branch below and are ignored.
                 in_require_block = False
                 in_replace_block = False
             elif line == ')':
                 in_require_block = False
                 in_replace_block = False
-                in_exclude_block = False
             
             # Parse single-line require
             elif line.startswith('require ') and '(' not in line:

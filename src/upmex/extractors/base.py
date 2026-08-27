@@ -1,5 +1,6 @@
 """Base extractor class for all package types."""
 
+import logging
 import hashlib
 import os
 from abc import ABC, abstractmethod
@@ -21,6 +22,8 @@ from ..core.models import (
 from ..utils.patterns import LICENSE_FILE_NAMES
 from ..utils.author_parser import parse_author_string, parse_author_list
 from ..utils.archive_utils import find_file_in_archive, extract_from_tar, extract_from_zip
+
+logger = logging.getLogger(__name__)
 
 
 class BaseExtractor(ABC):
@@ -309,8 +312,10 @@ class BaseExtractor(ABC):
                 if unique_statements:
                     return '; '.join(unique_statements)
         except Exception as e:
-            # Silently fail - copyright extraction is optional
-            pass
+            # Copyright extraction is optional, but the reason it failed is
+            # not: discarding it left no way to tell a missing statement from
+            # a broken read.
+            logger.debug("Copyright extraction failed: %s", e)
 
         return ""
     
@@ -476,5 +481,5 @@ class BaseExtractor(ABC):
             # ClearlyDefined API not available
             pass
         except Exception as e:
-            # Silently fail - ClearlyDefined enrichment is optional
-            pass
+            # Enrichment is optional, the reason it failed is not.
+            logger.debug("ClearlyDefined enrichment failed: %s", e)

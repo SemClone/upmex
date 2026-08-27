@@ -15,12 +15,11 @@ import sys
 import json
 import click
 from pathlib import Path
-from typing import Optional
 import logging
 
 from upmex import __version__
 from upmex.core.extractor import PackageExtractor
-from upmex.core.models import PackageType, split_namespace
+from upmex.core.models import split_namespace
 from upmex.config import Config
 from upmex.utils.package_detector import detect_package_type
 from upmex.utils.output_formatter import OutputFormatter
@@ -174,7 +173,7 @@ def extract(ctx, package_path, output, format, pretty, api, registry):
                             )
 
                         if verbose:
-                            click.echo(f"✓ ClearlyDefined enrichment completed", err=True)
+                            click.echo("✓ ClearlyDefined enrichment completed", err=True)
                     elif verbose:
                         click.echo("○ No ClearlyDefined data available", err=True)
 
@@ -269,7 +268,7 @@ def extract(ctx, package_path, output, format, pretty, api, registry):
                             )
 
                         if verbose:
-                            click.echo(f"✓ Ecosystems enrichment completed", err=True)
+                            click.echo("✓ Ecosystems enrichment completed", err=True)
                     elif verbose:
                         click.echo("○ No Ecosystems data available", err=True)
 
@@ -340,7 +339,7 @@ def extract(ctx, package_path, output, format, pretty, api, registry):
                             )
 
                         if verbose:
-                            click.echo(f"✓ PurlDB enrichment completed", err=True)
+                            click.echo("✓ PurlDB enrichment completed", err=True)
                     elif verbose:
                         click.echo("○ No PurlDB data available", err=True)
 

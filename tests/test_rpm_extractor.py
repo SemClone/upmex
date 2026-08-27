@@ -1,9 +1,7 @@
 """Tests for RPM package extractor."""
 
-import pytest
-from pathlib import Path
 from upmex.extractors.rpm_extractor import RpmExtractor
-from upmex.core.models import PackageType, NO_ASSERTION
+from upmex.core.models import NO_ASSERTION
 
 
 class TestRpmExtractor:
@@ -33,22 +31,11 @@ class TestRpmExtractor:
         # The extractor may not be able to extract name/version without rpm command
         # but it should not fail
     
-    def test_normalize_license_id(self):
-        """Test license normalization."""
-        # Method is not exposed publicly, skip this test
-        pass
-    
-    @pytest.mark.skipif(not Path("/usr/bin/rpm").exists(), reason="rpm command not available")
-    def test_extract_with_rpm_command(self, tmp_path):
-        """Test extraction when rpm command is available."""
-        # This test would require a real RPM file and rpm command
-        # Skipped if rpm is not available
-        pass
-    
-    def test_parse_debian_dependencies(self):
-        """Test dependency parsing."""
-        # The extractor should handle dependencies gracefully
-        # even if it can't extract them without rpm command
-        rpm_file = "dummy.rpm"
-        metadata = self.extractor.extract(rpm_file)
-        # Should not fail even without real RPM file
+    def test_a_missing_file_yields_no_assertion_rather_than_raising(self):
+        """Unlike the Debian extractor there is no filename fallback here, so
+        an unreadable package says it does not know."""
+        metadata = self.extractor.extract("dummy.rpm")
+
+        assert metadata.name == NO_ASSERTION
+        assert metadata.version == NO_ASSERTION
+        assert metadata.dependencies == {}

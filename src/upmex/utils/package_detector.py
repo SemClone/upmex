@@ -3,7 +3,6 @@
 import zipfile
 import tarfile
 from pathlib import Path
-from typing import Optional
 from ..core.models import PackageType
 
 

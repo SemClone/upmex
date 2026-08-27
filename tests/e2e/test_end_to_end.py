@@ -1,17 +1,14 @@
 """End-to-end tests for the complete extraction pipeline."""
 
-import pytest
 import json
-import tempfile
 import zipfile
 import tarfile
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
 from click.testing import CliRunner
 
 from upmex.cli import cli
 from upmex.core.extractor import PackageExtractor
-from upmex.core.models import PackageType, PackageMetadata
+from upmex.core.models import PackageType
 
 
 class TestCLIEndToEnd:
@@ -186,13 +183,12 @@ Implementation-Version: 1.0.0
         assert result.exit_code == 0
         assert PackageType.JAR.value in result.output
     
-    def test_detect_command_verbose(self, tmp_path):
+    def test_detect_command_verbose(self, tmp_path, separated_runner):
         """Test detect command with verbose output."""
         file_path = tmp_path / "test.whl"
         file_path.write_text("test content")
         
-        runner = CliRunner()
-        result = runner.invoke(cli, ['detect', str(file_path), '--verbose'])
+        result = separated_runner.invoke(cli, ['detect', str(file_path), '--verbose'])
         
         assert result.exit_code == 0
         assert "File: test.whl" in result.stderr
@@ -374,14 +370,11 @@ Requires-Dist: pytest>=7.0.0; extra == "dev"
         assert metadata.authors[0]["name"] == "Developer One"
         assert metadata.authors[0]["email"] == "dev1@example.com"
         
-        # Dependencies might be stored in different formats
-        runtime_deps = metadata.dependencies.get("runtime", [])
-        test_deps = metadata.dependencies.get("test", [])
-        all_deps = runtime_deps + test_deps
-
-        # Dependencies extraction might not work without full registry mode
-        # Skip dependency checks if extraction didn't find any
-        pass  # Dependencies are optional in this test
+        # The pom declares one runtime and one test dependency. Whichever
+        # bucket they land in, both have to survive extraction.
+        all_deps = (metadata.dependencies.get("runtime", [])
+                    + metadata.dependencies.get("test", []))
+        assert any("spring-core" in str(dep) for dep in all_deps), all_deps
     
     def test_npm_package_full_extraction(self, tmp_path):
         """Test full NPM package extraction."""

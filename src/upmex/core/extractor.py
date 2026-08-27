@@ -1,7 +1,6 @@
 """Main package extractor orchestrator."""
 
 import logging
-import os
 import hashlib
 from pathlib import Path
 from typing import Optional, Dict, Any

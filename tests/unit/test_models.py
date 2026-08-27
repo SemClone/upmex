@@ -1,7 +1,5 @@
 """Tests for data models."""
 
-import pytest
-from datetime import datetime
 from upmex.core.models import (
     PackageMetadata,
     LicenseInfo,

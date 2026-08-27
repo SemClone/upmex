@@ -6,10 +6,7 @@ import zipfile
 import tempfile
 import os
 import yaml
-from pathlib import Path
-from datetime import datetime
 
-import pytest
 from src.upmex.extractors.conda_extractor import CondaExtractor
 from src.upmex.core.models import PackageType, NO_ASSERTION
 

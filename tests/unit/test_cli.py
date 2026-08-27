@@ -2,10 +2,8 @@
 
 import json
 import pytest
-from pathlib import Path
 from click.testing import CliRunner
 from upmex.cli import cli
-from upmex.core.models import PackageMetadata, PackageType
 
 
 class TestCLI:
@@ -13,7 +11,12 @@ class TestCLI:
     
     @pytest.fixture
     def runner(self):
-        """Create a CLI runner."""
+        """Create a CLI runner.
+
+        Deliberately the default one. Click's runner reports stdout and stderr
+        together here, which is what most of these tests want; the two that
+        care about the difference ask for the separated_runner fixture.
+        """
         return CliRunner()
     
     @pytest.fixture
@@ -67,9 +70,9 @@ License: MIT
         assert result.exit_code == 0
         assert 'python_wheel' in result.output
     
-    def test_detect_command_verbose(self, runner, sample_package):
+    def test_detect_command_verbose(self, separated_runner, sample_package):
         """Test detect command with verbose output."""
-        result = runner.invoke(cli, ['detect', '-v', sample_package])
+        result = separated_runner.invoke(cli, ['detect', '-v', sample_package])
         assert result.exit_code == 0
         # The type is what a caller reads off this command, so it stays on
         # stdout at either verbosity; the commentary goes beside it. The old

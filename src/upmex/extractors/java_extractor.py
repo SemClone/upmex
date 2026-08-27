@@ -67,7 +67,6 @@ class JavaExtractor(BaseExtractor):
 
                 # Extract copyright information
                 import tempfile
-                import os
                 with tempfile.TemporaryDirectory() as temp_dir:
                     try:
                         # Extract limited files for copyright scanning

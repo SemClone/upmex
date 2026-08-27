@@ -1,13 +1,10 @@
 """Integration tests for package extractors."""
 
-import pytest
 import requests
-import tempfile
 import zipfile
 import tarfile
 import json
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
 
 from upmex.extractors.python_extractor import PythonExtractor
 from upmex.extractors.npm_extractor import NpmExtractor

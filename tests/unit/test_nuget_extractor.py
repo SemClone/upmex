@@ -1,13 +1,11 @@
 """Unit tests for NuGet package extractor."""
 
-import pytest
 from pathlib import Path
 import tempfile
 import zipfile
-import xml.etree.ElementTree as ET
 
 from upmex.extractors.nuget_extractor import NuGetExtractor
-from upmex.core.models import PackageType, NO_ASSERTION
+from upmex.core.models import PackageType
 
 
 class TestNuGetExtractor:

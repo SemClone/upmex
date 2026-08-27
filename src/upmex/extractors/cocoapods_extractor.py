@@ -3,7 +3,7 @@
 import json
 import re
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 from .base import BaseExtractor
 from ..core.models import PackageMetadata, PackageType, NO_ASSERTION
 
