@@ -75,3 +75,51 @@ def test_a_path_ahead_of_the_environment_does_not_win(tmp_path, monkeypatch):
     assert OssliliSubprocessDetector().detect_from_file(
         "LICENSE", "SPDX-License-Identifier: MIT\n"
     )
+
+
+class TestSomethingUnrunnableBesideTheInterpreter:
+    """Existing is not the same as runnable. Taking an unrunnable candidate
+    means the subprocess raises, the broad except swallows it, and the package
+    is reported as having no licence rather than falling back to PATH."""
+
+    def _pretend_interpreter_lives_in(self, directory, monkeypatch):
+        fake = directory / "python"
+        fake.write_text("")
+        monkeypatch.setattr(sys, "executable", str(fake))
+
+    def test_a_directory_of_that_name_is_not_taken(self, tmp_path, monkeypatch):
+        (tmp_path / "osslili").mkdir()
+        self._pretend_interpreter_lives_in(tmp_path, monkeypatch)
+
+        assert osslili_command() != str(tmp_path / "osslili")
+
+    def test_nor_a_file_with_no_execute_bit(self, tmp_path, monkeypatch):
+        candidate = tmp_path / "osslili"
+        candidate.write_text("#!/bin/sh\nexit 0\n")
+        candidate.chmod(0o644)
+        self._pretend_interpreter_lives_in(tmp_path, monkeypatch)
+
+        assert osslili_command() != str(candidate)
+
+    def test_and_the_licence_is_still_found_through_the_fallback(
+        self, tmp_path, monkeypatch
+    ):
+        (tmp_path / "osslili").mkdir()
+        self._pretend_interpreter_lives_in(tmp_path, monkeypatch)
+        real = Path(sys.executable).parent / "osslili"
+        if not real.exists():
+            pytest.skip("no osslili installed beside the real interpreter")
+        monkeypatch.setenv("PATH", f"{real.parent}{os.pathsep}{os.environ['PATH']}")
+
+        found = OssliliSubprocessDetector().detect_from_file(
+            "LICENSE", "SPDX-License-Identifier: MIT\n"
+        )
+        assert [lic["spdx_id"] for lic in found] == ["MIT"]
+
+    def test_a_runnable_one_is_taken(self, tmp_path, monkeypatch):
+        candidate = tmp_path / "osslili"
+        candidate.write_text("#!/bin/sh\nexit 0\n")
+        candidate.chmod(0o755)
+        self._pretend_interpreter_lives_in(tmp_path, monkeypatch)
+
+        assert osslili_command() == str(candidate)

@@ -28,7 +28,10 @@ def osslili_command():
     beside_the_interpreter = Path(sys.executable).parent / 'osslili'
     for candidate in (beside_the_interpreter,
                       beside_the_interpreter.with_suffix('.exe')):
-        if candidate.exists():
+        # Existing is not the same as runnable. A directory of that name, or a
+        # file with no execute bit, would be taken and then fail inside the
+        # broad except below, reporting no licence rather than falling back.
+        if candidate.is_file() and os.access(candidate, os.X_OK):
             return str(candidate)
     # Nothing beside the interpreter, so fall back rather than fail outright:
     # upmex still works with osslili installed some other way.
