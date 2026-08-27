@@ -16,8 +16,14 @@ import pytest
 
 from upmex.licenses.osslili_subprocess import OssliliSubprocessDetector
 
+from upmex.licenses.osslili_subprocess import osslili_command
+
+# Skip on what the detector actually runs, not on what PATH happens to offer.
+# These tests are sensitive to the osslili version, and checking a different
+# binary than the one under test is how the version confusion started.
 pytestmark = pytest.mark.skipif(
-    shutil.which("osslili") is None, reason="the osslili CLI is not installed"
+    shutil.which(osslili_command()) is None,
+    reason="the osslili CLI upmex depends on is not installed",
 )
 
 MIT_TEXT = """MIT License
@@ -246,3 +252,26 @@ class TestWhatThisRuleGivesUp:
             shutil.rmtree(directory, ignore_errors=True)
 
         assert sorted({lic["spdx_id"] for lic in found["licenses"]}) == ["MIT"]
+
+
+class TestALicenceFileNamedAfterItsLicence:
+    """A dual-licensed project ships MIT.txt beside APACHE.txt. Neither name
+    contains a licence word and both carry a document suffix, so the rule read
+    them as prose and a directory scan came back with no licence at all."""
+
+    @pytest.mark.parametrize("name", ["MIT.txt", "APACHE.txt", "BSD.txt",
+                                      "OFL.txt", "GPL.md"])
+    def test_a_directory_scan_reads_it(self, name):
+        directory = tempfile.mkdtemp()
+        try:
+            with open(os.path.join(directory, name), "w") as handle:
+                handle.write(FULL_MIT_TEXT)
+            found = OssliliSubprocessDetector().detect_from_directory(directory)
+        finally:
+            shutil.rmtree(directory, ignore_errors=True)
+
+        assert [lic["spdx_id"] for lic in found["licenses"]] == ["MIT"], name
+
+    @pytest.mark.parametrize("name", ["MIT.txt", "APACHE.txt", "GPL.md"])
+    def test_and_so_does_a_file_scan(self, name):
+        assert _found(name, FULL_MIT_TEXT) == ["MIT"], name

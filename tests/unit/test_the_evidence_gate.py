@@ -542,3 +542,79 @@ class TestAWindowsSeparator:
              "match_type": "license_file"},
             source_file="pkg\\LICENSE.md",
         )
+
+
+class TestTheOrderTheChecksRunIn:
+    """is_reportable answers in a fixed order, and each step only means what
+    it means because of what ran before it. Nothing pinned that, so the steps
+    could be reordered into a wrong answer with the suite still green."""
+
+    def test_a_third_party_licence_loses_even_where_a_document_would_win(self):
+        """Refusing borrowed licences has to come first. A vendored copy of a
+        licence text is a licence file, and identifying it as one is exactly
+        what the document branch accepts without a score."""
+        assert not is_reportable(
+            {"detected_license": "Apache-2.0", "confidence": 1.0,
+             "detection_method": "regex", "category": "third-party",
+             "match_type": "license_file"},
+            source_file="vendor/terser/README.md",
+        )
+
+    def test_and_a_referenced_one_too(self):
+        assert not is_reportable(
+            {"detected_license": "Apache-2.0", "confidence": 1.0,
+             "detection_method": "regex", "category": "referenced",
+             "match_type": "exact_hash"},
+            source_file="README.md",
+        )
+
+    def test_the_known_false_positive_loses_before_anything_else(self):
+        assert not is_reportable(
+            {"detected_license": "Pixar", "confidence": 1.0,
+             "detection_method": "regex", "category": "declared",
+             "match_type": "exact_hash"},
+            source_file="README.md",
+        )
+        assert not is_reportable(
+            {"detected_license": "Pixar", "confidence": 1.0,
+             "detection_method": "regex", "category": "declared",
+             "match_type": "license_file"},
+            source_file="LICENSE",
+        )
+
+    def test_the_evidence_format_key_names_the_licence(self):
+        """Records in the current format carry detected_license. The older
+        format carries spdx_id. Reading them in the wrong order judges one
+        licence and reports another."""
+        assert not is_reportable(
+            {"detected_license": "Pixar", "spdx_id": "MIT", "confidence": 1.0,
+             "detection_method": "tag", "category": "declared",
+             "match_type": "spdx_identifier"}
+        )
+
+    def test_and_the_older_key_is_still_read_when_it_is_all_there_is(self):
+        assert not is_reportable(
+            {"spdx_id": "Pixar", "confidence": 1.0,
+             "detection_method": "tag", "category": "declared"}
+        )
+
+
+class TestALicenceFileNamedAfterItsLicence:
+    """A dual-licensed project ships MIT.txt beside APACHE.txt. Neither name
+    contains a licence word, and both have a document suffix."""
+
+    @pytest.mark.parametrize("name", [
+        "MIT.txt", "BSD.txt", "APACHE.txt", "OFL.txt", "GPL.md",
+        "mit.txt", "cc0.txt", "zlib.txt",
+    ])
+    def test_it_is_not_a_document(self, name):
+        from upmex.licenses.osslili_subprocess import _reads_as_a_document
+
+        assert not _reads_as_a_document(name), name
+
+    @pytest.mark.parametrize("name", ["mitigations.md", "notes.txt",
+                                      "README.md", "INSTALL"])
+    def test_but_a_document_that_merely_looks_similar_is_still_one(self, name):
+        from upmex.licenses.osslili_subprocess import _reads_as_a_document
+
+        assert _reads_as_a_document(name), name

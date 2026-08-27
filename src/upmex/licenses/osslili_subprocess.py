@@ -123,6 +123,15 @@ DOCUMENT_STEMS = (
 LICENCE_WORDS = ('license', 'licence', 'copying', 'copyright', 'legal',
                  'notice', 'unlicense', 'unlicence')
 
+# A licence file is often named after the licence and nothing else, and a
+# dual-licensed project ships several: MIT.txt beside APACHE.txt. None of them
+# contains a licence word, so they need naming.
+LICENCE_NAME_STEMS = (
+    'mit', 'bsd', 'isc', 'apache', 'apache-2.0', 'gpl', 'lgpl', 'agpl',
+    'gplv2', 'gplv3', 'mpl', 'epl', 'cddl', 'ofl', 'cc0', 'cc-by',
+    'zlib', 'artistic', 'boost', 'wtfpl', 'zpl', 'psf', 'openssl',
+)
+
 
 def _reads_as_a_document(source_file):
     """A file whose subject is prose, not licence text."""
@@ -133,6 +142,8 @@ def _reads_as_a_document(source_file):
     suffix = PurePath(name).suffix.lower()
 
     if any(word in stem for word in LICENCE_WORDS):
+        return False
+    if stem in LICENCE_NAME_STEMS:
         return False
     if suffix in DOCUMENT_SUFFIXES:
         return True
