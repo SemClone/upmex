@@ -18,7 +18,7 @@ from pathlib import Path
 import logging
 
 from upmex import __version__
-from upmex.core.extractor import PackageExtractor
+from upmex.core.extractor import PackageExtractor, refuse_if_too_large
 from upmex.core.models import split_namespace
 from upmex.config import Config, setting
 from upmex.utils.package_detector import detect_package_type
@@ -79,8 +79,20 @@ def _configure_logging(config, verbose, quiet):
         root.setLevel(logging.DEBUG)
     else:
         level = setting(config, 'logging.level', 'INFO')
-        # An unknown name would otherwise raise and take the command with it.
-        root.setLevel(getattr(logging, str(level).upper(), logging.INFO))
+        # A name, or a number, which logging accepts too. An unknown name
+        # would otherwise raise and take the command with it, and a number
+        # was silently turned into INFO.
+        if isinstance(level, int) or str(level).isdigit():
+            root.setLevel(int(level))
+        else:
+            resolved = getattr(logging, str(level).upper(), None)
+            if resolved is None:
+                click.echo(
+                    f"Warning: logging.level {level!r} is not a level, using INFO",
+                    err=True,
+                )
+                resolved = logging.INFO
+            root.setLevel(resolved)
 
 
 @click.group()
@@ -135,9 +147,20 @@ def extract(ctx, package_path, output, format, pretty, api, registry):
     """
     config = ctx.obj['config']
     verbose = ctx.obj['verbose']
-    
-    # Update config with CLI options
-    
+
+    # Checked before the work rather than after it. A format the formatter
+    # does not know used to be discovered once extraction and every API call
+    # had finished, throwing all of it away over a typo.
+    chosen_format = format if format is not None else setting(
+        config, 'output.format', 'json')
+    if chosen_format not in ('json', 'text'):
+        click.echo(
+            f"Error: output.format is {chosen_format!r}, which is not "
+            f"'json' or 'text'",
+            err=True,
+        )
+        sys.exit(1)
+
     try:
         # Create extractor with registry mode
         extractor_config = config.to_dict()
@@ -439,8 +462,7 @@ def extract(ctx, package_path, output, format, pretty, api, registry):
                 click.echo(f"Warning: API enrichment failed: {e}", err=True)
         
         # Format output. The flag wins when given, the configuration when not.
-        if format is None:
-            format = setting(config, 'output.format', 'json')
+        format = chosen_format
         if pretty is None:
             pretty = setting(config, 'output.pretty_print', False)
 
@@ -475,6 +497,9 @@ def detect(ctx, package_path, verbose):
         upmex detect -v unknown.tar.gz
     """
     try:
+        # Detecting the type opens the archive, so the limit applies here too.
+        refuse_if_too_large(package_path, ctx.obj['config'])
+
         package_type = detect_package_type(package_path)
         
         if verbose:

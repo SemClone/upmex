@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **Settings in the configuration file now take effect** (closes #110). Sixteen were declared, documented and mapped to `PME_*` environment variables while nothing read them, so setting one changed nothing. Two of those are worth reading before you upgrade:
+  - `output.format` had no effect because the `--format` flag carried its own default, which won every time. If you set it to `text`, or exported `PME_OUTPUT_FORMAT=text`, your stdout was JSON regardless and will now be text. A consumer parsing that output will see the change.
+  - `output.pretty_print` was declared `true` in the defaults and in the shipped `config/default.json` while nothing read it, so output has always been compact. The default is now `false` to keep it that way, but a config file you copied from `config/default.json` carries `true` and will start indenting.
+- `--pretty` gained `--no-pretty`, so a single run can ask for compact output when the configuration says otherwise. Flags still take precedence over the file for `--format`, `--pretty`, `--verbose` and `--quiet`.
+- `logging.level`, `logging.format` and `logging.file` are applied. `PME_LOG_LEVEL` and `PME_LOG_FILE` previously did nothing.
+- `extraction.max_file_size` refuses a package over the limit instead of reading it, and `extraction.temp_dir` decides where archives are unpacked.
+- `output.include_raw_metadata` publishes the source documents each field was read from, in JSON output.
+
+### Removed
+- Settings with nothing to read them: `extraction.parallel_processing`, `extraction.cache_enabled`, `extraction.cache_dir`, and the whole `license_detection` section (`methods`, `confidence_threshold`, `max_text_length`, `enable_ml`). Their `PME_*` mappings went with them. A configuration file that still sets them loads and runs; the values are simply ignored, as they always were.
+- `output.schema_version`. It describes the shape of the document, so the document states it; as a setting it only let a caller make the output claim a shape it does not have. `extraction_info.schema_version` is unchanged in the output.
+- A `package_types` block that existed only in `config/default.json`, never in the defaults, and that nothing read.
+
 ## [1.7.2] - 2026-08-11
 
 ### Changed

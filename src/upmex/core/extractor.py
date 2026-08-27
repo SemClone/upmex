@@ -3,6 +3,7 @@
 import logging
 import hashlib
 import tempfile
+import threading
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -35,6 +36,37 @@ from ..api.ecosystems import EcosystemsAPI
 logger = logging.getLogger(__name__)
 
 
+def refuse_if_too_large(package_path, config):
+    """Raise if the package is over extraction.max_file_size.
+
+    A function rather than a step inside extract, because the detect command
+    reads inside the archive too and was opening packages the limit exists to
+    keep closed.
+    """
+    max_file_size = setting(config, 'extraction.max_file_size', None)
+    if max_file_size is None:
+        return
+
+    if not isinstance(max_file_size, int):
+        # A value like "500MB" would otherwise reach the comparison below and
+        # fail there, once per package, with a message about int and str.
+        logger.warning(
+            "extraction.max_file_size is %r, which is not a number of bytes; "
+            "ignoring it", max_file_size,
+        )
+        return
+
+    file_size = Path(package_path).stat().st_size
+    if file_size > max_file_size:
+        raise ValueError(
+            f"Package is {file_size:,} bytes, over the "
+            f"{max_file_size:,} byte limit set by extraction.max_file_size"
+        )
+
+
+_TEMP_DIR_LOCK = threading.Lock()
+
+
 @contextmanager
 def _temporary_work_in(config):
     """Put temporary work under extraction.temp_dir for the duration.
@@ -63,12 +95,19 @@ def _temporary_work_in(config):
         yield
         return
 
-    previous = tempfile.tempdir
-    tempfile.tempdir = str(configured)
-    try:
-        yield
-    finally:
-        tempfile.tempdir = previous
+    # tempfile.tempdir is one value for the whole process, so two threads
+    # extracting at once would otherwise share whichever set it last: one
+    # unpacks under the other's directory, and the one that finishes second
+    # restores the value the first had saved, leaving it set for good. The
+    # lock is only taken when the setting is in use, so the ordinary case
+    # where nobody configures a directory stays fully concurrent.
+    with _TEMP_DIR_LOCK:
+        previous = tempfile.tempdir
+        tempfile.tempdir = str(configured)
+        try:
+            yield
+        finally:
+            tempfile.tempdir = previous
 
 
 class PackageExtractor:
@@ -138,12 +177,7 @@ class PackageExtractor:
         # fresh Config(). A fresh one sees the defaults and the environment
         # but not the file the caller passed with --config, which is how a
         # setting comes to work one way and not the other.
-        max_file_size = setting(self.config, 'extraction.max_file_size', None)
-        if max_file_size is not None and file_size > max_file_size:
-            raise ValueError(
-                f"Package is {file_size:,} bytes, over the "
-                f"{max_file_size:,} byte limit set by extraction.max_file_size"
-            )
+        refuse_if_too_large(package_path, self.config)
 
         # Detect package type
         package_type = detect_package_type(package_path)
