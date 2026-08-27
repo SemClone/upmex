@@ -246,10 +246,7 @@ def extract(ctx, package_path, output, format, pretty, api, registry):
                                     'can_extract': lambda self, path: False
                                 })()
 
-                                license_infos = temp_extractor.detect_licenses_from_text(
-                                    license_str,
-                                    filename='ecosystems_api'
-                                )
+                                license_infos = temp_extractor.detect_licenses_from_declared_name(license_str, 'ecosystems_api')
                                 if license_infos:
                                     metadata.licenses.extend(license_infos)
                                     applied_fields.append('licenses')
@@ -320,10 +317,7 @@ def extract(ctx, package_path, output, format, pretty, api, registry):
                                 'can_extract': lambda self, path: False
                             })()
 
-                            license_infos = temp_extractor.detect_licenses_from_text(
-                                purldb_metadata['license_expression'],
-                                filename='purldb_api'
-                            )
+                            license_infos = temp_extractor.detect_licenses_from_declared_name(purldb_metadata['license_expression'], 'purldb_api')
                             if license_infos:
                                 metadata.licenses.extend(license_infos)
                                 applied_fields.append('licenses')

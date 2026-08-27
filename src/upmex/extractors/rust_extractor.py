@@ -126,15 +126,7 @@ class RustExtractor(BaseExtractor):
                         # Extract license
                         if package.get('license'):
                             license_text = package['license']
-                            # Format license text for better osslili detection
-                            if len(license_text) < 20 and ':' not in license_text:
-                                formatted_text = f"License: {license_text}"
-                            else:
-                                formatted_text = license_text
-                            license_infos = self.detect_licenses_from_text(
-                                formatted_text,
-                                filename='Cargo.toml'
-                            )
+                            license_infos = self.detect_licenses_from_declared_name(license_text, 'Cargo.toml')
                             if license_infos:
                                 metadata.licenses.extend(license_infos)
                         

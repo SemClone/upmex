@@ -185,12 +185,7 @@ class PythonExtractor(BaseExtractor):
             # Detect license from text
             license_text = msg.get('License')
             if license_text:
-                # Format license text for better osslili detection
-                if len(license_text) < 20 and ':' not in license_text:
-                    formatted_text = f"License: {license_text}"
-                else:
-                    formatted_text = license_text
-                detected = self.detect_licenses_from_text(formatted_text, 'METADATA')
+                detected = self.detect_licenses_from_declared_name(license_text, 'METADATA')
                 if detected:
                     metadata.licenses.extend(detected)
             
@@ -202,12 +197,7 @@ class PythonExtractor(BaseExtractor):
                         license_parts = classifier.split(' :: ')
                         if len(license_parts) > 1:
                             license_name = license_parts[-1]
-                            # Format license text for better osslili detection
-                            if len(license_name) < 20 and ':' not in license_name:
-                                formatted_text = f"License: {license_name}"
-                            else:
-                                formatted_text = license_name
-                            detected = self.detect_licenses_from_text(formatted_text, 'METADATA')
+                            detected = self.detect_licenses_from_declared_name(license_name, 'METADATA')
                             if detected:
                                 metadata.licenses.extend(detected)
                                 break

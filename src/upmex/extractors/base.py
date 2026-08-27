@@ -5,6 +5,11 @@ import os
 from abc import ABC, abstractmethod
 from typing import Optional, Dict, Any, List, Union
 from pathlib import Path
+import re
+
+# An SPDX expression joining licences. Resolving one of these to a single
+# identifier reports one arm as though it were the whole statement.
+_COMPOUND_EXPRESSION = re.compile(r"\s(?:OR|AND|WITH)\s", re.IGNORECASE)
 
 from ..core.models import (
     PackageMetadata,
@@ -96,6 +101,74 @@ class BaseExtractor(ABC):
         except Exception:
             return None
 
+    def detect_licenses_from_declared_name(
+        self,
+        declared: str,
+        source_file: Optional[str] = None,
+    ) -> List[LicenseInfo]:
+        """Resolve a licence name a package declares into SPDX identifiers.
+
+        Packages declare a name, not a licence text: "BSD License" in a PyPI
+        classifier, "MIT" in a package.json. Resolving that to an identifier
+        is worth doing, and it is an inference rather than a reading.
+
+        This existed as the same block copied into nine extractors: wrap the
+        name in "License: ..." and hand the result to the text detector. The
+        detector then reported an SPDX identifier at confidence 1.0, level
+        exact, method tag, from a file that does not exist, because the
+        document it read was one we had just written. For packaging, whose
+        classifier says "BSD License", that produced BSD-3-Clause as an exact
+        finding when BSD names four licences and the project uses the
+        two-clause one.
+
+        So the answer is kept and labelled for what it is. Where the declared
+        name is already the identifier, resolving it is identity and stays
+        exact; where it is a family or a prose name, the identifier is the
+        detector's best reading of it and says so.
+        """
+        if not declared:
+            return []
+
+        # A compound expression names a relationship between licences, and
+        # resolving it would report one arm as though it were the whole:
+        # "MIT OR Apache-2.0" is a choice, and "MIT" alone is a different
+        # statement. Kept verbatim, which is what the SPDX expression already
+        # is.
+        if _COMPOUND_EXPRESSION.search(declared):
+            return [
+                LicenseInfo(
+                    name=declared.strip(),
+                    spdx_id=declared.strip(),
+                    confidence=1.0,
+                    confidence_level=LicenseConfidenceLevel.EXACT,
+                    detection_method="declared_expression",
+                    match_type="declared_expression",
+                    category="declared",
+                    file_path=source_file,
+                )
+            ]
+
+        # osslili reads a licence declaration more reliably with the prefix,
+        # unless the value already looks like a document or a expression.
+        if len(declared) < 20 and ':' not in declared:
+            text = f"License: {declared}"
+        else:
+            text = declared
+
+        resolved = self.detect_licenses_from_text(text, source_file)
+        for license_info in resolved:
+            identifier = (license_info.spdx_id or "").strip().lower()
+            verbatim = declared.strip().lower()
+            license_info.detection_method = "declared_name"
+            license_info.match_type = "declared_name"
+            license_info.category = "declared"
+            license_info.file_path = source_file
+            if identifier != verbatim:
+                # The name was interpreted. Exact would say the file named
+                # this identifier, and it named something else.
+                license_info.confidence_level = LicenseConfidenceLevel.HIGH
+        return resolved
+
     def detect_licenses_from_text(self,
                                  text: str,
                                  filename: Optional[str] = None) -> List[LicenseInfo]:
@@ -125,7 +198,13 @@ class BaseExtractor(ABC):
                 confidence_level=LicenseConfidenceLevel(
                     license_dict.get('confidence_level', 'low')
                 ),
-                detection_method=license_dict.get('source', 'osslili')
+                detection_method=license_dict.get('source', 'osslili'),
+                # Carried so a consumer can check the claim against the file
+                # that made it. It was dropped here, which is why every
+                # licence upmex reported came back with file_path None.
+                file_path=license_dict.get('file'),
+                category=license_dict.get('category'),
+                match_type=license_dict.get('match_type'),
             )
             licenses.append(license_info)
 

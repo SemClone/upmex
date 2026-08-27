@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 from upmex.core.extractor import PackageExtractor
+from upmex.core.models import LicenseConfidenceLevel
 from upmex.extractors.python_extractor import PythonExtractor
 from upmex.extractors.npm_extractor import NpmExtractor
 from upmex.extractors.java_extractor import JavaExtractor
@@ -39,7 +40,15 @@ Classifier: License :: OSI Approved :: MIT License
         assert len(metadata.licenses) > 0
         assert metadata.licenses[0].spdx_id == "MIT"
         assert metadata.licenses[0].confidence >= 0.6
-        assert metadata.licenses[0].detection_method in ["osslili_tag", "regex_field", "regex_pattern"]
+        # The wheel declares "License: MIT" in its METADATA, so this is a name
+        # the package stated rather than a licence text that was read.
+        assert metadata.licenses[0].detection_method in [
+            "declared_name", "osslili_tag", "regex_field", "regex_pattern"
+        ]
+        assert metadata.licenses[0].file_path == "METADATA"
+        # "MIT" is already the identifier, so resolving it is identity and the
+        # match stays exact. A family name like "BSD License" would not.
+        assert metadata.licenses[0].confidence_level == LicenseConfidenceLevel.EXACT
     
     def test_npm_package_license_extraction(self, tmp_path):
         """Test extracting license from NPM package."""
@@ -112,8 +121,13 @@ Classifier: License :: OSI Approved :: Apache Software License
         
         # Should detect at least one license
         assert len(metadata.licenses) > 0
-        # First detected should be from the License field
-        assert metadata.licenses[0].spdx_id in ["MIT", "Apache-2.0"]
+        # The declaration is a choice between two licences, and reporting one
+        # arm of it says something the package did not: a consumer that may
+        # not use Apache-2.0 needs to see that MIT is on offer, and one that
+        # may not use MIT needs the same the other way. The expression is what
+        # was declared, so the expression is what is reported.
+        assert metadata.licenses[0].spdx_id == "MIT OR Apache-2.0"
+        assert metadata.licenses[0].detection_method == "declared_expression"
     
     def test_spdx_identifier_extraction(self, tmp_path):
         """Test extracting SPDX-License-Identifier."""
