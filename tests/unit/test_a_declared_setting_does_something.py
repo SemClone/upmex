@@ -1084,11 +1084,12 @@ class TestNothingIsDefinedTwice:
 
         assert offenders == [], offenders
 
-    def test_no_method_is_shadowed_within_a_class(self):
+    @pytest.mark.parametrize("where", ["src/upmex", "tests"])
+    def test_no_method_is_shadowed_within_a_class(self, where):
         import ast
 
         offenders = []
-        for path in (REPO_ROOT / "tests").rglob("*.py"):
+        for path in (REPO_ROOT / where).rglob("*.py"):
             tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
             for node in ast.walk(tree):
                 if not isinstance(node, ast.ClassDef):
