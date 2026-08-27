@@ -137,7 +137,7 @@ class GoExtractor(BaseExtractor):
                 if copyright_statement:
                     metadata.copyright = copyright_statement
             except Exception as e:
-                print(f"Error extracting for copyright: {e}")
+                logger.warning(f"Error extracting for copyright: {e}")
 
         return metadata
 

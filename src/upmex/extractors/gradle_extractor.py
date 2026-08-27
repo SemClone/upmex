@@ -1,10 +1,13 @@
 """Gradle build file extractor."""
 
+import logging
 import re
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from .base import BaseExtractor
 from ..core.models import PackageMetadata, PackageType, NO_ASSERTION
+
+logger = logging.getLogger(__name__)
 
 
 class GradleExtractor(BaseExtractor):
@@ -64,7 +67,7 @@ class GradleExtractor(BaseExtractor):
             metadata.keywords = self._extract_keywords(content, is_kotlin_dsl)
             
         except Exception as e:
-            print(f"Error extracting Gradle metadata: {e}")
+            logger.warning(f"Error extracting Gradle metadata: {e}")
         
         return metadata
     

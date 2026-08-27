@@ -15,9 +15,9 @@ from ..core.models import PackageMetadata, PackageType, LicenseInfo, NO_ASSERTIO
 class PerlExtractor(BaseExtractor):
     """Extractor for Perl/CPAN packages."""
     
-    def __init__(self, registry_mode: bool = False):
+    def __init__(self, registry_mode: bool = False, config: Any = None):
         """Initialize the Perl extractor."""
-        super().__init__(registry_mode)
+        super().__init__(registry_mode, config)
     
     def extract(self, package_path: str) -> PackageMetadata:
         """Extract metadata from a Perl package.

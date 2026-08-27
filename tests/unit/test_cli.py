@@ -71,9 +71,12 @@ License: MIT
         """Test detect command with verbose output."""
         result = runner.invoke(cli, ['detect', '-v', sample_package])
         assert result.exit_code == 0
-        assert 'File:' in result.output
-        assert 'Size:' in result.output
-        assert 'Type: python_wheel' in result.output
+        # The type is what a caller reads off this command, so it stays on
+        # stdout at either verbosity; the commentary goes beside it. The old
+        # "Type: ..." line duplicated the value on the wrong stream.
+        assert result.stdout.strip() == 'python_wheel'
+        assert 'File:' in result.stderr
+        assert 'Size:' in result.stderr
     
     def test_detect_nonexistent_file(self, runner):
         """Test detect command with non-existent file."""

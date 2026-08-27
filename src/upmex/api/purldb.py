@@ -1,25 +1,43 @@
 """PurlDB API integration for package metadata enrichment."""
 
+import logging
 import requests
 from typing import Optional, Dict, Any, List
+from ..config import setting
 from ..core.models import MAVEN_PACKAGE_TYPES, PackageType, NO_ASSERTION, split_namespace
+
+logger = logging.getLogger(__name__)
 
 
 class PurlDBAPI:
     """Client for PurlDB API."""
 
-    def __init__(self, api_key: Optional[str] = None, base_url: str = "https://public.purldb.io"):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+        config: Optional[Any] = None,
+    ):
         """Initialize PurlDB API client.
 
         Args:
             api_key: Optional API key for authenticated requests
             base_url: Base URL for PurlDB instance
         """
-        self.base_url = base_url
-        self.api_key = api_key
+        if config is None:
+            from ..config import Config
+
+            config = Config()
+
+        self.enabled = setting(config, 'api.purldb.enabled', True)
+        self.base_url = (
+            base_url or setting(config, 'api.purldb.base_url', None) or "https://public.purldb.io"
+        ).rstrip('/')
+        self.timeout = setting(config, 'api.purldb.timeout', 30)
+        self.api_key = api_key or setting(config, 'api.purldb.api_key', None)
         self.headers = {'Content-Type': 'application/json'}
-        if api_key:
-            self.headers['Authorization'] = f'Token {api_key}'
+        if self.api_key:
+            self.headers['Authorization'] = f'Token {self.api_key}'
 
     def get_package_by_purl(self, purl: str) -> Optional[Dict[str, Any]]:
         """Get package information by PURL.
@@ -30,12 +48,18 @@ class PurlDBAPI:
         Returns:
             Package information or None
         """
+        if not self.enabled:
+            logger.debug(
+                "PurlDB is disabled in configuration; not querying %s", purl
+            )
+            return None
+
         try:
             # Use the packages endpoint with PURL query
             url = f"{self.base_url}/api/packages/"
             params = {'purl': purl}
 
-            response = requests.get(url, params=params, headers=self.headers, timeout=10)
+            response = requests.get(url, params=params, headers=self.headers, timeout=self.timeout)
 
             if response.status_code == 200:
                 data = response.json()
@@ -44,7 +68,7 @@ class PurlDBAPI:
                     return data['results'][0]
 
         except Exception as e:
-            print(f"Error fetching from PurlDB: {e}")
+            logger.warning(f"Error fetching from PurlDB: {e}")
 
         return None
 
@@ -59,6 +83,12 @@ class PurlDBAPI:
         Returns:
             Package information or None
         """
+        if not self.enabled:
+            logger.debug(
+                "PurlDB is disabled in configuration; not querying %s", name
+            )
+            return None
+
         try:
             # Map package type to PURL type
             purl_type = self._map_package_type(package_type)
@@ -86,7 +116,7 @@ class PurlDBAPI:
             if version:
                 params['version'] = version
 
-            response = requests.get(url, params=params, headers=self.headers, timeout=10)
+            response = requests.get(url, params=params, headers=self.headers, timeout=self.timeout)
 
             if response.status_code == 200:
                 data = response.json()
@@ -95,7 +125,7 @@ class PurlDBAPI:
                     return data['results'][0]
 
         except Exception as e:
-            print(f"Error fetching from PurlDB: {e}")
+            logger.warning(f"Error fetching from PurlDB: {e}")
 
         return None
 
@@ -203,6 +233,6 @@ class PurlDBAPI:
                 metadata['dependencies'] = package_info['dependencies']
 
         except Exception as e:
-            print(f"Error extracting metadata from PurlDB: {e}")
+            logger.warning(f"Error extracting metadata from PurlDB: {e}")
 
         return metadata

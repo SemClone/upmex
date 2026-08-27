@@ -15,9 +15,9 @@ from ..core.models import PackageMetadata, PackageType, LicenseInfo, NO_ASSERTIO
 class ConanExtractor(BaseExtractor):
     """Extractor for Conan C/C++ packages."""
     
-    def __init__(self, registry_mode: bool = False):
+    def __init__(self, registry_mode: bool = False, config: Any = None):
         """Initialize the Conan extractor."""
-        super().__init__(registry_mode)
+        super().__init__(registry_mode, config)
     
     def extract(self, package_path: str) -> PackageMetadata:
         """Extract metadata from a Conan package.

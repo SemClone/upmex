@@ -1,5 +1,6 @@
 """Java/Maven package extractor."""
 
+import logging
 import zipfile
 import xml.etree.ElementTree as ET
 import re
@@ -16,13 +17,15 @@ from ..core.models import (
     split_namespace,
 )
 
+logger = logging.getLogger(__name__)
+
 
 class JavaExtractor(BaseExtractor):
     """Extractor for Java JAR and Maven packages."""
     
-    def __init__(self, registry_mode: bool = False):
+    def __init__(self, registry_mode: bool = False, config: Any = None):
         """Initialize the Java extractor."""
-        super().__init__(registry_mode)
+        super().__init__(registry_mode, config)
         self.maven_central_url = "https://repo1.maven.org/maven2"
         self._maven_central = MavenCentralAPI(base_url=self.maven_central_url)
     
@@ -60,7 +63,7 @@ class JavaExtractor(BaseExtractor):
                         self._resolve_from_file_hash(package_path, metadata)
                     except Exception as e:
                         # Optional enrichment must not cost us the local metadata
-                        print(f"Error resolving coordinates from file hash: {e}")
+                        logger.warning(f"Error resolving coordinates from file hash: {e}")
 
                 # Extract copyright information
                 import tempfile
@@ -81,10 +84,10 @@ class JavaExtractor(BaseExtractor):
                         if copyright_statement:
                             metadata.copyright = copyright_statement
                     except Exception as e:
-                        print(f"Error extracting for copyright: {e}")
+                        logger.warning(f"Error extracting for copyright: {e}")
                             
         except Exception as e:
-            print(f"Error extracting Java metadata: {e}")
+            logger.warning(f"Error extracting Java metadata: {e}")
         
         return metadata
     
@@ -229,7 +232,7 @@ class JavaExtractor(BaseExtractor):
                     
                     return metadata
                 except Exception as e:
-                    print(f"Error parsing POM file: {e}")
+                    logger.warning(f"Error parsing POM file: {e}")
         
         return None
     
@@ -256,7 +259,7 @@ class JavaExtractor(BaseExtractor):
                 # Store raw manifest
                 metadata.raw_metadata = manifest
         except Exception as e:
-            print(f"Error parsing MANIFEST.MF: {e}")
+            logger.warning(f"Error parsing MANIFEST.MF: {e}")
         
         return metadata
     
@@ -366,7 +369,7 @@ class JavaExtractor(BaseExtractor):
         except Exception as e:
             # Enrichment is optional: a registry problem must never cost the
             # caller the metadata that was parsed out of the archive itself.
-            print(f"Error applying parent POM: {e}")
+            logger.warning(f"Error applying parent POM: {e}")
             return []
 
     def _fetch_and_apply_parent_pom(self, root: Any, ns: Dict[str, str], metadata: PackageMetadata) -> List[str]:
@@ -541,7 +544,7 @@ class JavaExtractor(BaseExtractor):
                         file_path=file_path
                     ))
             except Exception as lic_err:
-                print(f"Error detecting license '{license_name}': {lic_err}")
+                logger.warning(f"Error detecting license '{license_name}': {lic_err}")
 
         return licenses
 
@@ -697,7 +700,7 @@ class JavaExtractor(BaseExtractor):
                         pom_data['licenses'] = license_infos
 
         except Exception as e:
-            print(f"Error parsing POM metadata: {e}")
+            logger.warning(f"Error parsing POM metadata: {e}")
 
         return pom_data
     
@@ -734,7 +737,7 @@ class JavaExtractor(BaseExtractor):
             return header_data if header_data else None
             
         except Exception as e:
-            print(f"Error parsing POM header: {e}")
+            logger.warning(f"Error parsing POM header: {e}")
 
         return None
 
@@ -743,7 +746,7 @@ class JavaExtractor(BaseExtractor):
         try:
             from ..api.clearlydefined import ClearlyDefinedAPI
 
-            cd_api = ClearlyDefinedAPI()
+            cd_api = ClearlyDefinedAPI(config=self.config)
 
             # Parse namespace from name for Maven packages
             namespace, name = split_namespace(metadata.package_type, metadata.name)
@@ -789,5 +792,5 @@ class JavaExtractor(BaseExtractor):
             pass
         except Exception as e:
             # Silently fail - ClearlyDefined enrichment is optional
-            print(f"ClearlyDefined enrichment failed: {e}")
+            logger.warning(f"ClearlyDefined enrichment failed: {e}")
             pass

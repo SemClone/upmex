@@ -1,5 +1,6 @@
 """Main package extractor orchestrator."""
 
+import logging
 import os
 import hashlib
 from pathlib import Path
@@ -29,6 +30,8 @@ from ..utils.package_detector import detect_package_type
 from ..api.clearlydefined import ClearlyDefinedAPI
 from ..api.ecosystems import EcosystemsAPI
 
+logger = logging.getLogger(__name__)
+
 
 class PackageExtractor:
     """Main class for extracting package metadata."""
@@ -44,22 +47,22 @@ class PackageExtractor:
         
         # Initialize extractors with registry mode
         self.extractors = {
-            PackageType.PYTHON_WHEEL: PythonExtractor(registry_mode=self.registry_mode),
-            PackageType.PYTHON_SDIST: PythonExtractor(registry_mode=self.registry_mode),
-            PackageType.NPM: NpmExtractor(registry_mode=self.registry_mode),
-            PackageType.MAVEN: JavaExtractor(registry_mode=self.registry_mode),
-            PackageType.JAR: JavaExtractor(registry_mode=self.registry_mode),
-            PackageType.GRADLE: GradleExtractor(registry_mode=self.registry_mode),
-            PackageType.COCOAPODS: CocoaPodsExtractor(registry_mode=self.registry_mode),
-            PackageType.CONDA: CondaExtractor(registry_mode=self.registry_mode),
+            PackageType.PYTHON_WHEEL: PythonExtractor(registry_mode=self.registry_mode, config=self.config),
+            PackageType.PYTHON_SDIST: PythonExtractor(registry_mode=self.registry_mode, config=self.config),
+            PackageType.NPM: NpmExtractor(registry_mode=self.registry_mode, config=self.config),
+            PackageType.MAVEN: JavaExtractor(registry_mode=self.registry_mode, config=self.config),
+            PackageType.JAR: JavaExtractor(registry_mode=self.registry_mode, config=self.config),
+            PackageType.GRADLE: GradleExtractor(registry_mode=self.registry_mode, config=self.config),
+            PackageType.COCOAPODS: CocoaPodsExtractor(registry_mode=self.registry_mode, config=self.config),
+            PackageType.CONDA: CondaExtractor(registry_mode=self.registry_mode, config=self.config),
             PackageType.CONAN: ConanExtractor(),
             PackageType.PERL: PerlExtractor(),
-            PackageType.RUBY_GEM: RubyExtractor(registry_mode=self.registry_mode),
-            PackageType.RUST_CRATE: RustExtractor(registry_mode=self.registry_mode),
-            PackageType.GO_MODULE: GoExtractor(registry_mode=self.registry_mode),
-            PackageType.NUGET: NuGetExtractor(registry_mode=self.registry_mode),
-            PackageType.RPM: RpmExtractor(registry_mode=self.registry_mode),
-            PackageType.DEB: DebianExtractor(registry_mode=self.registry_mode),
+            PackageType.RUBY_GEM: RubyExtractor(registry_mode=self.registry_mode, config=self.config),
+            PackageType.RUST_CRATE: RustExtractor(registry_mode=self.registry_mode, config=self.config),
+            PackageType.GO_MODULE: GoExtractor(registry_mode=self.registry_mode, config=self.config),
+            PackageType.NUGET: NuGetExtractor(registry_mode=self.registry_mode, config=self.config),
+            PackageType.RPM: RpmExtractor(registry_mode=self.registry_mode, config=self.config),
+            PackageType.DEB: DebianExtractor(registry_mode=self.registry_mode, config=self.config),
         }
     
     def extract(self, package_path: str) -> PackageMetadata:
@@ -124,7 +127,10 @@ class PackageExtractor:
             namespace, name = split_namespace(metadata.package_type, metadata.name)
             
             # Try ClearlyDefined
-            cd_api = ClearlyDefinedAPI(api_key=self.config.get('clearlydefined_api_key'))
+            cd_api = ClearlyDefinedAPI(
+                api_key=self.config.get('clearlydefined_api_key'),
+                config=self.config,
+            )
             cd_def = cd_api.get_definition(metadata.package_type, namespace, name, metadata.version)
             if cd_def:
                 # Extract license info
@@ -138,7 +144,10 @@ class PackageExtractor:
                     ))
             
             # Try Ecosyste.ms
-            eco_api = EcosystemsAPI(api_key=self.config.get('ecosystems_api_key'))
+            eco_api = EcosystemsAPI(
+                api_key=self.config.get('ecosystems_api_key'),
+                config=self.config,
+            )
             eco_info = eco_api.get_package_info(metadata.package_type, metadata.name, metadata.version)
             if eco_info:
                 eco_metadata = eco_api.extract_metadata(eco_info)
@@ -209,7 +218,7 @@ class PackageExtractor:
                             metadata.licenses.extend(license_infos)
                 
         except Exception as e:
-            print(f"Error enriching with APIs: {e}")
+            logger.warning(f"Error enriching with APIs: {e}")
     
     def _calculate_hash(self, file_path: str, algorithm: str = "sha256") -> str:
         """Calculate file hash.

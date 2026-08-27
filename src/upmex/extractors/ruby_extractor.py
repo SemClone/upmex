@@ -255,7 +255,7 @@ class RubyExtractor(BaseExtractor):
                 if copyright_statement:
                     metadata.copyright = copyright_statement
             except Exception as e:
-                print(f"Error extracting for copyright: {e}")
+                logger.warning(f"Error extracting for copyright: {e}")
 
         # Query registry APIs if enabled
         if self.registry_mode and metadata.name != NO_ASSERTION:

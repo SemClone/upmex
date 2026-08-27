@@ -2,13 +2,13 @@
 License detection using osslili CLI subprocess.
 """
 
+import logging
 import subprocess
 import json
 import tempfile
 import os
 from typing import List, Dict, Optional, Any
 from pathlib import Path
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -205,7 +205,7 @@ class OssliliSubprocessDetector:
                 if 'scan_results' in data and data['scan_results']:
                     for sr in data['scan_results']:
                         if 'copyright_evidence' in sr and sr['copyright_evidence']:
-                            print(f"DEBUG: Found copyright evidence: {sr['copyright_evidence']}", file=sys.stderr)
+                            logger.debug(f"DEBUG: Found copyright evidence: {sr['copyright_evidence']}")
                 
                 # Extract licenses from evidence format
                 seen_licenses = set()
@@ -276,13 +276,13 @@ class OssliliSubprocessDetector:
                 # Extract copyrights from scan_results
                 seen_copyrights = set()
                 if 'scan_results' in data and data['scan_results']:
-                    print(f"DEBUG: Processing {len(data['scan_results'])} scan results for copyrights", file=sys.stderr)
+                    logger.debug(f"DEBUG: Processing {len(data['scan_results'])} scan results for copyrights")
                     for scan_result in data['scan_results']:
                         if 'copyright_evidence' in scan_result:
-                            print(f"DEBUG: Found {len(scan_result['copyright_evidence'])} copyright items", file=sys.stderr)
+                            logger.debug(f"DEBUG: Found {len(scan_result['copyright_evidence'])} copyright items")
                             for copyright_item in scan_result['copyright_evidence']:
                                 statement = copyright_item.get('statement', '')
-                                print(f"DEBUG: Processing copyright: statement='{statement}'", file=sys.stderr)
+                                logger.debug(f"DEBUG: Processing copyright: statement='{statement}'")
                                 if statement and statement not in seen_copyrights:
                                     seen_copyrights.add(statement)
                                     copyright_info = {
@@ -293,7 +293,7 @@ class OssliliSubprocessDetector:
                                         "confidence": copyright_item.get('confidence', 1.0)
                                     }
                                     copyrights.append(copyright_info)
-                                    print(f"DEBUG: Added copyright: {copyright_info}", file=sys.stderr)
+                                    logger.debug(f"DEBUG: Added copyright: {copyright_info}")
 
             # TODO: OSSlili v1.5.0 doesn't detect "Copyright (c)" format - FIXED in v1.5.1
             # Issue filed: https://github.com/oscarvalenzuelab/osslili/issues/32

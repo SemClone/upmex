@@ -4,6 +4,27 @@ import os
 import json
 from pathlib import Path
 from typing import Dict, Any, Optional
+import copy
+
+
+def setting(config: Any, key: str, default: Any = None) -> Any:
+    """Read a dotted setting from a Config or from a plain nested mapping.
+
+    The CLI holds a Config, whose get understands the dotted key. The
+    extractors are handed what Config.to_dict() produced, which is an ordinary
+    nested dict and answers that key with the default. Reading both means a
+    setting reaches whichever of them asks.
+    """
+    value = config.get(key, default) if hasattr(config, 'get') else default
+    if value is not default:
+        return value
+
+    node = config
+    for part in key.split('.'):
+        if not isinstance(node, dict) or part not in node:
+            return default
+        node = node[part]
+    return node
 
 
 class Config:
@@ -13,13 +34,25 @@ class Config:
         "api": {
             "clearlydefined": {
                 "enabled": True,
-                "base_url": "https://api.clearlydefined.io/v1",
+                "base_url": "https://api.clearlydefined.io",
                 "timeout": 30,
                 "api_key": None  # Set via PME_CLEARLYDEFINED_API_KEY env var
             },
+            "purldb": {
+                "enabled": True,
+                "base_url": "https://public.purldb.io",
+                "timeout": 30,
+                "api_key": None  # Set via PME_PURLDB_API_KEY env var
+            },
+            "vulnerablecode": {
+                "enabled": True,
+                "base_url": "https://public.vulnerablecode.io",
+                "timeout": 30,
+                "api_key": None  # Set via PME_VULNERABLECODE_API_KEY env var
+            },
             "ecosystems": {
                 "enabled": True,
-                "base_url": "https://api.ecosyste.ms/v1",
+                "base_url": "https://packages.ecosyste.ms/api/v1",
                 "timeout": 30,
                 "api_key": None  # Set via PME_ECOSYSTEMS_API_KEY env var
             }
@@ -53,6 +86,10 @@ class Config:
     ENV_VAR_MAPPING = {
         "PME_CLEARLYDEFINED_API_KEY": "api.clearlydefined.api_key",
         "PME_ECOSYSTEMS_API_KEY": "api.ecosystems.api_key",
+        # Documented in the README and mapped to nothing, so exporting either
+        # of these set a key that never reached the client.
+        "PME_PURLDB_API_KEY": "api.purldb.api_key",
+        "PME_VULNERABLECODE_API_KEY": "api.vulnerablecode.api_key",
         "PME_API_TIMEOUT": "api.*.timeout",
         "PME_MAX_FILE_SIZE": "extraction.max_file_size",
         "PME_TEMP_DIR": "extraction.temp_dir",
@@ -72,7 +109,11 @@ class Config:
         Args:
             config_file: Optional path to configuration file
         """
-        self.config = self.DEFAULT_CONFIG.copy()
+        # Deep, because set() writes into the nested dicts: a shallow copy
+        # shares them with DEFAULT_CONFIG, so one instance calling set()
+        # changed what every later Config() and every default-constructed
+        # client would read, for the life of the process.
+        self.config = copy.deepcopy(self.DEFAULT_CONFIG)
         
         # Load from file if provided
         if config_file:

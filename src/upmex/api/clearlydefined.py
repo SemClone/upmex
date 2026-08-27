@@ -1,24 +1,55 @@
 """ClearlyDefined API integration for license and metadata enrichment."""
 
+import logging
 import requests
 from typing import Optional, Dict, Any
+from ..config import setting
 from ..core.models import MAVEN_PACKAGE_TYPES, PackageType, NO_ASSERTION
+
+logger = logging.getLogger(__name__)
 
 
 class ClearlyDefinedAPI:
     """Client for ClearlyDefined API."""
     
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        config: Optional[Any] = None,
+    ):
         """Initialize ClearlyDefined API client.
-        
+
+        The configuration declares enabled, base_url, timeout and api_key for
+        this client, and none of them was read: the base URL was hardcoded,
+        the timeout was requests' own default, and setting enabled to false
+        disabled nothing. Worse, the configured base URL carried a /v1 prefix
+        that ClearlyDefined answers 404 for, so wiring it up as written would
+        have broken the integration rather than fixed it. That prefix is gone
+        and the settings are read.
+
         Args:
-            api_key: Optional API key for authenticated requests
+            api_key: API key for authenticated requests. Overrides the
+                configured one, so a caller that has a key can pass it.
+            config: Configuration to read the rest from. The defaults are
+                used when none is given.
         """
-        self.base_url = "https://api.clearlydefined.io"
-        self.api_key = api_key
+        if config is None:
+            from ..config import Config
+
+            config = Config()
+
+        self.enabled = setting(config, 'api.clearlydefined.enabled', True)
+        self.base_url = (
+            setting(config, 'api.clearlydefined.base_url', None)
+            or "https://api.clearlydefined.io"
+        ).rstrip('/')
+        self.timeout = setting(config, 'api.clearlydefined.timeout', 30)
+        self.api_key = api_key or setting(
+            config, 'api.clearlydefined.api_key', None
+        )
         self.headers = {}
-        if api_key:
-            self.headers['Authorization'] = f'Bearer {api_key}'
+        if self.api_key:
+            self.headers['Authorization'] = f'Bearer {self.api_key}'
     
     def get_definition(self, package_type: PackageType, namespace: Optional[str], name: str, version: str) -> Optional[Dict[str, Any]]:
         """Get package definition from ClearlyDefined.
@@ -30,8 +61,18 @@ class ClearlyDefinedAPI:
             version: Package version
             
         Returns:
-            Package definition or None
+            Package definition or None, and None when the client is switched
+            off in configuration.
         """
+        if not self.enabled:
+            # Setting this to false disabled nothing, so a deployment that
+            # asked not to reach ClearlyDefined reached it anyway.
+            logger.debug(
+                "ClearlyDefined is disabled in configuration; not querying %s",
+                name,
+            )
+            return None
+
         try:
             # Map package type to ClearlyDefined type and provider
             cd_info = self._map_package_type(package_type)
@@ -55,13 +96,13 @@ class ClearlyDefinedAPI:
             
             # Make API request
             url = f"{self.base_url}/definitions/{coordinates}"
-            response = requests.get(url, headers=self.headers, timeout=10)
+            response = requests.get(url, headers=self.headers, timeout=self.timeout)
             
             if response.status_code == 200:
                 return response.json()
             
         except Exception as e:
-            print(f"Error fetching from ClearlyDefined: {e}")
+            logger.warning(f"Error fetching from ClearlyDefined: {e}")
         
         return None
     
@@ -119,6 +160,6 @@ class ClearlyDefinedAPI:
                         'confidence': 0.8
                     }
         except Exception as e:
-            print(f"Error extracting license from ClearlyDefined: {e}")
+            logger.warning(f"Error extracting license from ClearlyDefined: {e}")
         
         return None

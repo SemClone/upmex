@@ -1,11 +1,14 @@
 """Python package extractor for wheel and sdist formats - REFACTORED."""
 
+import logging
 import json
 import email
 from pathlib import Path
 from typing import Dict, Any, Optional
 from .base import BaseExtractor
 from ..core.models import PackageMetadata, PackageType, NO_ASSERTION
+
+logger = logging.getLogger(__name__)
 
 
 class PythonExtractor(BaseExtractor):
@@ -76,13 +79,13 @@ class PythonExtractor(BaseExtractor):
                     if copyright_statement:
                         metadata.copyright = copyright_statement
                 except Exception as e:
-                    print(f"Error extracting for copyright: {e}")
+                    logger.warning(f"Error extracting for copyright: {e}")
 
             # ClearlyDefined enrichment in online mode
             self.enrich_with_clearlydefined(metadata)
 
         except Exception as e:
-            print(f"Error extracting wheel metadata: {e}")
+            logger.warning(f"Error extracting wheel metadata: {e}")
 
         return metadata
     
@@ -125,13 +128,13 @@ class PythonExtractor(BaseExtractor):
                     if copyright_statement:
                         metadata.copyright = copyright_statement
                 except Exception as e:
-                    print(f"Error extracting for copyright: {e}")
+                    logger.warning(f"Error extracting for copyright: {e}")
 
             # ClearlyDefined enrichment in online mode
             self.enrich_with_clearlydefined(metadata)
 
         except Exception as e:
-            print(f"Error extracting sdist metadata: {e}")
+            logger.warning(f"Error extracting sdist metadata: {e}")
 
         return metadata
     
@@ -211,7 +214,7 @@ class PythonExtractor(BaseExtractor):
                     metadata.keywords = [k.strip() for k in keywords.split() if k.strip()]
                     
         except Exception as e:
-            print(f"Error processing metadata file: {e}")
+            logger.warning(f"Error processing metadata file: {e}")
     
     def _process_json_metadata(self, metadata: PackageMetadata, content: bytes):
         """Process metadata.json format."""
@@ -229,4 +232,4 @@ class PythonExtractor(BaseExtractor):
                     metadata.authors.append(parsed)
                     
         except Exception as e:
-            print(f"Error processing JSON metadata: {e}")
+            logger.warning(f"Error processing JSON metadata: {e}")

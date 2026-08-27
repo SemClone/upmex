@@ -1,5 +1,6 @@
 """NPM package extractor - REFACTORED."""
 
+import logging
 import json
 from pathlib import Path
 from typing import Dict, Any
@@ -11,6 +12,8 @@ from ..core.models import (
     LicenseConfidenceLevel,
     NO_ASSERTION,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class NpmExtractor(BaseExtractor):
@@ -76,13 +79,13 @@ class NpmExtractor(BaseExtractor):
                     if copyright_statement:
                         metadata.copyright = copyright_statement
                 except Exception as e:
-                    print(f"Error extracting for copyright: {e}")
+                    logger.warning(f"Error extracting for copyright: {e}")
 
             # ClearlyDefined enrichment in online mode
             self.enrich_with_clearlydefined(metadata)
 
         except Exception as e:
-            print(f"Error extracting NPM metadata: {e}")
+            logger.warning(f"Error extracting NPM metadata: {e}")
 
         return metadata
     
@@ -96,14 +99,14 @@ class NpmExtractor(BaseExtractor):
         try:
             # Handle empty content
             if not content or len(content.strip()) == 0:
-                print("Warning: Empty package.json content, skipping")
+                logger.warning("Warning: Empty package.json content, skipping")
                 return
 
             data = json.loads(content)
 
             # Skip if data is empty or not a dict
             if not data or not isinstance(data, dict):
-                print("Warning: Invalid package.json structure, skipping")
+                logger.warning("Warning: Invalid package.json structure, skipping")
                 return
 
             # Extract basic metadata
@@ -162,7 +165,7 @@ class NpmExtractor(BaseExtractor):
             metadata.raw_metadata = data
             
         except Exception as e:
-            print(f"Error processing package.json: {e}")
+            logger.warning(f"Error processing package.json: {e}")
     
     def _extract_license(self, metadata: PackageMetadata, data: Dict):
         """Extract license information from package.json."""
