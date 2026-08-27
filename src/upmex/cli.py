@@ -16,20 +16,86 @@ import json
 import click
 from pathlib import Path
 import logging
+import tempfile
 
 from upmex import __version__
 from upmex.core.extractor import PackageExtractor
 from upmex.core.models import split_namespace
-from upmex.config import Config
+from upmex.config import Config, setting
 from upmex.utils.package_detector import detect_package_type
 from upmex.utils.output_formatter import OutputFormatter
 
-# Configure logging
+# A default so that importing upmex.cli as a library still logs somewhere
+# sensible. The command replaces it once it has read the configuration.
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+
+def _configure_logging(config, verbose, quiet):
+    """Apply logging.level, logging.format and logging.file.
+
+    All three were declared in the configuration and mapped to environment
+    variables, and none was read: the level was fixed at import and only the
+    flags moved it, so PME_LOG_LEVEL=ERROR did nothing and PME_LOG_FILE
+    redirected nothing.
+
+    The flags still win, because someone typing --verbose is asking about this
+    run rather than about every run.
+    """
+    root = logging.getLogger()
+
+    fmt = setting(config, 'logging.format',
+                  '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter(fmt)
+    for handler in root.handlers:
+        handler.setFormatter(formatter)
+
+    log_file = setting(config, 'logging.file', None)
+    if log_file:
+        try:
+            handler = logging.FileHandler(log_file)
+            handler.setFormatter(formatter)
+            root.addHandler(handler)
+        except OSError as error:
+            # Say so on stderr and carry on logging to the console. Refusing
+            # to run because a log file could not be opened would be worse.
+            click.echo(f"Warning: cannot log to {log_file}: {error}", err=True)
+
+    if quiet:
+        root.setLevel(logging.ERROR)
+    elif verbose:
+        root.setLevel(logging.DEBUG)
+    else:
+        level = setting(config, 'logging.level', 'INFO')
+        # An unknown name would otherwise raise and take the command with it.
+        root.setLevel(getattr(logging, str(level).upper(), logging.INFO))
+
+
+def _configure_temp_dir(config):
+    """Apply extraction.temp_dir.
+
+    Fifteen extractors unpack into tempfile.TemporaryDirectory() and none of
+    them knew about the setting. Rather than thread the configuration through
+    every one, point tempfile itself at the configured directory: every
+    temporary file and directory upmex makes then lands there.
+    """
+    temp_dir = setting(config, 'extraction.temp_dir', None)
+    if not temp_dir:
+        return
+
+    path = Path(temp_dir)
+    if not path.is_dir():
+        click.echo(
+            f"Warning: extraction.temp_dir {temp_dir} is not a directory, "
+            f"using the system default",
+            err=True,
+        )
+        return
+
+    tempfile.tempdir = str(path)
 
 
 @click.group()
@@ -51,11 +117,8 @@ def cli(ctx, config, verbose, quiet):
     else:
         ctx.obj['config'] = Config()
     
-    # Set logging level
-    if quiet:
-        logging.getLogger().setLevel(logging.ERROR)
-    elif verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
+    _configure_logging(ctx.obj['config'], verbose, quiet)
+    _configure_temp_dir(ctx.obj['config'])
     
     ctx.obj['verbose'] = verbose
     ctx.obj['quiet'] = quiet
@@ -64,8 +127,13 @@ def cli(ctx, config, verbose, quiet):
 @cli.command()
 @click.argument('package_path', type=click.Path(exists=True))
 @click.option('--output', '-o', type=click.Path(), help='Output file path')
-@click.option('--format', '-f', type=click.Choice(['json', 'text']), default='json', help='Output format')
-@click.option('--pretty', '-p', is_flag=True, help='Pretty print output')
+# No defaults here on purpose. A default would win over the configuration
+# file every time, which is how output.format came to be a setting that
+# changed nothing. Absent means "the configuration decides".
+@click.option('--format', '-f', type=click.Choice(['json', 'text']), default=None,
+              help='Output format [config: output.format, default json]')
+@click.option('--pretty/--no-pretty', '-p', default=None,
+              help='Pretty print output [config: output.pretty_print]')
 @click.option('--api', type=click.Choice(['clearlydefined', 'ecosystems', 'purldb', 'vulnerablecode', 'all', 'none']), default='none', help='API enrichment')
 @click.option('--registry', is_flag=True, help='Enable registry mode to fetch missing metadata from package registries')
 @click.pass_context
@@ -386,8 +454,16 @@ def extract(ctx, package_path, output, format, pretty, api, registry):
             except Exception as e:
                 click.echo(f"Warning: API enrichment failed: {e}", err=True)
         
-        # Format output
-        formatter = OutputFormatter(pretty=pretty)
+        # Format output. The flag wins when given, the configuration when not.
+        if format is None:
+            format = setting(config, 'output.format', 'json')
+        if pretty is None:
+            pretty = setting(config, 'output.pretty_print', False)
+
+        formatter = OutputFormatter(
+            pretty=pretty,
+            include_raw_metadata=setting(config, 'output.include_raw_metadata', False),
+        )
         output_text = formatter.format(metadata, format)
         
         # Write output

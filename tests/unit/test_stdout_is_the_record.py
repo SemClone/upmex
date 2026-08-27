@@ -112,16 +112,18 @@ class TestTheClearlyDefinedSettingsAreRead:
 
     def test_the_shipped_config_file_agrees_with_the_defaults(self):
         """config/default.json is not what Config() reads, so the two can
-        drift, and a reader following the file would configure the 404."""
+        drift, and a reader following the file would configure the 404.
+
+        Compared whole rather than section by section: checking one section
+        let the file keep a package_types block with six settings nothing
+        read, and an output.schema_version that no longer exists.
+        """
         shipped = json.loads(
             (Path(__file__).resolve().parents[2] / "config" / "default.json")
             .read_text()
         )
 
-        for setting in ("base_url", "enabled", "timeout", "api_key"):
-            assert shipped["api"]["clearlydefined"][setting] == Config().get(
-                f"api.clearlydefined.{setting}"
-            ), setting
+        assert shipped == Config.DEFAULT_CONFIG
 
     def test_the_client_uses_the_configured_base_url(self):
         class Configured:

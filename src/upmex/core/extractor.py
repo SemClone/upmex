@@ -4,6 +4,7 @@ import logging
 import hashlib
 from pathlib import Path
 from typing import Optional, Dict, Any
+from ..config import setting
 from .models import (
     MAVEN_PACKAGE_TYPES,
     PackageMetadata,
@@ -83,6 +84,21 @@ class PackageExtractor:
         
         # Get file metadata
         file_size = path.stat().st_size
+
+        # A package larger than this is refused rather than read. The setting
+        # was declared and never consulted, so it protected nothing.
+        #
+        # Read from the configuration this extractor was given, not from a
+        # fresh Config(). A fresh one sees the defaults and the environment
+        # but not the file the caller passed with --config, which is how a
+        # setting comes to work one way and not the other.
+        max_file_size = setting(self.config, 'extraction.max_file_size', None)
+        if max_file_size and file_size > max_file_size:
+            raise ValueError(
+                f"Package is {file_size:,} bytes, over the "
+                f"{max_file_size:,} byte limit set by extraction.max_file_size"
+            )
+
         file_hash = self._calculate_hash(package_path, algorithm="sha1")
         file_hash_md5 = self._calculate_hash(package_path, algorithm="md5")
         

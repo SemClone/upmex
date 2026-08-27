@@ -201,7 +201,7 @@ export PME_VULNERABLECODE_API_KEY=your-api-key
 
 # Settings
 export PME_LOG_LEVEL=DEBUG
-export PME_CACHE_DIR=/path/to/cache
+export PME_LOG_FILE=/var/log/upmex.log
 export PME_OUTPUT_FORMAT=json
 ```
 

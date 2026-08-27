@@ -129,9 +129,15 @@ class PackageMetadata:
     enrichment: List[EnrichmentData] = field(default_factory=list)  # External enrichment data
     vulnerabilities: Dict[str, Any] = field(default_factory=dict)  # Vulnerability information
     
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert metadata to dictionary format with organized structure."""
-        return {
+    def to_dict(self, include_raw_metadata: bool = False) -> Dict[str, Any]:
+        """Convert metadata to dictionary format with organized structure.
+
+        Args:
+            include_raw_metadata: also publish the source document each field
+                was read from. Off by default because it can be large, and
+                because it repeats what the rest of the record already says.
+        """
+        document = {
             # Package identification
             "package": {
                 "name": self.name,
@@ -212,6 +218,12 @@ class PackageMetadata:
             # Vulnerability information
             "vulnerabilities": self.vulnerabilities
         }
+
+        if include_raw_metadata:
+            # What the extractor read, before upmex interpreted any of it.
+            document["raw_metadata"] = self.raw_metadata
+
+        return document
 
     def add_enrichment(self, source: str, source_type: str, data: Dict[str, Any], applied_fields: List[str] = None) -> None:
         """Add enrichment data from external sources.

@@ -60,21 +60,15 @@ class Config:
         "extraction": {
             "max_file_size": 500_000_000,  # 500MB
             "temp_dir": None,  # Uses system temp by default
-            "parallel_processing": False,
-            "cache_enabled": True,
-            "cache_dir": None  # Set via PME_CACHE_DIR or ~/.cache/pme
         },
-        "license_detection": {
-            "methods": ["regex", "dice_sorensen"],  # Methods to use in order
-            "confidence_threshold": 0.85,
-            "max_text_length": 100_000,
-            "enable_ml": False  # Requires ml extra dependencies
-        },
+
         "output": {
             "format": "json",
-            "pretty_print": True,
+            # Compact, which is what upmex has always emitted. The setting
+            # said True while nothing read it, so turning it on now would
+            # quietly reformat everyone's output.
+            "pretty_print": False,
             "include_raw_metadata": False,
-            "schema_version": "1.0.0"
         },
         "logging": {
             "level": "INFO",
@@ -93,11 +87,6 @@ class Config:
         "PME_API_TIMEOUT": "api.*.timeout",
         "PME_MAX_FILE_SIZE": "extraction.max_file_size",
         "PME_TEMP_DIR": "extraction.temp_dir",
-        "PME_CACHE_DIR": "extraction.cache_dir",
-        "PME_CACHE_ENABLED": "extraction.cache_enabled",
-        "PME_LICENSE_CONFIDENCE": "license_detection.confidence_threshold",
-        "PME_LICENSE_METHODS": "license_detection.methods",
-        "PME_ENABLE_ML": "license_detection.enable_ml",
         "PME_OUTPUT_FORMAT": "output.format",
         "PME_LOG_LEVEL": "logging.level",
         "PME_LOG_FILE": "logging.file"
@@ -123,7 +112,6 @@ class Config:
         self.load_from_env()
         
         # Set default directories if not configured
-        self._set_default_dirs()
     
     def load_from_file(self, config_file: str):
         """Load configuration from JSON file.
@@ -226,16 +214,6 @@ class Config:
                 result[key] = value
         
         return result
-    
-    def _set_default_dirs(self):
-        """Set default directories if not configured."""
-        if not self.config['extraction']['cache_dir']:
-            cache_dir = Path.home() / '.cache' / 'pme'
-            self.config['extraction']['cache_dir'] = str(cache_dir)
-        
-        if not self.config['extraction']['temp_dir']:
-            import tempfile
-            self.config['extraction']['temp_dir'] = tempfile.gettempdir()
     
     def to_dict(self) -> Dict[str, Any]:
         """Get configuration as dictionary."""
