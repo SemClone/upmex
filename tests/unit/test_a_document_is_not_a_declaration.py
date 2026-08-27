@@ -50,8 +50,12 @@ class TestAMentionIsNotADeclaration:
         assert _found("README.md", CREDITS_A_DEPENDENCY) == []
 
     @pytest.mark.parametrize("name", [
-        "README.md", "README.markdown", "README.text", "README.asciidoc",
+        "README.md", "README.markdown", "README.mdown", "README.text",
+        "README.asciidoc", "README.textile", "README.org",
         "CHANGELOG.md", "docs.rst", "guide.adoc", "notes.txt",
+        # No suffix at all, which the rule used to miss entirely. GNU-style
+        # and many C and Go projects ship exactly these.
+        "README", "INSTALL", "CHANGELOG", "NEWS", "TODO", "CONTRIBUTING",
     ])
     def test_in_every_kind_of_document(self, name):
         assert _found(name, CREDITS_A_DEPENDENCY) == []
@@ -202,3 +206,43 @@ class TestLicenceFilesWithASuffixedName:
                                       "docs/install.rst", "notes.txt"])
     def test_but_a_document_is_still_a_document(self, name):
         assert _found(name, "SPDX-License-Identifier: MIT\n") == [], name
+
+
+
+class TestWhatThisRuleGivesUp:
+    """Stated as a test so it is a decision on the record rather than a
+    surprise: a package whose only licence statement is prose in its README,
+    with no licence file and nothing in its metadata."""
+
+    def test_a_readme_carrying_the_licence_is_read_when_that_file_is_scanned(self):
+        assert _found("README.md", "# mypkg\n\n## License\n\n" + FULL_MIT_TEXT) == ["MIT"]
+
+    def test_but_not_when_the_directory_is_scanned(self):
+        """Scanning a directory, osslili measures a short window around the
+        word "license" rather than the whole file, and a bare mention scores
+        the same as a document carrying the entire licence. Nothing separates
+        them, so both are refused."""
+        directory = tempfile.mkdtemp()
+        try:
+            with open(os.path.join(directory, "README.md"), "w") as handle:
+                handle.write("# mypkg\n\n## License\n\n" + FULL_MIT_TEXT)
+            found = OssliliSubprocessDetector().detect_from_directory(directory)
+        finally:
+            shutil.rmtree(directory, ignore_errors=True)
+
+        assert found["licenses"] == []
+
+    def test_and_a_licence_file_alongside_it_is_still_read(self):
+        """Which is why the loss is narrow: the shape needs no licence file
+        anywhere, and almost every package has one."""
+        directory = tempfile.mkdtemp()
+        try:
+            with open(os.path.join(directory, "README.md"), "w") as handle:
+                handle.write(CREDITS_A_DEPENDENCY)
+            with open(os.path.join(directory, "LICENSE"), "w") as handle:
+                handle.write(MIT_TEXT)
+            found = OssliliSubprocessDetector().detect_from_directory(directory)
+        finally:
+            shutil.rmtree(directory, ignore_errors=True)
+
+        assert sorted({lic["spdx_id"] for lic in found["licenses"]}) == ["MIT"]

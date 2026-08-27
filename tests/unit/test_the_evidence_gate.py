@@ -185,14 +185,52 @@ class TestAMentionIsNotADeclaration:
             source_file="README.md",
         )
 
-    @pytest.mark.parametrize("match_type", [
-        "license_file", "license_header", "text_similarity", "exact_hash",
-    ])
-    def test_but_evidence_the_document_carries_it_does(self, match_type):
+    @pytest.mark.parametrize("match_type", ["license_file", "exact_hash"])
+    def test_but_evidence_identifying_the_file_itself_does(self, match_type):
+        """A name or a hash, so no score is involved."""
+        assert is_reportable(
+            {"detected_license": "MIT", "confidence": 0.1,
+             "detection_method": "regex", "category": "declared",
+             "match_type": match_type},
+            source_file="README.md",
+        )
+
+    def test_and_a_measured_match_against_the_licence_text_does(self):
         assert is_reportable(
             {"detected_license": "MIT", "confidence": 0.98,
              "detection_method": "dice-sorensen", "category": "declared",
-             "match_type": match_type},
+             "match_type": "text_similarity"},
+            source_file="README.md",
+        )
+
+    def test_a_licence_header_claim_does_not(self):
+        """osslili emits license_header at 0.6 for the single sentence "the
+        bundled minifier is licensed under the Apache License", so inside a
+        document it is another spelling of a mention."""
+        assert not is_reportable(
+            {"detected_license": "Apache-2.0", "confidence": 0.6,
+             "detection_method": "regex", "category": "declared",
+             "match_type": "license_header"},
+            source_file="README.md",
+        )
+
+    def test_but_it_does_in_a_licence_file(self):
+        assert is_reportable(
+            {"detected_license": "MIT", "confidence": 0.6,
+             "detection_method": "regex", "category": "declared",
+             "match_type": "license_header"},
+            source_file="LICENSE",
+        )
+
+    @pytest.mark.parametrize("confidence", [0.6, 0.95, 1.0])
+    def test_a_documentation_match_never_counts(self, confidence):
+        """Its score is not comparable between osslili's two modes. Scanning
+        one file a mention scores 0.6; scanning a directory the same mention
+        scores 0.95, the score a document carrying the whole licence gets."""
+        assert not is_reportable(
+            {"detected_license": "MIT", "confidence": confidence,
+             "detection_method": "regex", "category": "declared",
+             "match_type": "documentation"},
             source_file="README.md",
         )
 
@@ -211,6 +249,28 @@ class TestAMentionIsNotADeclaration:
         assert is_reportable(
             README_CREDITING_A_DEPENDENCY[0], source_file="package.json"
         )
+
+
+class TestTheDocumentTextFloor:
+    """A measured match against the licence text is the one thing a mention
+    cannot fake, but only near the top of the scale. Pinned in both directions
+    so the threshold cannot drift either way unnoticed."""
+
+    def _text_match(self, confidence):
+        return {"detected_license": "MIT", "confidence": confidence,
+                "detection_method": "dice-sorensen", "category": "declared",
+                "match_type": "text_similarity"}
+
+    @pytest.mark.parametrize("confidence", [0.95, 0.96, 0.97, 0.99, 1.0])
+    def test_at_or_above_the_threshold_it_counts(self, confidence):
+        assert is_reportable(self._text_match(confidence), source_file="README.md")
+
+    @pytest.mark.parametrize("confidence", [0.5, 0.9, 0.91, 0.94, 0.949])
+    def test_below_it_does_not(self, confidence):
+        """The band under the threshold is reported only when an optional
+        similarity backend is installed, which is the machine dependence this
+        whole rule exists to remove."""
+        assert not is_reportable(self._text_match(confidence), source_file="README.md")
 
 
 class TestTheScoreBoundary:
@@ -445,3 +505,40 @@ class TestTheRuleKeepsUpWithOsslili:
                  "detection_method": "regex", "category": "declared",
                  "match_type": match_type}
             ), f"{match_type} is dropped"
+
+
+class TestAWindowsSeparator:
+    """Archive members and nuspec declarations carry backslashes, and upmex
+    runs on POSIX, where a backslash is an ordinary character. Left alone the
+    whole path became the filename, so the rule read the directory as part of
+    the name."""
+
+    @pytest.mark.parametrize("name,document", [
+        ("docs\\README", True),
+        ("docs\\README.md", True),
+        ("a\\b\\INSTALL", True),
+        ("docs\\LICENSE", False),
+        ("pkg\\LICENSE.md", False),
+        ("docs/README", True),
+        ("docs/LICENSE", False),
+    ])
+    def test_the_name_is_the_last_part_either_way(self, name, document):
+        from upmex.licenses.osslili_subprocess import _reads_as_a_document
+
+        assert _reads_as_a_document(name) is document, name
+
+    def test_a_mention_behind_a_backslash_is_still_refused(self):
+        assert not is_reportable(
+            {"detected_license": "Apache-2.0", "confidence": 1.0,
+             "detection_method": "tag", "category": "declared",
+             "match_type": "spdx_identifier"},
+            source_file="docs\\README",
+        )
+
+    def test_and_a_licence_file_behind_one_is_still_read(self):
+        assert is_reportable(
+            {"detected_license": "MIT", "confidence": 0.6,
+             "detection_method": "regex", "category": "declared",
+             "match_type": "license_file"},
+            source_file="pkg\\LICENSE.md",
+        )

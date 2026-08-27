@@ -4,6 +4,7 @@ License detection using osslili CLI subprocess.
 
 import logging
 import shutil
+import sys
 import subprocess
 import json
 import tempfile
@@ -12,6 +13,26 @@ from typing import List, Dict, Optional, Any
 from pathlib import Path, PurePath
 
 logger = logging.getLogger(__name__)
+
+
+def osslili_command():
+    """The osslili installed alongside upmex, not whichever is on PATH.
+
+    upmex declares osslili as a dependency and then invoked it by bare name,
+    so a different copy earlier on PATH answered instead. On this machine that
+    was 1.6.1 from a system package manager rather than the 1.7.5 in the
+    environment, and the two disagree: the same LICENSE file holding the MIT
+    text comes back MIT from one and JSON from the other. Which licence a
+    package appears to have should not depend on PATH order.
+    """
+    beside_the_interpreter = Path(sys.executable).parent / 'osslili'
+    for candidate in (beside_the_interpreter,
+                      beside_the_interpreter.with_suffix('.exe')):
+        if candidate.exists():
+            return str(candidate)
+    # Nothing beside the interpreter, so fall back rather than fail outright:
+    # upmex still works with osslili installed some other way.
+    return shutil.which('osslili') or 'osslili'
 
 # osslili scores a match and also says what kind of evidence it is: a category
 # (declared, detected, referenced, third-party) and a match_type saying which
@@ -56,41 +77,67 @@ WEAK_DECLARED_MATCH_TYPES = ('documentation',)
 # prose, and its header rule matches "License: X" anywhere in the first thirty
 # lines, mid-sentence included. "It bundles terser, license: BSD-2-Clause, for
 # minification" is reported exactly as a real SPDX-License-Identifier line is.
-# Carrying the text is different, and osslili says so with a match type of its
-# own: a README holding a full MIT licence comes back as text_similarity near
-# 0.98, so the common "licence only in the README" package still resolves.
 #
-# The suffixes are the set osslili itself scans as text. Listing fewer left
-# README.markdown and README.asciidoc outside the rule, where the credit
-# sentence this exists to refuse went straight through.
+# Two kinds of evidence survive that. One identifies the file itself, by name
+# or by hash, and needs no score. The other is a measured similarity against
+# the licence text, which is the one thing a passing mention cannot fake, and
+# it is taken only at the top of osslili's scale.
+#
+# Two match types that sound like they belong here do not.
+#
+# license_header reads as a promise that the file opens with a licence header,
+# and osslili emits it at 0.6 for the lone sentence "the bundled minifier is
+# licensed under the Apache License". Inside a document it is another spelling
+# of a mention.
+#
+# documentation is worse, because its score is not comparable between osslili's
+# two modes. Scanning one file, a mention scores 0.6 and a document carrying
+# the whole licence scores 0.95. Scanning a directory, osslili measures a short
+# window around the word "license" instead, and the same mention also scores
+# 0.95. No threshold separates them in both modes, so it is refused in each.
+#
+# The cost, stated plainly: a package whose only licence statement is prose in
+# its README, with no licence file and nothing declared in its metadata, is
+# read as having no licence when a directory is scanned. Reporting a
+# dependency's licence as the package's own is the worse of the two errors.
+STRUCTURALLY_THE_LICENCE = ('license_file', 'exact_hash')
+CARRIES_LICENCE_TEXT = ('text_similarity',)
+
+# Suffixes osslili scans as text, plus the ones it does not but people write
+# documents in anyway. Anchoring on suffix alone missed README with no suffix
+# at all, where the credit sentence went straight through.
 DOCUMENT_SUFFIXES = (
-    '.md', '.markdown', '.rst', '.adoc', '.asciidoc', '.txt', '.text',
+    '.md', '.markdown', '.mdown', '.rst', '.adoc', '.asciidoc',
+    '.txt', '.text', '.textile', '.org', '.me',
 )
-CARRIES_LICENCE_TEXT = (
-    'license_file',
-    'license_header',
-    'text_similarity',
-    'exact_hash',
+DOCUMENT_STEMS = (
+    'readme', 'install', 'installing', 'changelog', 'changes', 'news',
+    'history', 'authors', 'contributors', 'contributing', 'credits',
+    'thanks', 'acknowledgements', 'acknowledgments', 'todo', 'faq',
+    'security', 'support', 'governance', 'roadmap', 'usage', 'manual',
 )
 
-# LICENSE.txt and LICENCE.md are licence files that happen to have a document
-# suffix, and are not documents for this purpose.
-LICENCE_FILE_STEMS = (
-    'license', 'licence', 'licenses', 'licences',
-    'copying', 'copyright', 'notice', 'unlicense',
-)
+# A licence file is never a document, whatever it is called or suffixed:
+# LICENSE.txt, LICENSE-MIT.txt, MIT-LICENSE.md and COPYING all hold the thing
+# itself. Refusing those would be the far worse failure.
+LICENCE_WORDS = ('license', 'licence', 'copying', 'copyright', 'legal',
+                 'notice', 'unlicense', 'unlicence')
 
 
 def _reads_as_a_document(source_file):
     """A file whose subject is prose, not licence text."""
     if not source_file:
         return False
-    name = PurePath(str(source_file)).name
-    suffix = PurePath(name).suffix.lower()
-    if suffix not in DOCUMENT_SUFFIXES:
-        return False
+    name = PurePath(str(source_file).replace('\\', '/')).name
     stem = PurePath(name).stem.lower()
-    return not any(stem.startswith(known) for known in LICENCE_FILE_STEMS)
+    suffix = PurePath(name).suffix.lower()
+
+    if any(word in stem for word in LICENCE_WORDS):
+        return False
+    if suffix in DOCUMENT_SUFFIXES:
+        return True
+    # No suffix at all, so the name is all there is to go on.
+    return not suffix and stem in DOCUMENT_STEMS
 
 
 # Often confused with Apache-2.0, and never right when it appears.
@@ -109,11 +156,10 @@ def is_reportable(lic, spdx_id=None, source_file=None):
 
     if _reads_as_a_document(
             source_file or lic.get('file') or lic.get('source_file')):
-        # The score matters here too. A partial text match lands in a band
-        # osslili only reports when an optional backend is installed, so
-        # accepting it at any score would put back the machine dependence this
-        # rule exists to remove.
-        return (lic.get('match_type') in CARRIES_LICENCE_TEXT
+        match_type = lic.get('match_type')
+        if match_type in STRUCTURALLY_THE_LICENCE:
+            return True
+        return (match_type in CARRIES_LICENCE_TEXT
                 and lic.get('confidence', 0) >= HIGH_CONFIDENCE)
 
     if lic.get('detection_method', '') in EXACT_DETECTION_METHODS:
@@ -166,7 +212,7 @@ class OssliliSubprocessDetector:
 
                 # Run osslili CLI without similarity threshold for better tag detection
                 result = subprocess.run(
-                    ['osslili', '-f', 'evidence', tmp_path],
+                    [osslili_command(), '-f', 'evidence', tmp_path],
                     capture_output=True,
                     text=True,
                     timeout=10
@@ -273,7 +319,7 @@ class OssliliSubprocessDetector:
         try:
             # Run osslili CLI on directory without similarity threshold for better tag detection
             result = subprocess.run(
-                ['osslili', '-f', 'evidence', '--max-depth', '3', dir_path],
+                [osslili_command(), '-f', 'evidence', '--max-depth', '3', dir_path],
                 capture_output=True,
                 text=True,
                 timeout=30
