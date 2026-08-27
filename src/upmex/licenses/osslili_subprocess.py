@@ -9,7 +9,7 @@ import json
 import tempfile
 import os
 from typing import List, Dict, Optional, Any
-from pathlib import Path
+from pathlib import Path, PurePath
 
 logger = logging.getLogger(__name__)
 
@@ -44,11 +44,59 @@ REJECTED_CATEGORIES = ('referenced', 'third-party')
 # to be dropped: osslili reports it as package_metadata_file at 0.6.
 WEAK_DECLARED_MATCH_TYPES = ('documentation',)
 
+# A document can talk about any licence, including one it does not carry.
+# osslili's SPDX patterns match prose as well as tags: "licensed under the
+# Apache License, Version 2.0" in a README comes back as detection_method
+# "tag", match_type "spdx_identifier", confidence 1.0, indistinguishable in
+# the evidence record from a real SPDX-License-Identifier line. An MIT package
+# whose README credits a bundled dependency was reported as Apache-2.0.
+#
+# So inside a document, a licence named inside a sentence proves nothing.
+# What still counts is evidence that the document carries the licence, or
+# states it in a line whose whole purpose is to state it. osslili separates
+# those: a real "SPDX-License-Identifier: MIT" or "License: MIT" line comes
+# back as header_tag, while "...is licensed under the Apache License" comes
+# back as spdx_identifier.
+#
+# The cost is deliberate. A document holding a full licence text and nothing
+# else is reported as match_type documentation at a score that depends on the
+# machine, the same shape a partial mention produces, so it is refused with
+# the mentions. A package whose only licence statement is prose in its README
+# and which ships no licence file is not read from that prose.
+DOCUMENT_SUFFIXES = ('.md', '.rst', '.adoc', '.txt')
+CARRIES_LICENCE_TEXT = (
+    'license_file',
+    'license_header',
+    'text_similarity',
+    'exact_hash',
+    'header_tag',
+)
+
+# LICENSE.txt and LICENCE.md are licence files that happen to have a document
+# suffix, and are not documents for this purpose.
+LICENCE_FILE_STEMS = (
+    'license', 'licence', 'licenses', 'licences',
+    'copying', 'copyright', 'notice', 'unlicense',
+)
+
+
+def _reads_as_a_document(source_file):
+    """A file whose subject is prose, not licence text."""
+    if not source_file:
+        return False
+    name = PurePath(str(source_file)).name
+    suffix = PurePath(name).suffix.lower()
+    if suffix not in DOCUMENT_SUFFIXES:
+        return False
+    stem = PurePath(name).stem.lower()
+    return not any(stem.startswith(known) for known in LICENCE_FILE_STEMS)
+
+
 # Often confused with Apache-2.0, and never right when it appears.
 KNOWN_FALSE_POSITIVES = ('Pixar',)
 
 
-def is_reportable(lic, spdx_id=None):
+def is_reportable(lic, spdx_id=None, source_file=None):
     """Whether one piece of osslili evidence is strong enough to report."""
     if spdx_id is None:
         spdx_id = lic.get('detected_license') or lic.get('spdx_id')
@@ -57,6 +105,9 @@ def is_reportable(lic, spdx_id=None):
 
     if lic.get('category') in REJECTED_CATEGORIES:
         return False
+
+    if _reads_as_a_document(source_file or lic.get('file')):
+        return lic.get('match_type') in CARRIES_LICENCE_TEXT
 
     if lic.get('detection_method', '') in EXACT_DETECTION_METHODS:
         return True
@@ -97,7 +148,12 @@ class OssliliSubprocessDetector:
             # directory of our own so nothing collides.
             tmp_dir = tempfile.mkdtemp()
             try:
-                tmp_path = os.path.join(tmp_dir, Path(file_path).name)
+                # '', '.' and '/' have no basename, and '..' is a
+                # directory. Writing to either raises, and the broad except
+                # below would turn that into a silent empty result.
+                tmp_path = os.path.join(
+                    tmp_dir, PurePath(file_path).name.strip('.') or 'content'
+                )
                 with open(tmp_path, 'w') as tmp:
                     tmp.write(content)
 
@@ -157,7 +213,7 @@ class OssliliSubprocessDetector:
                                         "match_type": lic.get('match_type'),
                                     }
                                     
-                                    if is_reportable(lic, spdx_id):
+                                    if is_reportable(lic, spdx_id, file_path):
                                         licenses.append(license_info)
                     elif 'results' in data and data['results']:
                         # Fallback to old format
@@ -183,7 +239,7 @@ class OssliliSubprocessDetector:
                                         "match_type": lic.get('match_type'),
                                     }
                                     
-                                    if is_reportable(lic):
+                                    if is_reportable(lic, source_file=file_path):
                                         licenses.append(license_info)
                         
             finally:
@@ -247,6 +303,14 @@ class OssliliSubprocessDetector:
                             for lic in scan_result['license_evidence']:
                                 # Map detected_license to spdx_id for consistency
                                 spdx_id = lic.get('detected_license', lic.get('spdx_id', 'Unknown'))
+                                # Judge before deduplicating. osslili sorts
+                                # evidence by score, so keying on the first
+                                # record for a (licence, file) pair let a
+                                # rejected one stand in for an acceptable one
+                                # behind it, and which came first depended on
+                                # the machine.
+                                if not is_reportable(lic, spdx_id):
+                                    continue
                                 key = (spdx_id, lic.get('file', 'unknown'))
                                 if key in seen_licenses:
                                     continue
@@ -269,14 +333,15 @@ class OssliliSubprocessDetector:
                                     "match_type": lic.get('match_type'),
                                 }
                                 
-                                if is_reportable(lic, spdx_id):
-                                    licenses.append(license_info)
+                                licenses.append(license_info)
                 elif 'results' in data and data['results']:
                     # Fallback to old format
                     for result_item in data['results']:
                         if 'licenses' in result_item:
                             for lic in result_item['licenses']:
                                 # Create unique key to avoid duplicates
+                                if not is_reportable(lic):
+                                    continue
                                 key = (lic.get('spdx_id'), lic.get('source_file'))
                                 if key in seen_licenses:
                                     continue
@@ -297,8 +362,7 @@ class OssliliSubprocessDetector:
                                     "match_type": lic.get('match_type'),
                                 }
                                 
-                                if is_reportable(lic):
-                                    licenses.append(license_info)
+                                licenses.append(license_info)
 
                 # Extract copyrights from scan_results - moved to correct indentation level
                 # (This was incorrectly nested inside the 'elif results' block)

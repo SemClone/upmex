@@ -125,32 +125,89 @@ class TestTheSameFileGivesTheSameAnswer:
         assert not is_reportable(low_mention)
 
 
+# What osslili really emits for a README sentence crediting a dependency,
+# taken from a run of the binary. The tag record is the one that matters: the
+# SPDX patterns match prose, so a mention is reported the same way a genuine
+# identifier is, at confidence 1.0. An earlier version of this test invented a
+# lone documentation record at 0.7, which the gate refused, so the test passed
+# while production reported Apache-2.0 for an MIT package.
+README_CREDITING_A_DEPENDENCY = [
+    {"detected_license": "Apache-2.0", "confidence": 1.0, "detection_method": "tag",
+     "category": "declared", "match_type": "spdx_identifier"},
+    {"detected_license": "Apache-2.0", "confidence": 0.9, "detection_method": "keyword",
+     "category": "detected", "match_type": "keyword"},
+    {"detected_license": "Apache-2.0", "confidence": 0.867, "detection_method": "regex",
+     "category": "declared", "match_type": "documentation"},
+]
+
+
 class TestAMentionIsNotADeclaration:
-    """osslili labels a pattern match in any .md/.rst/.txt/.adoc file
-    "declared" with match_type "documentation"."""
+    """In a document, a licence named inside a sentence proves nothing."""
 
-    def test_a_readme_mentioning_mit_is_not_reported(self):
-        assert not is_reportable(
-            {"detected_license": "MIT", "confidence": 0.7,
-             "detection_method": "regex", "category": "declared",
-             "match_type": "documentation"}
-        )
-
-    def test_not_through_a_real_scan_either(self):
-        with patch("subprocess.run", return_value=_result([
-            {"detected_license": "MIT", "confidence": 0.7,
-             "detection_method": "regex", "category": "declared",
-             "match_type": "documentation"}
-        ])):
-            found = OssliliSubprocessDetector().detect_from_file("README.md", MIT_TEXT)
+    def test_the_evidence_osslili_really_returns_for_a_mention(self):
+        with patch("subprocess.run",
+                   return_value=_result(README_CREDITING_A_DEPENDENCY)):
+            found = OssliliSubprocessDetector().detect_from_file(
+                "README.md", MIT_TEXT
+            )
         assert found == []
 
-    def test_but_a_high_score_still_carries_it(self):
-        """A near-exact text match is a licence however the file is named."""
+    def test_the_exact_tag_clause_does_not_rescue_it(self):
+        """confidence 1.0 and detection_method tag, and still not a licence,
+        because of where it was found."""
+        assert not is_reportable(
+            README_CREDITING_A_DEPENDENCY[0], source_file="README.md"
+        )
+
+    def test_a_partial_pattern_match_is_not_one_either(self):
+        assert not is_reportable(
+            README_CREDITING_A_DEPENDENCY[2], source_file="README.md"
+        )
+
+    def test_but_a_line_that_exists_to_state_the_licence_is(self):
+        """A real SPDX-License-Identifier or License: line. osslili reports
+        those as header_tag, which is how they are told from prose."""
         assert is_reportable(
-            {"detected_license": "MIT", "confidence": 0.99,
+            {"detected_license": "MIT", "confidence": 1.0,
+             "detection_method": "tag", "category": "declared",
+             "match_type": "header_tag"},
+            source_file="README.md",
+        )
+
+    def test_and_outside_a_document_the_same_evidence_counts(self):
+        """The rule is about where the evidence was found, nothing else."""
+        assert is_reportable(
+            README_CREDITING_A_DEPENDENCY[0], source_file="package.json"
+        )
+
+
+class TestTheScoreBoundary:
+    """osslili caps a documentation match at exactly 0.95, which is also the
+    score this gate accepts on its own. Pinned so the comparison cannot drift
+    from >= to > unnoticed."""
+
+    def test_the_threshold_itself_is_enough(self):
+        assert is_reportable(
+            {"detected_license": "MIT", "confidence": 0.95,
+             "detection_method": "keyword", "category": "detected",
+             "match_type": "keyword"}
+        )
+
+    def test_just_under_is_not(self):
+        assert not is_reportable(
+            {"detected_license": "MIT", "confidence": 0.94,
+             "detection_method": "keyword", "category": "detected",
+             "match_type": "keyword"}
+        )
+
+    def test_and_in_a_document_the_score_does_not_open_the_door(self):
+        """The cap and the threshold being equal would otherwise let every
+        capped documentation match back in through the score."""
+        assert not is_reportable(
+            {"detected_license": "MIT", "confidence": 0.95,
              "detection_method": "regex", "category": "declared",
-             "match_type": "documentation"}
+             "match_type": "documentation"},
+            source_file="README.md",
         )
 
 
