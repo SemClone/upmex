@@ -242,28 +242,61 @@ class TestEverySettingHasAReader:
 
     @pytest.mark.parametrize("key", sorted(_declared_keys(Config.DEFAULT_CONFIG)))
     def test_it_is_read_somewhere(self, key):
+        """Read means read. Naming the key in a help string or a comment is
+        not reading it: deleting the two real lookups for output.format and
+        output.pretty_print left them matched by the text of their own --help
+        entries, and the test stayed green."""
         source = self._source()
         leaf = key.rsplit(".", 1)[-1]
-
-        # Either the whole dotted path, as setting() and Config.get() take it,
-        # or the section and the leaf named together the way a nested read
-        # spells it.
-        whole = re.search(rf"['\"]{re.escape(key)}['\"]", source)
         section = key.rsplit(".", 1)[0]
-        nested = re.search(
-            rf"['\"]{re.escape(section)}['\"].{{0,200}}['\"]{re.escape(leaf)}['\"]",
-            source,
-            re.DOTALL,
+
+        patterns = (
+            # setting(config, 'a.b.c', default)
+            rf"setting\([^)]*['\"]{re.escape(key)}['\"]",
+            # config.get('a.b.c')
+            rf"\.get\(\s*['\"]{re.escape(key)}['\"]",
+            # config['a']['b']['c'], however it is spelled across lines
+            rf"['\"]{re.escape(section)}['\"]\s*\]\s*\[\s*['\"]{re.escape(leaf)}['\"]",
         )
 
-        assert whole or nested, f"{key} is declared and nothing reads it"
+        assert any(re.search(pattern, source) for pattern in patterns), (
+            f"{key} is declared and nothing reads it"
+        )
+
+    def test_a_help_string_is_not_a_reader(self):
+        """The hole this closed, kept as a test so it cannot reopen."""
+        source = "@click.option('--format', help='[config: output.format]')"
+
+        patterns_hit = re.search(r"setting\([^)]*['\"]output\.format['\"]", source)
+
+        assert not patterns_hit
+
+    def test_a_real_lookup_is_a_reader(self):
+        """The other half, so the matcher is not simply refusing everything."""
+        source = "format = setting(config, 'output.format', 'json')"
+
+        assert re.search(r"setting\([^)]*['\"]output\.format['\"]", source)
 
     @pytest.mark.parametrize(
         "variable,key", sorted(Config.ENV_VAR_MAPPING.items())
     )
     def test_every_environment_variable_points_at_a_real_setting(self, variable, key):
         if "*" in key:
-            pytest.skip(f"{variable} is a wildcard over a section")
+            # A wildcard stands for every subsection, so check them all.
+            # Skipping meant a typo in the leaf, api.*.timeot, would pass
+            # while writing a setting nothing declares.
+            before, leaf = key.split(".*.")
+            section = Config.DEFAULT_CONFIG
+            for part in before.split("."):
+                assert part in section, f"{variable} maps to a section that does not exist"
+                section = section[part]
+
+            assert section, f"{variable} covers an empty section"
+            for name, subsection in section.items():
+                assert leaf in subsection, (
+                    f"{variable} maps to {key}, and {before}.{name} has no {leaf}"
+                )
+            return
 
         node = Config.DEFAULT_CONFIG
         for part in key.split("."):
@@ -321,27 +354,69 @@ class TestTempDir:
     def test_temporary_work_lands_in_the_configured_directory(self, tmp_path):
         import tempfile
 
-        from upmex.cli import _configure_temp_dir
+        from upmex.core.extractor import PackageExtractor
 
         elsewhere = tmp_path / "somewhere-else"
         elsewhere.mkdir()
         original = tempfile.tempdir
         try:
-            _configure_temp_dir({"extraction": {"temp_dir": str(elsewhere)}})
+            PackageExtractor({"extraction": {"temp_dir": str(elsewhere)}})
             with tempfile.TemporaryDirectory() as created:
                 assert Path(created).parent == elsewhere
+        finally:
+            tempfile.tempdir = original
+
+    def test_a_library_caller_gets_it_too(self, tmp_path):
+        """It used to be applied by the command, so building the extractor
+        directly, which is what the documentation shows, did nothing."""
+        import tempfile
+
+        from upmex.config import Config
+        from upmex.core.extractor import PackageExtractor
+
+        elsewhere = tmp_path / "lib-temp"
+        elsewhere.mkdir()
+        config_file = tmp_path / "upmex.json"
+        config_file.write_text(
+            json.dumps({"extraction": {"temp_dir": str(elsewhere)}})
+        )
+        original = tempfile.tempdir
+        try:
+            PackageExtractor(Config(str(config_file)).to_dict())
+            assert tempfile.tempdir == str(elsewhere)
+        finally:
+            tempfile.tempdir = original
+
+    def test_one_run_does_not_leave_its_directory_to_the_next(self, tmp_path):
+        """tempfile.tempdir is process wide. Setting it only when configured
+        left the previous run's directory in force for a run that asked for
+        nothing, which is the configuration of the run before deciding this
+        one."""
+        import tempfile
+
+        from upmex.core.extractor import PackageExtractor
+
+        elsewhere = tmp_path / "first-run"
+        elsewhere.mkdir()
+        original = tempfile.tempdir
+        try:
+            PackageExtractor({"extraction": {"temp_dir": str(elsewhere)}})
+            PackageExtractor({})
+
+            assert tempfile.tempdir is None
         finally:
             tempfile.tempdir = original
 
     def test_nothing_changes_when_it_is_unset(self, tmp_path):
         import tempfile
 
-        from upmex.cli import _configure_temp_dir
+        from upmex.core.extractor import PackageExtractor
 
         original = tempfile.tempdir
         try:
-            _configure_temp_dir({})
-            assert tempfile.tempdir == original
+            PackageExtractor({})
+            with tempfile.TemporaryDirectory() as created:
+                assert Path(created).exists()
         finally:
             tempfile.tempdir = original
 
@@ -356,3 +431,98 @@ class TestTempDir:
 
         assert result.exit_code == 0, result.output
         json.loads(result.stdout)
+
+
+class TestTheLimitAppliesEverywhere:
+    """Not only when the command is the caller, and not only when the number
+    is one Python calls true."""
+
+    def test_a_limit_of_zero_refuses_everything(self, tmp_path, package):
+        """Zero is a limit, not an absence of one. Testing truthiness instead
+        of presence made 0 mean unlimited."""
+        result = _run(tmp_path, {"extraction": {"max_file_size": 0}},
+                      "extract", package)
+
+        assert result.exit_code == 1
+
+    def test_a_library_caller_gets_the_default_limit(self, package):
+        """A bare PackageExtractor() ran with no configuration at all, so the
+        limit protected the command and nobody else."""
+        from upmex.config import Config
+        from upmex.core.extractor import PackageExtractor
+
+        extractor = PackageExtractor()
+
+        assert extractor.config["extraction"]["max_file_size"] == (
+            Config.DEFAULT_CONFIG["extraction"]["max_file_size"]
+        )
+
+    def test_and_the_environment_reaches_a_library_caller(self, package, monkeypatch):
+        from upmex.core.extractor import PackageExtractor
+
+        monkeypatch.setenv("PME_MAX_FILE_SIZE", "10")
+
+        with pytest.raises(ValueError, match="over the"):
+            PackageExtractor().extract(package)
+
+    def test_the_package_is_refused_before_anything_opens_it(
+        self, tmp_path, package, monkeypatch
+    ):
+        """Detecting the type reads inside the archive, so checking the size
+        afterwards read the package the limit exists to avoid reading."""
+        from upmex.core import extractor as extractor_module
+
+        opened = []
+        real = extractor_module.detect_package_type
+        monkeypatch.setattr(
+            extractor_module, "detect_package_type",
+            lambda path: opened.append(path) or real(path),
+        )
+
+        result = _run(tmp_path, {"extraction": {"max_file_size": 10}},
+                      "extract", package)
+
+        assert result.exit_code == 1
+        assert opened == [], "the package was read before being refused"
+
+
+class TestTheLogFileDoesNotOutliveItsRun:
+    def test_a_second_run_without_one_stops_writing_to_the_first(
+        self, tmp_path, package
+    ):
+        """The handler was added and never removed, so a run configured with
+        no log file kept writing to the file of the run before it."""
+        log = tmp_path / "first.log"
+
+        _run(tmp_path, {"logging": {"level": "DEBUG", "file": str(log)}},
+             "extract", package)
+        for handler in logging.getLogger().handlers:
+            handler.flush()
+        after_first = log.read_text() if log.exists() else ""
+
+        _run(tmp_path, {"logging": {"level": "DEBUG"}}, "extract", package)
+        for handler in logging.getLogger().handlers:
+            handler.flush()
+        after_second = log.read_text() if log.exists() else ""
+
+        assert after_second == after_first
+
+    def test_and_a_different_file_does_not_write_to_both(self, tmp_path, package):
+        first = tmp_path / "first.log"
+        second = tmp_path / "second.log"
+        broken = tmp_path / "broken.whl"
+        broken.write_bytes(b"not a zip")
+
+        _run(tmp_path, {"logging": {"level": "DEBUG", "file": str(first)}},
+             "extract", str(broken))
+        for handler in logging.getLogger().handlers:
+            handler.flush()
+        after_first = first.read_text() if first.exists() else ""
+
+        _run(tmp_path, {"logging": {"level": "DEBUG", "file": str(second)}},
+             "extract", str(broken))
+        for handler in logging.getLogger().handlers:
+            handler.flush()
+
+        assert first.read_text() == after_first
+        assert second.exists() and second.read_text().strip()

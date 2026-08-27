@@ -82,7 +82,7 @@ in `src/upmex/licenses/osslili_subprocess.py`.
 |:--|:--|:--|
 | `output.format` | `json` | `json` or `text` |
 | `output.pretty_print` | `false` | Indent JSON |
-| `output.include_raw_metadata` | `false` | Also publish the source documents each field was read from |
+| `output.include_raw_metadata` | `false` | Also publish the source documents each field was read from. JSON output only; the text format is a summary |
 
 The `-f` and `--pretty` / `--no-pretty` flags on `extract` take precedence over the file
 for a single run. The version stamped into the output is not a setting: it describes the
@@ -138,7 +138,7 @@ config = Config()
 print(config.get("extraction.max_file_size"))     # 500000000
 print(config.get("api.clearlydefined.timeout"))   # 30
 
-config.set("license_detection.confidence_threshold", 0.9)
+config.set("extraction.max_file_size", 1_000_000_000)
 config.save("upmex.json")
 ```
 

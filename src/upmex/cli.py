@@ -16,7 +16,6 @@ import json
 import click
 from pathlib import Path
 import logging
-import tempfile
 
 from upmex import __version__
 from upmex.core.extractor import PackageExtractor
@@ -53,11 +52,21 @@ def _configure_logging(config, verbose, quiet):
     for handler in root.handlers:
         handler.setFormatter(formatter)
 
+    # Drop the handler a previous call added before adding another. Adding
+    # without removing meant a second run in the same process kept writing to
+    # the first run's file, and a run configured with no file kept writing to
+    # the one before it.
+    for handler in list(root.handlers):
+        if getattr(handler, '_upmex_configured', False):
+            root.removeHandler(handler)
+            handler.close()
+
     log_file = setting(config, 'logging.file', None)
     if log_file:
         try:
             handler = logging.FileHandler(log_file)
             handler.setFormatter(formatter)
+            handler._upmex_configured = True
             root.addHandler(handler)
         except OSError as error:
             # Say so on stderr and carry on logging to the console. Refusing
@@ -72,30 +81,6 @@ def _configure_logging(config, verbose, quiet):
         level = setting(config, 'logging.level', 'INFO')
         # An unknown name would otherwise raise and take the command with it.
         root.setLevel(getattr(logging, str(level).upper(), logging.INFO))
-
-
-def _configure_temp_dir(config):
-    """Apply extraction.temp_dir.
-
-    Fifteen extractors unpack into tempfile.TemporaryDirectory() and none of
-    them knew about the setting. Rather than thread the configuration through
-    every one, point tempfile itself at the configured directory: every
-    temporary file and directory upmex makes then lands there.
-    """
-    temp_dir = setting(config, 'extraction.temp_dir', None)
-    if not temp_dir:
-        return
-
-    path = Path(temp_dir)
-    if not path.is_dir():
-        click.echo(
-            f"Warning: extraction.temp_dir {temp_dir} is not a directory, "
-            f"using the system default",
-            err=True,
-        )
-        return
-
-    tempfile.tempdir = str(path)
 
 
 @click.group()
@@ -118,7 +103,6 @@ def cli(ctx, config, verbose, quiet):
         ctx.obj['config'] = Config()
     
     _configure_logging(ctx.obj['config'], verbose, quiet)
-    _configure_temp_dir(ctx.obj['config'])
     
     ctx.obj['verbose'] = verbose
     ctx.obj['quiet'] = quiet

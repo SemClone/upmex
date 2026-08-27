@@ -2,6 +2,7 @@
 
 import logging
 import hashlib
+import tempfile
 from pathlib import Path
 from typing import Optional, Dict, Any
 from ..config import setting
@@ -33,6 +34,36 @@ from ..api.ecosystems import EcosystemsAPI
 logger = logging.getLogger(__name__)
 
 
+def _apply_temp_dir(config):
+    """Apply extraction.temp_dir.
+
+    Fifteen extractors unpack into tempfile.TemporaryDirectory() and none of
+    them knew about the setting, so tempfile itself is pointed at the
+    configured directory and all of them follow. It lives here rather than in
+    the command because a library caller builds this object too, and the
+    setting did nothing for them while the command owned it.
+
+    tempfile.tempdir is process wide, so it is set on every construction
+    rather than only when configured. Setting it only when present left one
+    run's directory in force for the next run that did not ask for one.
+    """
+    temp_dir = setting(config, 'extraction.temp_dir', None)
+
+    if not temp_dir:
+        tempfile.tempdir = None
+        return
+
+    if not Path(temp_dir).is_dir():
+        logger.warning(
+            "extraction.temp_dir %s is not a directory, using the system default",
+            temp_dir,
+        )
+        tempfile.tempdir = None
+        return
+
+    tempfile.tempdir = str(temp_dir)
+
+
 class PackageExtractor:
     """Main class for extracting package metadata."""
     
@@ -42,8 +73,16 @@ class PackageExtractor:
         Args:
             config: Optional configuration dictionary
         """
-        self.config = config or {}
+        # The defaults and the environment when the caller gives nothing.
+        # A bare PackageExtractor() used to run with no configuration at all,
+        # so extraction.max_file_size protected the CLI and not a library
+        # caller, and PME_MAX_FILE_SIZE reached neither.
+        if config is None:
+            from ..config import Config
+            config = Config().to_dict()
+        self.config = config
         self.registry_mode = self.config.get('registry_mode', False)
+        _apply_temp_dir(self.config)
         
         # Initialize extractors with registry mode
         self.extractors = {
@@ -78,26 +117,26 @@ class PackageExtractor:
         
         if not path.exists():
             raise FileNotFoundError(f"Package file not found: {package_path}")
-        
-        # Detect package type
-        package_type = detect_package_type(package_path)
-        
-        # Get file metadata
+
         file_size = path.stat().st_size
 
-        # A package larger than this is refused rather than read. The setting
-        # was declared and never consulted, so it protected nothing.
+        # Refused before anything opens it. Detecting the type reads inside
+        # the archive, so checking afterwards would have read the package the
+        # limit exists to avoid reading.
         #
         # Read from the configuration this extractor was given, not from a
         # fresh Config(). A fresh one sees the defaults and the environment
         # but not the file the caller passed with --config, which is how a
         # setting comes to work one way and not the other.
         max_file_size = setting(self.config, 'extraction.max_file_size', None)
-        if max_file_size and file_size > max_file_size:
+        if max_file_size is not None and file_size > max_file_size:
             raise ValueError(
                 f"Package is {file_size:,} bytes, over the "
                 f"{max_file_size:,} byte limit set by extraction.max_file_size"
             )
+
+        # Detect package type
+        package_type = detect_package_type(package_path)
 
         file_hash = self._calculate_hash(package_path, algorithm="sha1")
         file_hash_md5 = self._calculate_hash(package_path, algorithm="md5")
