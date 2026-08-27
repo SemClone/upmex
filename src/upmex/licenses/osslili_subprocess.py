@@ -3,6 +3,7 @@ License detection using osslili CLI subprocess.
 """
 
 import logging
+import shutil
 import subprocess
 import json
 import tempfile
@@ -12,17 +13,36 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# osslili scores a match and also says what kind of evidence it is. A score
-# alone is not the whole claim: the same MIT text scores 0.95 on one machine
-# and 0.6 on another, because the similarity backend differs. Gating only on
-# the number made the reported licence depend on where upmex ran.
-#
-# category == "declared" is osslili concluding the file declares this licence,
-# which is a statement about the evidence rather than about how close the text
-# matched. Take it, take an exact identifier match, and take a high score.
-# Everything weaker than that stays out.
+# osslili scores a match and also says what kind of evidence it is: a category
+# (declared, detected, referenced, third-party) and a match_type saying which
+# rule produced it. The score alone is not the whole claim, and it is not even
+# stable: the same text scores differently depending on the similarity backend
+# available, so gating on the number alone made the reported licence depend on
+# which machine ran upmex.
 EXACT_DETECTION_METHODS = ('tag', 'spdx_identifier')
 HIGH_CONFIDENCE = 0.95
+
+# A licence a file merely mentions, and a licence belonging to bundled
+# third-party code, are not this package's licence. Neither becomes one by
+# scoring well, so these are refused before any score is considered.
+REJECTED_CATEGORIES = ('referenced', 'third-party')
+
+# "declared" is osslili concluding a file states this licence: it is a LICENSE
+# file, it is package metadata, it carries an SPDX tag or a full licence
+# header, its text matches a licence closely, or metadata pointed at a file
+# that does. Each is evidence about what the file is, independent of the score.
+#
+# One case is not. osslili also labels "declared" any pattern match inside a
+# file whose name ends .md, .rst, .txt or .adoc, with match_type
+# "documentation". A README saying "this project is licensed under MIT" earns
+# that label, so on its own it is a mention, not a declaration.
+#
+# Listed as the exception rather than as an allowlist of the good ones on
+# purpose. osslili has ten declared match types today and adds them over
+# releases; an allowlist that fell behind would silently drop real licences,
+# which is how a pyproject.toml declaring `license = {file = "LICENSE"}` came
+# to be dropped: osslili reports it as package_metadata_file at 0.6.
+WEAK_DECLARED_MATCH_TYPES = ('documentation',)
 
 # Often confused with Apache-2.0, and never right when it appears.
 KNOWN_FALSE_POSITIVES = ('Pixar',)
@@ -30,14 +50,22 @@ KNOWN_FALSE_POSITIVES = ('Pixar',)
 
 def is_reportable(lic, spdx_id=None):
     """Whether one piece of osslili evidence is strong enough to report."""
-    spdx_id = spdx_id or lic.get('spdx_id') or lic.get('detected_license')
+    if spdx_id is None:
+        spdx_id = lic.get('detected_license') or lic.get('spdx_id')
     if spdx_id in KNOWN_FALSE_POSITIVES:
         return False
-    return (
-        lic.get('confidence', 0) >= HIGH_CONFIDENCE
-        or lic.get('detection_method', '') in EXACT_DETECTION_METHODS
-        or lic.get('category') == 'declared'
-    )
+
+    if lic.get('category') in REJECTED_CATEGORIES:
+        return False
+
+    if lic.get('detection_method', '') in EXACT_DETECTION_METHODS:
+        return True
+
+    if (lic.get('category') == 'declared'
+            and lic.get('match_type') not in WEAK_DECLARED_MATCH_TYPES):
+        return True
+
+    return lic.get('confidence', 0) >= HIGH_CONFIDENCE
 
 
 
@@ -61,14 +89,18 @@ class OssliliSubprocessDetector:
             return licenses
             
         try:
-            # Write content to temporary file for osslili to process
-            # Use .txt suffix if file has no extension (e.g., LICENSE files)
-            suffix = Path(file_path).suffix or '.txt'
-            with tempfile.NamedTemporaryFile(mode='w', suffix=suffix, delete=False) as tmp:
-                tmp.write(content)
-                tmp_path = tmp.name
-            
+            # osslili decides what kind of evidence a match is partly from the
+            # file's name: LICENSE is a licence file, README.md is a document
+            # that mentions one. Writing the content to a random tmpXXXX.txt
+            # threw that away, so a package's own LICENSE was read as a passing
+            # mention and scored accordingly. Keep the caller's name, inside a
+            # directory of our own so nothing collides.
+            tmp_dir = tempfile.mkdtemp()
             try:
+                tmp_path = os.path.join(tmp_dir, Path(file_path).name)
+                with open(tmp_path, 'w') as tmp:
+                    tmp.write(content)
+
                 # Run osslili CLI without similarity threshold for better tag detection
                 result = subprocess.run(
                     ['osslili', '-f', 'evidence', tmp_path],
@@ -155,8 +187,7 @@ class OssliliSubprocessDetector:
                                         licenses.append(license_info)
                         
             finally:
-                # Clean up temp file
-                os.unlink(tmp_path)
+                shutil.rmtree(tmp_dir, ignore_errors=True)
                 
         except Exception as e:
             logger.debug(f"Osslili subprocess detection failed for {file_path}: {e}")
