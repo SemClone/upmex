@@ -22,7 +22,7 @@ class UnifiedLicenseDetector:
         # Use subprocess version for copyright support
         self.osslili_detector = OssliliSubprocessDetector()
 
-    def detect_licenses(self, file_path: str, content: Optional[str] = None) -> List[Dict[str, Any]]:
+    def detect_licenses(self, file_path: str, content: Optional[str] = None, temp_root: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Detect licenses using OSSlili.
 
@@ -38,7 +38,8 @@ class UnifiedLicenseDetector:
 
         # Use OSSlili for all detection
         try:
-            osslili_licenses = self.osslili_detector.detect_from_file(file_path, content)
+            osslili_licenses = self.osslili_detector.detect_from_file(
+                file_path, content, temp_root=temp_root)
             for license_info in osslili_licenses:
                 # Filter known false positives
                 if license_info.get('spdx_id') == 'Pixar':
@@ -147,7 +148,7 @@ def get_detector() -> UnifiedLicenseDetector:
     return _detector
 
 
-def detect_licenses(file_path: str, content: Optional[str] = None) -> List[Dict[str, Any]]:
+def detect_licenses(file_path: str, content: Optional[str] = None, temp_root: Optional[str] = None) -> List[Dict[str, Any]]:
     """
     Detect licenses from a file.
 
@@ -159,7 +160,7 @@ def detect_licenses(file_path: str, content: Optional[str] = None) -> List[Dict[
         List of detected licenses
     """
     detector = get_detector()
-    return detector.detect_licenses(file_path, content)
+    return detector.detect_licenses(file_path, content, temp_root=temp_root)
 
 
 def detect_licenses_from_directory(dir_path: str) -> List[Dict[str, Any]]:

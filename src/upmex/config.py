@@ -1,10 +1,51 @@
 """Configuration management with environment variable support."""
 
+import logging
 import os
 import json
 from pathlib import Path
 from typing import Dict, Any, Optional
 import copy
+
+
+logger = logging.getLogger(__name__)
+
+
+def path_setting(config, key, default=None):
+    """A setting that has to name a path, or nothing.
+
+    Environment values are converted by shape, so PME_TEMP_DIR=false arrives
+    as the boolean False and PME_LOG_FILE=/tmp/a,b.log as a list. Both used to
+    reach the code that opens them: one passed for nobody having asked, the
+    other raised a TypeError the caller was not catching. Checked in one place
+    because the same mistake was made separately for three settings.
+    """
+    value = setting(config, key, default)
+    if value is None or value == '':
+        return None
+    if not isinstance(value, (str, os.PathLike)):
+        logger.warning(
+            "%s is %r, which is not a path; ignoring it", key, value
+        )
+        return None
+    return str(value)
+
+
+def int_setting(config, key, default=None):
+    """A setting that has to be a whole number of something, or nothing.
+
+    bool is a subclass of int, so PME_MAX_FILE_SIZE=true would otherwise pass
+    for a limit of one byte and refuse everything.
+    """
+    value = setting(config, key, default)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        logger.warning(
+            "%s is %r, which is not a number; ignoring it", key, value
+        )
+        return None
+    return value
 
 
 def setting(config: Any, key: str, default: Any = None) -> Any:

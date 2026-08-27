@@ -1,7 +1,7 @@
 """Base extractor class for all package types."""
 
 import logging
-from ..config import setting
+from ..config import path_setting
 import hashlib
 import os
 from abc import ABC, abstractmethod
@@ -53,19 +53,8 @@ class BaseExtractor(ABC):
         unpack under another's directory, and a host application that had set
         it did not get it back.
         """
-        root = setting(self.config, 'extraction.temp_dir', None)
-        if root is None or root == '':
-            return None
-
-        # Checked before emptiness, because PME_TEMP_DIR=false becomes the
-        # boolean False, which is falsy and would otherwise pass for unset
-        # and say nothing. PME_TEMP_DIR=true becomes True, which would reach
-        # Path() and raise there rather than here.
-        if not isinstance(root, (str, os.PathLike)):
-            logger.warning(
-                "extraction.temp_dir is %r, which is not a path; using the "
-                "system default", root,
-            )
+        root = path_setting(self.config, 'extraction.temp_dir', None)
+        if root is None:
             return None
 
         if not Path(root).is_dir():
@@ -237,7 +226,8 @@ class BaseExtractor(ABC):
         from ..licenses.unified_detector import detect_licenses
 
         licenses = []
-        detected_list = detect_licenses(filename or "content", text)
+        detected_list = detect_licenses(
+            filename or "content", text, temp_root=self.temp_root())
 
         for license_dict in detected_list:
             license_info = LicenseInfo(

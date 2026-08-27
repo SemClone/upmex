@@ -352,7 +352,7 @@ class TestEverySettingHasAReader:
                 if isinstance(node, ast.Call):
                     name = getattr(node.func, "id", None) or getattr(
                         node.func, "attr", None)
-                    if name in ("setting", "get"):
+                    if name in ("setting", "path_setting", "int_setting", "get"):
                         for argument in node.args:
                             text = literal(argument)
                             if text:
@@ -751,7 +751,7 @@ class TestTheLimitReachesEveryCommand:
         with caplog.at_level(logging.WARNING):
             refuse_if_too_large(package, {"extraction": {"max_file_size": "500MB"}})
 
-        assert "not a number of bytes" in caplog.text
+        assert "not a number" in caplog.text
 
     def test_and_the_command_still_runs(self, tmp_path, package, monkeypatch):
         monkeypatch.setenv("PME_MAX_FILE_SIZE", "500MB")
@@ -1046,7 +1046,7 @@ class TestAValueThatBecameABoolean:
         with caplog.at_level(logging.WARNING):
             refuse_if_too_large(package, {"extraction": {"max_file_size": value}})
 
-        assert "not a number of bytes" in caplog.text
+        assert "not a number" in caplog.text
 
     @pytest.mark.parametrize("value", ["true", "false"])
     def test_through_the_environment_as_well(self, value, tmp_path, package, monkeypatch):
@@ -1104,3 +1104,110 @@ class TestNothingIsDefinedTwice:
                         seen.add(item.name)
 
         assert offenders == [], offenders
+
+
+class TestALogFileThatIsNotAPath:
+    """The same mistake as extraction.temp_dir and extraction.max_file_size,
+    made a third time for logging.file. Environment values convert by shape,
+    so a boolean, a number and a comma-separated list all arrive here, and
+    none of them was caught before being opened."""
+
+    @pytest.mark.parametrize("value", [True, 123, ["/tmp/a", "/tmp/b"]])
+    def test_the_command_still_runs(self, value, tmp_path, package):
+        result = _run(tmp_path, {"logging": {"file": value}}, "extract", package)
+
+        assert result.exit_code == 0, result.output
+        json.loads(result.stdout)
+
+    @pytest.mark.parametrize("value", ["true", "123", "/tmp/a,b.log"])
+    def test_through_the_environment_too(self, value, tmp_path, package, monkeypatch):
+        """A comma in a log file name is a legal filename, and conversion by
+        shape turns it into a list."""
+        monkeypatch.setenv("PME_LOG_FILE", value)
+        result = _run(tmp_path, {}, "extract", package)
+
+        assert result.exit_code == 0, result.output
+        json.loads(result.stdout)
+
+    @pytest.mark.parametrize("value", [False, True, 123, ["/tmp/a"]])
+    def test_it_is_reported_rather_than_passing_quietly(self, value, caplog):
+        """False is falsy, so it used to pass for nobody having asked."""
+        from upmex.config import path_setting
+
+        with caplog.at_level(logging.WARNING):
+            assert path_setting({"logging": {"file": value}}, "logging.file") is None
+
+        assert "not a path" in caplog.text
+
+    def test_but_an_absent_one_stays_quiet(self, caplog):
+        from upmex.config import path_setting
+
+        with caplog.at_level(logging.WARNING):
+            assert path_setting({}, "logging.file") is None
+
+        assert "not a path" not in caplog.text
+
+    def test_and_a_real_path_is_still_written(self, tmp_path, package):
+        log = tmp_path / "real.log"
+        broken = tmp_path / "broken.whl"
+        broken.write_bytes(b"not a zip")
+
+        _run(tmp_path, {"logging": {"level": "DEBUG", "file": str(log)}},
+             "extract", str(broken))
+        for handler in logging.getLogger().handlers:
+            handler.flush()
+
+        assert log.exists() and log.read_text().strip()
+
+
+class TestALogLevelThatIsABoolean:
+    @pytest.mark.parametrize("value", [True, False])
+    def test_it_does_not_become_a_numeric_level(self, value, tmp_path, package):
+        """bool is an int, so True set the root logger to level 1 and False
+        to 0, silently, where every other bad value warns."""
+        logging.getLogger().setLevel(logging.NOTSET)
+        result = _run(tmp_path, {"logging": {"level": value}}, "extract", package)
+
+        assert logging.getLogger().level == logging.INFO
+        assert "not a level" in str(result.stderr or "") + result.output
+
+
+class TestEveryTemporaryFileHonoursTheSetting:
+    """Not only the archive unpack. Licence detection writes the content it
+    scans to a temporary file too, and that one went to the system directory
+    however the setting was configured."""
+
+    def _temp_directories_during(self, config, package):
+        import tempfile
+
+        seen = []
+        real = tempfile.mkdtemp
+
+        def spy(suffix=None, prefix=None, dir=None, *args, **kwargs):
+            seen.append(dir)
+            return real(suffix, prefix, dir, *args, **kwargs)
+
+        from upmex.core.extractor import PackageExtractor
+
+        tempfile.mkdtemp = spy
+        try:
+            PackageExtractor(config).extract(package)
+        finally:
+            tempfile.mkdtemp = real
+        return seen
+
+    def test_all_of_them_land_in_the_configured_directory(self, tmp_path, package):
+        configured = tmp_path / "configured"
+        configured.mkdir()
+
+        seen = self._temp_directories_during(
+            {"extraction": {"temp_dir": str(configured)}}, package
+        )
+
+        assert seen, "the extraction made no temporary directory"
+        assert all(where == str(configured) for where in seen), seen
+
+    def test_and_in_the_system_one_when_nothing_asks(self, tmp_path, package):
+        seen = self._temp_directories_during({}, package)
+
+        assert seen and all(where is None for where in seen), seen

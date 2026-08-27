@@ -4,7 +4,7 @@ import logging
 import hashlib
 from pathlib import Path
 from typing import Optional, Dict, Any
-from ..config import setting
+from ..config import int_setting
 from .models import (
     MAVEN_PACKAGE_TYPES,
     PackageMetadata,
@@ -40,19 +40,8 @@ def refuse_if_too_large(package_path, config):
     reads inside the archive too and was opening packages the limit exists to
     keep closed.
     """
-    max_file_size = setting(config, 'extraction.max_file_size', None)
+    max_file_size = int_setting(config, 'extraction.max_file_size', None)
     if max_file_size is None:
-        return
-
-    # bool is a subclass of int, so PME_MAX_FILE_SIZE=true would otherwise
-    # pass for a one byte limit and refuse everything, and false for zero.
-    if not isinstance(max_file_size, int) or isinstance(max_file_size, bool):
-        # A value like "500MB" would otherwise reach the comparison below and
-        # fail there, once per package, with a message about int and str.
-        logger.warning(
-            "extraction.max_file_size is %r, which is not a number of bytes; "
-            "ignoring it", max_file_size,
-        )
         return
 
     file_size = Path(package_path).stat().st_size

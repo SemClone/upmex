@@ -20,7 +20,7 @@ import logging
 from upmex import __version__
 from upmex.core.extractor import PackageExtractor, refuse_if_too_large
 from upmex.core.models import split_namespace
-from upmex.config import Config, setting
+from upmex.config import Config, path_setting, setting
 from upmex.utils.package_detector import detect_package_type
 from upmex.utils.output_formatter import OutputFormatter
 
@@ -61,7 +61,7 @@ def _configure_logging(config, verbose, quiet):
             root.removeHandler(handler)
             handler.close()
 
-    log_file = setting(config, 'logging.file', None)
+    log_file = path_setting(config, 'logging.file', None)
     if log_file:
         try:
             handler = logging.FileHandler(log_file)
@@ -82,7 +82,13 @@ def _configure_logging(config, verbose, quiet):
         # A name, or a number, which logging accepts too. An unknown name
         # would otherwise raise and take the command with it, and a number
         # was silently turned into INFO.
-        if isinstance(level, int) or str(level).isdigit():
+        if isinstance(level, bool):
+            click.echo(
+                f"Warning: logging.level {level!r} is not a level, using INFO",
+                err=True,
+            )
+            root.setLevel(logging.INFO)
+        elif isinstance(level, int) or str(level).isdigit():
             root.setLevel(int(level))
         else:
             resolved = getattr(logging, str(level).upper(), None)
