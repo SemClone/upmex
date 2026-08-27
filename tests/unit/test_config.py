@@ -23,7 +23,9 @@ class TestConfig:
         """Test getting nested configuration values."""
         config = Config()
         
-        assert config.get("api.clearlydefined.base_url") == "https://api.clearlydefined.io/v1"
+        # ClearlyDefined serves /definitions directly and answers 404 for a
+        # /v1 prefix, so the configured value has to be the bare host.
+        assert config.get("api.clearlydefined.base_url") == "https://api.clearlydefined.io"
         assert config.get("license_detection.confidence_threshold") == 0.85
         assert config.get("non.existent.key", "default") == "default"
     

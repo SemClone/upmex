@@ -1,10 +1,13 @@
 """Maven Central registry integration for coordinate and POM lookups."""
 
+import logging
 import xml.etree.ElementTree as ET
 from functools import lru_cache
 from typing import Any, Dict, Optional, Tuple
 
 import requests
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_SEARCH_URL = "https://search.maven.org/solrsearch/select"
 DEFAULT_BASE_URL = "https://repo1.maven.org/maven2"
@@ -184,7 +187,7 @@ class MavenCentralAPI:
         try:
             result = _search_by_sha1(sha1.strip().lower(), self.search_url, self.timeout)
         except LookupFailed as e:
-            print(f"Error searching Maven Central by hash: {e}")
+            logger.warning(f"Error searching Maven Central by hash: {e}")
             return None
 
         if not result:
@@ -218,7 +221,7 @@ class MavenCentralAPI:
         try:
             pom_bytes = _fetch_pom_bytes(group_id, artifact_id, version, self.base_url, self.timeout)
         except LookupFailed as e:
-            print(f"Error fetching POM from Maven Central: {e}")
+            logger.warning(f"Error fetching POM from Maven Central: {e}")
             return None
 
         if not pom_bytes:
@@ -227,7 +230,7 @@ class MavenCentralAPI:
         try:
             root = ET.fromstring(pom_bytes)
         except Exception as e:
-            print(f"Error parsing POM from Maven Central: {e}")
+            logger.warning(f"Error parsing POM from Maven Central: {e}")
             return None
 
         # Only the header comments are read as text, and those are ASCII patterns

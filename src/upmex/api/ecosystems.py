@@ -1,24 +1,50 @@
 """Ecosyste.ms API integration for package metadata enrichment."""
 
+import logging
 import requests
 from typing import Optional, Dict, Any
+from ..config import setting
 from ..core.models import PackageType, NO_ASSERTION
+
+logger = logging.getLogger(__name__)
 
 
 class EcosystemsAPI:
     """Client for Ecosyste.ms API."""
     
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        config: Optional[Any] = None,
+    ):
         """Initialize Ecosyste.ms API client.
-        
+
+        The same defect the ClearlyDefined client had: the configuration
+        declares enabled, base_url, timeout and api_key for this client and
+        none of them was read, and the base_url it held does not resolve at
+        all, so wiring it up as written would have broken the integration.
+
         Args:
-            api_key: Optional API key for authenticated requests
+            api_key: API key for authenticated requests. Overrides the
+                configured one.
+            config: Configuration to read the rest from. The defaults are
+                used when none is given.
         """
-        self.base_url = "https://packages.ecosyste.ms/api/v1"
-        self.api_key = api_key
+        if config is None:
+            from ..config import Config
+
+            config = Config()
+
+        self.enabled = setting(config, 'api.ecosystems.enabled', True)
+        self.base_url = (
+            setting(config, 'api.ecosystems.base_url', None)
+            or "https://packages.ecosyste.ms/api/v1"
+        ).rstrip('/')
+        self.timeout = setting(config, 'api.ecosystems.timeout', 30)
+        self.api_key = api_key or setting(config, 'api.ecosystems.api_key', None)
         self.headers = {}
-        if api_key:
-            self.headers['Authorization'] = f'Bearer {api_key}'
+        if self.api_key:
+            self.headers['Authorization'] = f'Bearer {self.api_key}'
     
     def get_package_info(self, package_type: PackageType, name: str, version: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Get package information from Ecosyste.ms.
@@ -31,6 +57,12 @@ class EcosystemsAPI:
         Returns:
             Package information or None
         """
+        if not self.enabled:
+            logger.debug(
+                "Ecosyste.ms is disabled in configuration; not querying %s", name
+            )
+            return None
+
         try:
             # Map package type to Ecosyste.ms registry
             registry = self._map_package_type(package_type)
@@ -39,7 +71,7 @@ class EcosystemsAPI:
             
             # Get package-level info first for maintainers
             package_url = f"{self.base_url}/registries/{registry}/packages/{name}"
-            package_response = requests.get(package_url, headers=self.headers, timeout=10)
+            package_response = requests.get(package_url, headers=self.headers, timeout=self.timeout)
             
             if package_response.status_code == 200:
                 package_data = package_response.json()
@@ -47,7 +79,7 @@ class EcosystemsAPI:
                 # If version requested, get version-specific data and merge
                 if version:
                     version_url = f"{package_url}/versions/{version}"
-                    version_response = requests.get(version_url, headers=self.headers, timeout=10)
+                    version_response = requests.get(version_url, headers=self.headers, timeout=self.timeout)
                     if version_response.status_code == 200:
                         version_data = version_response.json()
                         # Merge package data into version data, preserving key package-level metadata
@@ -61,7 +93,7 @@ class EcosystemsAPI:
                 return package_data
             
         except Exception as e:
-            print(f"Error fetching from Ecosyste.ms: {e}")
+            logger.warning(f"Error fetching from Ecosyste.ms: {e}")
         
         return None
     
@@ -129,6 +161,6 @@ class EcosystemsAPI:
                 metadata['maintainers'] = package_info['maintainers']
             
         except Exception as e:
-            print(f"Error extracting metadata from Ecosyste.ms: {e}")
+            logger.warning(f"Error extracting metadata from Ecosyste.ms: {e}")
         
         return metadata

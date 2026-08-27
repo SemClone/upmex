@@ -29,13 +29,17 @@ class BaseExtractor(ABC):
     # Common license file patterns (using shared patterns)
     LICENSE_FILE_PATTERNS = LICENSE_FILE_NAMES
     
-    def __init__(self, registry_mode: bool = False):
+    def __init__(self, registry_mode: bool = False, config: Any = None):
         """Initialize extractor.
 
         Args:
             registry_mode: Whether to fetch additional data from package registries
         """
         self.registry_mode = registry_mode
+        # The configuration the caller was given, so an API client built in
+        # here honours --config rather than reading the defaults. None means
+        # nothing was threaded through and the defaults apply.
+        self.config = config
     
     @abstractmethod
     def extract(self, package_path: str) -> PackageMetadata:
@@ -413,7 +417,7 @@ class BaseExtractor(ABC):
         try:
             from ..api.clearlydefined import ClearlyDefinedAPI
 
-            cd_api = ClearlyDefinedAPI()
+            cd_api = ClearlyDefinedAPI(config=self.config)
 
             # Parse namespace based on package type
             namespace, name = split_namespace(metadata.package_type, metadata.name)

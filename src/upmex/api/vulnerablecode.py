@@ -1,25 +1,43 @@
 """VulnerableCode API integration for vulnerability information."""
 
+import logging
 import requests
 from typing import Optional, Dict, Any, List
+from ..config import setting
 from ..core.models import MAVEN_PACKAGE_TYPES, PackageType, split_namespace
+
+logger = logging.getLogger(__name__)
 
 
 class VulnerableCodeAPI:
     """Client for VulnerableCode API."""
 
-    def __init__(self, api_key: Optional[str] = None, base_url: str = "https://public.vulnerablecode.io"):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+        config: Optional[Any] = None,
+    ):
         """Initialize VulnerableCode API client.
 
         Args:
             api_key: API key for authenticated requests (required for VulnerableCode)
             base_url: Base URL for VulnerableCode instance
         """
-        self.base_url = base_url
-        self.api_key = api_key
+        if config is None:
+            from ..config import Config
+
+            config = Config()
+
+        self.enabled = setting(config, 'api.vulnerablecode.enabled', True)
+        self.base_url = (
+            base_url or setting(config, 'api.vulnerablecode.base_url', None) or "https://public.vulnerablecode.io"
+        ).rstrip('/')
+        self.timeout = setting(config, 'api.vulnerablecode.timeout', 30)
+        self.api_key = api_key or setting(config, 'api.vulnerablecode.api_key', None)
         self.headers = {'Content-Type': 'application/json'}
-        if api_key:
-            self.headers['Authorization'] = f'Token {api_key}'
+        if self.api_key:
+            self.headers['Authorization'] = f'Token {self.api_key}'
 
     def get_vulnerabilities_by_purl(self, purl: str) -> Optional[Dict[str, Any]]:
         """Get vulnerability information by PURL.
@@ -30,28 +48,34 @@ class VulnerableCodeAPI:
         Returns:
             Vulnerability information or None
         """
+        if not self.enabled:
+            logger.debug(
+                "VulnerableCode is disabled in configuration; not querying %s", purl
+            )
+            return None
+
         if not self.api_key:
-            print("Warning: VulnerableCode API key not provided - skipping vulnerability check")
+            logger.warning("Warning: VulnerableCode API key not provided - skipping vulnerability check")
             return None
 
         try:
             url = f"{self.base_url}/api/packages"
             params = {'purl': purl}
 
-            response = requests.get(url, params=params, headers=self.headers, timeout=10)
+            response = requests.get(url, params=params, headers=self.headers, timeout=self.timeout)
 
             if response.status_code == 200:
                 data = response.json()
                 return data
             elif response.status_code == 401:
-                print("Warning: VulnerableCode API authentication failed - check API key")
+                logger.warning("Warning: VulnerableCode API authentication failed - check API key")
                 return None
             else:
-                print(f"Warning: VulnerableCode API returned status {response.status_code}")
+                logger.warning(f"Warning: VulnerableCode API returned status {response.status_code}")
                 return None
 
         except Exception as e:
-            print(f"Error fetching from VulnerableCode: {e}")
+            logger.warning(f"Error fetching from VulnerableCode: {e}")
 
         return None
 
@@ -93,7 +117,7 @@ class VulnerableCodeAPI:
             return self.get_vulnerabilities_by_purl(purl)
 
         except Exception as e:
-            print(f"Error constructing PURL for VulnerableCode: {e}")
+            logger.warning(f"Error constructing PURL for VulnerableCode: {e}")
 
         return None
 
@@ -213,6 +237,6 @@ class VulnerableCodeAPI:
                     vulnerabilities['fixing_packages'].append(package_info)
 
         except Exception as e:
-            print(f"Error extracting vulnerabilities from VulnerableCode: {e}")
+            logger.warning(f"Error extracting vulnerabilities from VulnerableCode: {e}")
 
         return vulnerabilities

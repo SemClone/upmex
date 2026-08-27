@@ -95,9 +95,9 @@ def extract(ctx, package_path, output, format, pretty, api, registry):
         
         # Extract metadata
         if verbose:
-            click.echo(f"Extracting metadata from: {package_path}")
+            click.echo(f"Extracting metadata from: {package_path}", err=True)
             if registry:
-                click.echo("Registry mode enabled - will fetch missing metadata")
+                click.echo("Registry mode enabled - will fetch missing metadata", err=True)
         
         metadata = extractor.extract(package_path)
 
@@ -106,9 +106,9 @@ def extract(ctx, package_path, output, format, pretty, api, registry):
             # API enrichment only when --api is specified (with or without --registry)
             if verbose:
                 if registry:
-                    click.echo("Using both registry and third-party API enrichment")
+                    click.echo("Using both registry and third-party API enrichment", err=True)
                 else:
-                    click.echo("Using third-party API enrichment only")
+                    click.echo("Using third-party API enrichment only", err=True)
             try:
                 from .api.clearlydefined import ClearlyDefinedAPI
                 from .api.ecosystems import EcosystemsAPI
@@ -118,63 +118,71 @@ def extract(ctx, package_path, output, format, pretty, api, registry):
 
                 if api in ['clearlydefined', 'all']:
                     if verbose:
-                        click.echo("Enriching with ClearlyDefined API...")
+                        click.echo("Enriching with ClearlyDefined API...", err=True)
 
-                        cd_api = ClearlyDefinedAPI()
+                    # The enrichment below used to sit inside that if, so
+                    # --api clearlydefined fetched nothing at all unless the caller
+                    # also happened to ask for verbose output.
 
-                        # Parse namespace from name for Maven packages
-                        namespace, name = split_namespace(metadata.package_type, metadata.name)
+                    # The command already holds the configuration --config
+                    # produced. Letting the client build its own meant
+                    # api.clearlydefined settings, enabled included, were read
+                    # from the defaults whatever the caller asked for.
+                    cd_api = ClearlyDefinedAPI(config=config)
 
-                        cd_data = cd_api.get_definition(
-                            package_type=metadata.package_type,
-                            namespace=namespace,
-                            name=name,
-                            version=metadata.version
-                        )
+                    # Parse namespace from name for Maven packages
+                    namespace, name = split_namespace(metadata.package_type, metadata.name)
 
-                        if cd_data:
-                            applied_fields = []
+                    cd_data = cd_api.get_definition(
+                        package_type=metadata.package_type,
+                        namespace=namespace,
+                        name=name,
+                        version=metadata.version
+                    )
 
-                            # Enrich licensing information
-                            cd_license = cd_api.extract_license_info(cd_data)
-                            if cd_license:
-                                from upmex.core.models import LicenseInfo, LicenseConfidenceLevel
-                                license_obj = LicenseInfo(
-                                    spdx_id=cd_license['spdx_id'],
-                                    confidence=cd_license['confidence'],
-                                    confidence_level=LicenseConfidenceLevel.EXACT if cd_license['confidence'] >= 0.95 else LicenseConfidenceLevel.HIGH,
-                                    detection_method='ClearlyDefined API',
-                                    file_path='clearlydefined_api'
-                                )
-                                metadata.licenses.append(license_obj)
-                                metadata.provenance['licenses_clearlydefined'] = f"clearlydefined:{cd_api.base_url}"
-                                applied_fields.append('licenses')
+                    if cd_data:
+                        applied_fields = []
 
-                            # Enrich other metadata if available
-                            if cd_data.get('described', {}).get('projectWebsite') and (not metadata.homepage or metadata.homepage == NO_ASSERTION):
-                                metadata.homepage = cd_data['described']['projectWebsite']
-                                metadata.provenance['homepage'] = f"clearlydefined:{cd_api.base_url}"
-                                applied_fields.append('homepage')
+                        # Enrich licensing information
+                        cd_license = cd_api.extract_license_info(cd_data)
+                        if cd_license:
+                            from upmex.core.models import LicenseInfo, LicenseConfidenceLevel
+                            license_obj = LicenseInfo(
+                                spdx_id=cd_license['spdx_id'],
+                                confidence=cd_license['confidence'],
+                                confidence_level=LicenseConfidenceLevel.EXACT if cd_license['confidence'] >= 0.95 else LicenseConfidenceLevel.HIGH,
+                                detection_method='ClearlyDefined API',
+                                file_path='clearlydefined_api'
+                            )
+                            metadata.licenses.append(license_obj)
+                            metadata.provenance['licenses_clearlydefined'] = f"clearlydefined:{cd_api.base_url}"
+                            applied_fields.append('licenses')
 
-                            # Track API enrichment
-                            if applied_fields:
-                                metadata.add_enrichment(
-                                    source="clearlydefined",
-                                    source_type="api",
-                                    data=cd_data,
-                                    applied_fields=applied_fields
-                                )
+                        # Enrich other metadata if available
+                        if cd_data.get('described', {}).get('projectWebsite') and (not metadata.homepage or metadata.homepage == NO_ASSERTION):
+                            metadata.homepage = cd_data['described']['projectWebsite']
+                            metadata.provenance['homepage'] = f"clearlydefined:{cd_api.base_url}"
+                            applied_fields.append('homepage')
 
-                            if verbose:
-                                click.echo(f"✓ ClearlyDefined enrichment completed")
-                        elif verbose:
-                            click.echo("○ No ClearlyDefined data available")
+                        # Track API enrichment
+                        if applied_fields:
+                            metadata.add_enrichment(
+                                source="clearlydefined",
+                                source_type="api",
+                                data=cd_data,
+                                applied_fields=applied_fields
+                            )
+
+                        if verbose:
+                            click.echo(f"✓ ClearlyDefined enrichment completed", err=True)
+                    elif verbose:
+                        click.echo("○ No ClearlyDefined data available", err=True)
 
                 if api in ['ecosystems', 'all']:
                     if verbose:
-                        click.echo("Enriching with Ecosystems API...")
+                        click.echo("Enriching with Ecosystems API...", err=True)
 
-                    eco_api = EcosystemsAPI()
+                    eco_api = EcosystemsAPI(config=config)
                     eco_info = eco_api.get_package_info(metadata.package_type, metadata.name, metadata.version)
 
                     if eco_info:
@@ -261,15 +269,15 @@ def extract(ctx, package_path, output, format, pretty, api, registry):
                             )
 
                         if verbose:
-                            click.echo(f"✓ Ecosystems enrichment completed")
+                            click.echo(f"✓ Ecosystems enrichment completed", err=True)
                     elif verbose:
-                        click.echo("○ No Ecosystems data available")
+                        click.echo("○ No Ecosystems data available", err=True)
 
                 if api in ['purldb', 'all']:
                     if verbose:
-                        click.echo("Enriching with PurlDB API...")
+                        click.echo("Enriching with PurlDB API...", err=True)
 
-                    purldb_api = PurlDBAPI()
+                    purldb_api = PurlDBAPI(config=config)
                     purldb_info = purldb_api.get_package_info(metadata.package_type, metadata.name, metadata.version)
 
                     if purldb_info:
@@ -332,17 +340,22 @@ def extract(ctx, package_path, output, format, pretty, api, registry):
                             )
 
                         if verbose:
-                            click.echo(f"✓ PurlDB enrichment completed")
+                            click.echo(f"✓ PurlDB enrichment completed", err=True)
                     elif verbose:
-                        click.echo("○ No PurlDB data available")
+                        click.echo("○ No PurlDB data available", err=True)
 
                 if api in ['vulnerablecode', 'all']:
                     if verbose:
-                        click.echo("Enriching with VulnerableCode API...")
+                        click.echo("Enriching with VulnerableCode API...", err=True)
 
-                    # Get API key from config or environment
+                    # A config file written before api.vulnerablecode.api_key
+                    # existed carries the key at the top level. Keep honouring
+                    # it, and let it win over the nested value the way an
+                    # explicit argument always has.
                     vulnerablecode_api_key = config.get('vulnerablecode_api_key') or None
-                    vulnerablecode_api = VulnerableCodeAPI(api_key=vulnerablecode_api_key)
+                    vulnerablecode_api = VulnerableCodeAPI(
+                        api_key=vulnerablecode_api_key, config=config
+                    )
                     vuln_data = vulnerablecode_api.get_vulnerabilities(metadata.package_type, metadata.name, metadata.version)
 
                     if vuln_data:
@@ -362,12 +375,12 @@ def extract(ctx, package_path, output, format, pretty, api, registry):
                             if verbose:
                                 total = vulnerabilities['total_count']
                                 vulnerable = len(vulnerabilities['vulnerable_packages'])
-                                click.echo(f"✓ VulnerableCode found {total} entries, {vulnerable} vulnerable")
+                                click.echo(f"✓ VulnerableCode found {total} entries, {vulnerable} vulnerable", err=True)
                         else:
                             if verbose:
-                                click.echo("✓ VulnerableCode found no vulnerabilities")
+                                click.echo("✓ VulnerableCode found no vulnerabilities", err=True)
                     elif verbose:
-                        click.echo("○ No VulnerableCode data available")
+                        click.echo("○ No VulnerableCode data available", err=True)
 
             except ImportError as e:
                 click.echo(f"Warning: API enrichment dependencies not available: {e}", err=True)
@@ -382,7 +395,7 @@ def extract(ctx, package_path, output, format, pretty, api, registry):
         if output:
             Path(output).write_text(output_text)
             if not ctx.obj['quiet']:
-                click.echo(f"Output written to: {output}")
+                click.echo(f"Output written to: {output}", err=True)
         else:
             click.echo(output_text)
             
@@ -406,12 +419,13 @@ def detect(ctx, package_path, verbose):
         package_type = detect_package_type(package_path)
         
         if verbose:
+            # The type is what a caller reads off this command, so it stays on
+            # stdout at either verbosity and the commentary goes beside it.
             path = Path(package_path)
-            click.echo(f"File: {path.name}")
-            click.echo(f"Size: {path.stat().st_size:,} bytes")
-            click.echo(f"Type: {package_type.value}")
-        else:
-            click.echo(package_type.value)
+            click.echo(f"File: {path.name}", err=True)
+            click.echo(f"Size: {path.stat().st_size:,} bytes", err=True)
+
+        click.echo(package_type.value)
             
     except Exception as e:
         click.echo(f"Error: {e}", err=True)

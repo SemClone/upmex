@@ -195,9 +195,12 @@ Implementation-Version: 1.0.0
         result = runner.invoke(cli, ['detect', str(file_path), '--verbose'])
         
         assert result.exit_code == 0
-        assert "File: test.whl" in result.output
-        assert "Size:" in result.output
-        assert "Type: python_wheel" in result.output
+        assert "File: test.whl" in result.stderr
+        assert "Size:" in result.stderr
+        # stdout carries the detected type and nothing else, so
+        # `upmex detect -v x` stays usable in a pipeline.
+        assert result.stdout.strip()
+        assert "python_wheel" in result.stdout
     
     def test_license_command(self, tmp_path):
         """Test license extraction command."""
