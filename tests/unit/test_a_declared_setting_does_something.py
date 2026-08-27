@@ -1222,3 +1222,45 @@ class TestEveryTemporaryFileHonoursTheSetting:
         seen = self._temp_directories_during({}, package)
 
         assert seen and all(where is None for where in seen), seen
+
+
+class TestTheSuiteLeavesNothingBehind:
+    """Two empty files called True and 123 were committed, opened in the
+    working directory by a logging.file that had not yet been type checked.
+    A test that writes into the repository is a test that can be committed
+    by accident."""
+
+    def test_the_repository_holds_no_file_named_after_a_setting_value(self):
+        import subprocess
+
+        tracked = subprocess.run(
+            ["git", "ls-files"], cwd=REPO_ROOT, capture_output=True, text=True
+        ).stdout.split()
+        suspicious = [
+            name for name in tracked
+            if "/" not in name and (name in ("True", "False") or name.isdigit())
+        ]
+
+        assert suspicious == [], suspicious
+
+    def test_a_run_writes_nothing_into_the_working_directory(self, package):
+        """Runs the shapes that used to open a file here and checks the
+        directory is as it was."""
+        import subprocess
+
+        before = set(
+            subprocess.run(["git", "status", "--porcelain"], cwd=REPO_ROOT,
+                           capture_output=True, text=True).stdout.splitlines()
+        )
+
+        for value in (True, False, 123, ["a", "b"]):
+            from upmex.config import path_setting
+
+            path_setting({"logging": {"file": value}}, "logging.file")
+
+        after = set(
+            subprocess.run(["git", "status", "--porcelain"], cwd=REPO_ROOT,
+                           capture_output=True, text=True).stdout.splitlines()
+        )
+
+        assert after == before, after - before
