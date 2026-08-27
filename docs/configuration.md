@@ -57,11 +57,11 @@ Third party services used by `--api`. See [Integration]({{ site.baseurl }}/integ
 | Key | Default | Meaning |
 |:--|:--|:--|
 | `api.clearlydefined.enabled` | `true` | Whether ClearlyDefined may be used |
-| `api.clearlydefined.base_url` | `https://api.clearlydefined.io/v1` | Service endpoint |
+| `api.clearlydefined.base_url` | `https://api.clearlydefined.io` | Service endpoint. The bare host: the service serves `/definitions` directly and answers 404 for a `/v1` prefix |
 | `api.clearlydefined.timeout` | `30` | Seconds |
 | `api.clearlydefined.api_key` | `null` | Optional key |
 | `api.ecosystems.enabled` | `true` | Whether Ecosyste.ms may be used |
-| `api.ecosystems.base_url` | `https://api.ecosyste.ms/v1` | Service endpoint |
+| `api.ecosystems.base_url` | `https://packages.ecosyste.ms/api/v1` | Service endpoint |
 | `api.ecosystems.timeout` | `30` | Seconds |
 | `api.ecosystems.api_key` | `null` | Optional key |
 | `api.purldb.enabled` | `true` | Whether PurlDB may be used |
@@ -118,6 +118,8 @@ Every variable is prefixed `PME_` and overrides both the defaults and the config
 |:--|:--|
 | `PME_CLEARLYDEFINED_API_KEY` | `api.clearlydefined.api_key` |
 | `PME_ECOSYSTEMS_API_KEY` | `api.ecosystems.api_key` |
+| `PME_PURLDB_API_KEY` | `api.purldb.api_key` |
+| `PME_VULNERABLECODE_API_KEY` | `api.vulnerablecode.api_key` |
 | `PME_API_TIMEOUT` | the timeout of every API |
 | `PME_MAX_FILE_SIZE` | `extraction.max_file_size` |
 | `PME_TEMP_DIR` | `extraction.temp_dir` |

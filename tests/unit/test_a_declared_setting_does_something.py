@@ -854,3 +854,152 @@ class TestTheDocumentationOnlyShowsRealSettings:
         declared = set(_declared_keys(Config.DEFAULT_CONFIG))
 
         assert declared - documented == set(), declared - documented
+
+    def test_every_documented_default_is_the_real_one(self):
+        """A reader copies the value in the table. Two of them were the old
+        API endpoints, and copying one sent every request to a 404."""
+        text = (REPO_ROOT / "docs" / "configuration.md").read_text()
+        rows = re.findall(
+            r"^\| `([a-z_]+\.[a-z_.]+)` \| `([^|`]+)` \|", text, re.MULTILINE
+        )
+        assert rows, "no settings table found"
+
+        missing = object()
+
+        def declared_value(key):
+            node = Config.DEFAULT_CONFIG
+            for part in key.split("."):
+                if not isinstance(node, dict) or part not in node:
+                    return missing
+                node = node[part]
+            return node
+
+        for key, shown in rows:
+            # Read from the defaults rather than through Config.get, which
+            # returns its fallback for a setting declared as null and so
+            # cannot tell that from one that does not exist.
+            actual = declared_value(key)
+            assert actual is not missing, f"{key} is documented and not declared"
+            if actual is None:
+                assert shown.strip() == "null", (key, shown)
+            else:
+                assert str(actual).lower() == shown.strip().lower(), (
+                    key, shown.strip(), actual
+                )
+
+    def test_every_mapped_environment_variable_is_documented(self):
+        """PME_PURLDB_API_KEY and PME_VULNERABLECODE_API_KEY were mapped two
+        changes ago and never written down."""
+        text = (REPO_ROOT / "docs" / "configuration.md").read_text()
+        documented = set(re.findall(r"^\| `(PME_[A-Z_]+)` \|", text, re.MULTILINE))
+
+        assert set(Config.ENV_VAR_MAPPING) - documented == set(), (
+            set(Config.ENV_VAR_MAPPING) - documented
+        )
+
+    def test_and_every_documented_one_is_mapped(self):
+        text = (REPO_ROOT / "docs" / "configuration.md").read_text()
+        documented = set(re.findall(r"^\| `(PME_[A-Z_]+)` \|", text, re.MULTILINE))
+
+        assert documented - set(Config.ENV_VAR_MAPPING) == set(), (
+            documented - set(Config.ENV_VAR_MAPPING)
+        )
+
+
+class TestEveryExtractorGetsTheConfiguration:
+    """Two of them were built without it, so their temp_root() always
+    returned None and they unpacked wherever the system said. The temp
+    directory tests used an npm package and never reached those two."""
+
+    def test_all_of_them(self):
+        from upmex.core.extractor import PackageExtractor
+
+        extractor = PackageExtractor({"extraction": {"temp_dir": "/configured"}})
+        without = [
+            package_type.value
+            for package_type, built in extractor.extractors.items()
+            if built.config is not extractor.config
+        ]
+
+        assert without == [], without
+
+    def test_and_they_all_read_the_directory(self, tmp_path):
+        from upmex.core.extractor import PackageExtractor
+
+        configured = tmp_path / "configured"
+        configured.mkdir()
+        extractor = PackageExtractor(
+            {"extraction": {"temp_dir": str(configured)}}
+        )
+        wrong = [
+            package_type.value
+            for package_type, built in extractor.extractors.items()
+            if built.temp_root() != str(configured)
+        ]
+
+        assert wrong == [], wrong
+
+    def test_and_the_registry_flag_reaches_them_too(self):
+        from upmex.core.extractor import PackageExtractor
+
+        extractor = PackageExtractor({"registry_mode": True})
+        without = [
+            package_type.value
+            for package_type, built in extractor.extractors.items()
+            if not built.registry_mode
+        ]
+
+        assert without == [], without
+
+
+class TestATempDirThatCannotBeUsed:
+    """Each of these used to fail inside an extractor, where it is caught, so
+    the record came back thin with nothing saying why."""
+
+    def _root(self, value):
+        from upmex.extractors.npm_extractor import NpmExtractor
+
+        return NpmExtractor(config={"extraction": {"temp_dir": value}}).temp_root()
+
+    def test_a_value_that_is_not_a_path(self, caplog):
+        """PME_TEMP_DIR=true becomes the boolean True."""
+        with caplog.at_level(logging.WARNING):
+            assert self._root(True) is None
+        assert "not a path" in caplog.text
+
+    def test_a_number(self, caplog):
+        with caplog.at_level(logging.WARNING):
+            assert self._root(42) is None
+        assert "not a path" in caplog.text
+
+    def test_a_directory_that_does_not_exist(self, tmp_path, caplog):
+        with caplog.at_level(logging.WARNING):
+            assert self._root(str(tmp_path / "nope")) is None
+        assert "is not a directory" in caplog.text
+
+    def test_a_file_rather_than_a_directory(self, tmp_path, caplog):
+        target = tmp_path / "a-file"
+        target.write_text("")
+        with caplog.at_level(logging.WARNING):
+            assert self._root(str(target)) is None
+        assert "is not a directory" in caplog.text
+
+    def test_a_directory_that_cannot_be_written_to(self, tmp_path, caplog):
+        import os
+
+        if os.geteuid() == 0:
+            pytest.skip("root can write to anything")
+        target = tmp_path / "read-only"
+        target.mkdir(mode=0o500)
+        try:
+            with caplog.at_level(logging.WARNING):
+                assert self._root(str(target)) is None
+            assert "cannot be written to" in caplog.text
+        finally:
+            target.chmod(0o700)
+
+    def test_and_a_usable_one_is_used(self, tmp_path):
+        target = tmp_path / "fine"
+        target.mkdir()
+
+        assert self._root(str(target)) == str(target)

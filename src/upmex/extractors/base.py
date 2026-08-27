@@ -56,12 +56,32 @@ class BaseExtractor(ABC):
         root = setting(self.config, 'extraction.temp_dir', None)
         if not root:
             return None
+
+        if not isinstance(root, (str, os.PathLike)):
+            # PME_TEMP_DIR=true becomes the boolean True, which would reach
+            # Path() and raise there rather than here.
+            logger.warning(
+                "extraction.temp_dir is %r, which is not a path; using the "
+                "system default", root,
+            )
+            return None
+
         if not Path(root).is_dir():
             logger.warning(
                 "extraction.temp_dir %s is not a directory, using the system "
                 "default", root,
             )
             return None
+
+        if not os.access(root, os.W_OK):
+            # Otherwise the first unpack fails inside an extractor, where it
+            # is caught, and the record comes back thin with nothing said.
+            logger.warning(
+                "extraction.temp_dir %s cannot be written to, using the "
+                "system default", root,
+            )
+            return None
+
         return str(root)
 
     @abstractmethod
