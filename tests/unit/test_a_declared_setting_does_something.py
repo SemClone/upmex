@@ -24,10 +24,21 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC = REPO_ROOT / "src" / "upmex"
 
 
+def _runner():
+    """Click separated stdout from stderr by default from 8.2 onward. Before
+    that it had to be asked, and asking a newer Click raises, so reading
+    result.stderr from a plain runner works on one version and raises
+    "stderr not separately captured" on the other."""
+    try:
+        return CliRunner(mix_stderr=False)
+    except TypeError:
+        return CliRunner()
+
+
 def _run(tmp_path, config, *args):
     path = tmp_path / "upmex.json"
     path.write_text(json.dumps(config))
-    return CliRunner().invoke(cli, ["--config", str(path), *args])
+    return _runner().invoke(cli, ["--config", str(path), *args])
 
 
 @pytest.fixture
