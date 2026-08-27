@@ -6,12 +6,6 @@
       "timeout": 30,
       "api_key": null
     },
-    "ecosystems": {
-      "enabled": true,
-      "base_url": "https://packages.ecosyste.ms/api/v1",
-      "timeout": 30,
-      "api_key": null
-    },
     "purldb": {
       "enabled": true,
       "base_url": "https://public.purldb.io",
@@ -23,47 +17,26 @@
       "base_url": "https://public.vulnerablecode.io",
       "timeout": 30,
       "api_key": null
+    },
+    "ecosystems": {
+      "enabled": true,
+      "base_url": "https://packages.ecosyste.ms/api/v1",
+      "timeout": 30,
+      "api_key": null
     }
   },
   "extraction": {
     "max_file_size": 500000000,
-    "temp_dir": null,
-    "parallel_processing": false,
-    "cache_enabled": true,
-    "cache_dir": null
-  },
-  "license_detection": {
-    "methods": [
-      "regex",
-      "dice_sorensen"
-    ],
-    "confidence_threshold": 0.85,
-    "max_text_length": 100000,
-    "enable_ml": false
+    "temp_dir": null
   },
   "output": {
     "format": "json",
-    "pretty_print": true,
-    "include_raw_metadata": false,
-    "schema_version": "1.0.0"
+    "pretty_print": false,
+    "include_raw_metadata": false
   },
   "logging": {
     "level": "INFO",
     "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     "file": null
-  },
-  "package_types": {
-    "python": {
-      "extract_source_files": false,
-      "parse_requirements": true
-    },
-    "npm": {
-      "extract_source_files": false,
-      "parse_lock_files": true
-    },
-    "java": {
-      "extract_class_files": false,
-      "parse_manifest": true
-    }
   }
 }

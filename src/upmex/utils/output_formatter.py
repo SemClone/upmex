@@ -8,13 +8,16 @@ from ..core.models import PackageMetadata
 class OutputFormatter:
     """Format package metadata for different output formats."""
     
-    def __init__(self, pretty: bool = False):
+    def __init__(self, pretty: bool = False, include_raw_metadata: bool = False):
         """Initialize formatter.
         
         Args:
             pretty: Whether to pretty-print output
+            include_raw_metadata: Whether to publish the source documents the
+                metadata was read from
         """
         self.pretty = pretty
+        self.include_raw_metadata = include_raw_metadata
     
     def format(self, metadata: PackageMetadata, format: str) -> str:
         """Format metadata to specified format.
@@ -59,7 +62,7 @@ class OutputFormatter:
         Returns:
             JSON string
         """
-        data = metadata.to_dict()
+        data = metadata.to_dict(include_raw_metadata=self.include_raw_metadata)
         if self.pretty:
             return json.dumps(data, indent=2, sort_keys=True)
         return json.dumps(data)

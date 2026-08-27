@@ -13,7 +13,7 @@ class TestConfig:
         config = Config()
         
         assert config.get("api.clearlydefined.enabled") is True
-        assert config.get("extraction.cache_enabled") is True
+        assert config.get("extraction.max_file_size") == 500_000_000
         assert config.get("output.format") == "json"
         assert config.get("logging.level") == "INFO"
     
@@ -24,7 +24,7 @@ class TestConfig:
         # ClearlyDefined serves /definitions directly and answers 404 for a
         # /v1 prefix, so the configured value has to be the bare host.
         assert config.get("api.clearlydefined.base_url") == "https://api.clearlydefined.io"
-        assert config.get("license_detection.confidence_threshold") == 0.85
+        assert config.get("logging.format").startswith("%(asctime)s")
         assert config.get("non.existent.key", "default") == "default"
     
     def test_set_nested_value(self):
@@ -40,14 +40,14 @@ class TestConfig:
     def test_env_var_override(self, monkeypatch):
         """Test environment variable overrides."""
         monkeypatch.setenv("PME_LOG_LEVEL", "DEBUG")
-        monkeypatch.setenv("PME_CACHE_ENABLED", "false")
-        monkeypatch.setenv("PME_LICENSE_METHODS", "regex,dice_sorensen")
+        monkeypatch.setenv("PME_MAX_FILE_SIZE", "1000")
+        monkeypatch.setenv("PME_LOG_FILE", "/tmp/upmex-test.log")
         
         config = Config()
         
         assert config.get("logging.level") == "DEBUG"
-        assert config.get("extraction.cache_enabled") is False
-        assert config.get("license_detection.methods") == ["regex", "dice_sorensen"]
+        assert config.get("extraction.max_file_size") == 1000
+        assert config.get("logging.file") == "/tmp/upmex-test.log"
     
     def test_load_from_json_file(self, tmp_path, monkeypatch):
         """Test loading configuration from JSON file."""

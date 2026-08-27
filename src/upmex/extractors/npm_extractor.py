@@ -57,7 +57,7 @@ class NpmExtractor(BaseExtractor):
             import tempfile
             import tarfile
             import os
-            with tempfile.TemporaryDirectory() as temp_dir:
+            with tempfile.TemporaryDirectory(dir=self.temp_root()) as temp_dir:
                 # Extract full package for copyright scanning
                 try:
                     with tarfile.open(package_path, 'r:*') as tar:

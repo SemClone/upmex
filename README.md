@@ -201,7 +201,7 @@ export PME_VULNERABLECODE_API_KEY=your-api-key
 
 # Settings
 export PME_LOG_LEVEL=DEBUG
-export PME_CACHE_DIR=/path/to/cache
+export PME_LOG_FILE=/var/log/upmex.log
 export PME_OUTPUT_FORMAT=json
 ```
 
@@ -225,12 +225,17 @@ Create `config.json`:
     "format": "json",
     "pretty_print": true
   },
-  "cache": {
-    "enabled": true,
-    "directory": "~/.cache/upmex"
+  "extraction": {
+    "max_file_size": 500000000
+  },
+  "logging": {
+    "level": "INFO"
   }
 }
 ```
+
+Every setting shown takes effect. `config/default.json` in the repository is the
+full set with its defaults.
 
 ## Output Format
 

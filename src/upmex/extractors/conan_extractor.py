@@ -50,7 +50,7 @@ class ConanExtractor(BaseExtractor):
         Returns:
             PackageMetadata object
         """
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(dir=self.temp_root()) as temp_dir:
             # Extract the tarball
             with tarfile.open(package_path, 'r:gz') as tar:
                 tar.extractall(temp_dir)

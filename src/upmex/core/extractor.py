@@ -4,6 +4,7 @@ import logging
 import hashlib
 from pathlib import Path
 from typing import Optional, Dict, Any
+from ..config import int_setting
 from .models import (
     MAVEN_PACKAGE_TYPES,
     PackageMetadata,
@@ -32,6 +33,25 @@ from ..api.ecosystems import EcosystemsAPI
 logger = logging.getLogger(__name__)
 
 
+def refuse_if_too_large(package_path, config):
+    """Raise if the package is over extraction.max_file_size.
+
+    A function rather than a step inside extract, because the detect command
+    reads inside the archive too and was opening packages the limit exists to
+    keep closed.
+    """
+    max_file_size = int_setting(config, 'extraction.max_file_size', None)
+    if max_file_size is None:
+        return
+
+    file_size = Path(package_path).stat().st_size
+    if file_size > max_file_size:
+        raise ValueError(
+            f"Package is {file_size:,} bytes, over the "
+            f"{max_file_size:,} byte limit set by extraction.max_file_size"
+        )
+
+
 class PackageExtractor:
     """Main class for extracting package metadata."""
     
@@ -41,7 +61,14 @@ class PackageExtractor:
         Args:
             config: Optional configuration dictionary
         """
-        self.config = config or {}
+        # The defaults and the environment when the caller gives nothing.
+        # A bare PackageExtractor() used to run with no configuration at all,
+        # so extraction.max_file_size protected the CLI and not a library
+        # caller, and PME_MAX_FILE_SIZE reached neither.
+        if config is None:
+            from ..config import Config
+            config = Config().to_dict()
+        self.config = config
         self.registry_mode = self.config.get('registry_mode', False)
         
         # Initialize extractors with registry mode
@@ -54,8 +81,8 @@ class PackageExtractor:
             PackageType.GRADLE: GradleExtractor(registry_mode=self.registry_mode, config=self.config),
             PackageType.COCOAPODS: CocoaPodsExtractor(registry_mode=self.registry_mode, config=self.config),
             PackageType.CONDA: CondaExtractor(registry_mode=self.registry_mode, config=self.config),
-            PackageType.CONAN: ConanExtractor(),
-            PackageType.PERL: PerlExtractor(),
+            PackageType.CONAN: ConanExtractor(registry_mode=self.registry_mode, config=self.config),
+            PackageType.PERL: PerlExtractor(registry_mode=self.registry_mode, config=self.config),
             PackageType.RUBY_GEM: RubyExtractor(registry_mode=self.registry_mode, config=self.config),
             PackageType.RUST_CRATE: RustExtractor(registry_mode=self.registry_mode, config=self.config),
             PackageType.GO_MODULE: GoExtractor(registry_mode=self.registry_mode, config=self.config),
@@ -77,12 +104,22 @@ class PackageExtractor:
         
         if not path.exists():
             raise FileNotFoundError(f"Package file not found: {package_path}")
-        
+
+        file_size = path.stat().st_size
+
+        # Refused before anything opens it. Detecting the type reads inside
+        # the archive, so checking afterwards would have read the package the
+        # limit exists to avoid reading.
+        #
+        # Read from the configuration this extractor was given, not from a
+        # fresh Config(). A fresh one sees the defaults and the environment
+        # but not the file the caller passed with --config, which is how a
+        # setting comes to work one way and not the other.
+        refuse_if_too_large(package_path, self.config)
+
         # Detect package type
         package_type = detect_package_type(package_path)
-        
-        # Get file metadata
-        file_size = path.stat().st_size
+
         file_hash = self._calculate_hash(package_path, algorithm="sha1")
         file_hash_md5 = self._calculate_hash(package_path, algorithm="md5")
         

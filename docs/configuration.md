@@ -28,11 +28,12 @@ keeps its default.
   "extraction": {
     "max_file_size": 1000000000
   },
-  "license_detection": {
-    "confidence_threshold": 0.9
-  },
   "output": {
     "pretty_print": true
+  },
+  "logging": {
+    "level": "DEBUG",
+    "file": "/var/log/upmex.log"
   }
 }
 ```
@@ -56,47 +57,44 @@ Third party services used by `--api`. See [Integration]({{ site.baseurl }}/integ
 | Key | Default | Meaning |
 |:--|:--|:--|
 | `api.clearlydefined.enabled` | `true` | Whether ClearlyDefined may be used |
-| `api.clearlydefined.base_url` | `https://api.clearlydefined.io/v1` | Service endpoint |
+| `api.clearlydefined.base_url` | `https://api.clearlydefined.io` | Service endpoint. The bare host: the service serves `/definitions` directly and answers 404 for a `/v1` prefix |
 | `api.clearlydefined.timeout` | `30` | Seconds |
 | `api.clearlydefined.api_key` | `null` | Optional key |
 | `api.ecosystems.enabled` | `true` | Whether Ecosyste.ms may be used |
-| `api.ecosystems.base_url` | `https://api.ecosyste.ms/v1` | Service endpoint |
+| `api.ecosystems.base_url` | `https://packages.ecosyste.ms/api/v1` | Service endpoint |
 | `api.ecosystems.timeout` | `30` | Seconds |
 | `api.ecosystems.api_key` | `null` | Optional key |
+| `api.purldb.enabled` | `true` | Whether PurlDB may be used |
+| `api.purldb.base_url` | `https://public.purldb.io` | Service endpoint |
+| `api.purldb.timeout` | `30` | Seconds |
+| `api.purldb.api_key` | `null` | Optional key |
+| `api.vulnerablecode.enabled` | `true` | Whether VulnerableCode may be used |
+| `api.vulnerablecode.base_url` | `https://public.vulnerablecode.io` | Service endpoint |
+| `api.vulnerablecode.timeout` | `30` | Seconds |
+| `api.vulnerablecode.api_key` | `null` | Required for vulnerability lookups |
 
 ### extraction
 
 | Key | Default | Meaning |
 |:--|:--|:--|
-| `extraction.max_file_size` | `500000000` | Largest package to read, in bytes |
-| `extraction.temp_dir` | system temp | Where archives are unpacked |
-| `extraction.parallel_processing` | `false` | Reserved, not yet used |
-| `extraction.cache_enabled` | `true` | Reserved, not yet used |
-| `extraction.cache_dir` | `~/.cache/pme` | Reserved, not yet used |
+| `extraction.max_file_size` | `500000000` | Largest package to read, in bytes. A larger one is refused rather than read |
+| `extraction.temp_dir` | system temp | Where archives are unpacked. A package can be larger than the system temp directory allows |
 
-The three cache settings are read into the configuration but nothing acts on them yet.
-Registry lookups are cached in memory for the life of the process regardless, and
-nothing is written to disk.
-
-### license_detection
-
-| Key | Default | Meaning |
-|:--|:--|:--|
-| `license_detection.methods` | `["regex", "dice_sorensen"]` | Detection methods, in order |
-| `license_detection.confidence_threshold` | `0.85` | Minimum confidence to report |
-| `license_detection.max_text_length` | `100000` | Largest text to analyse |
-| `license_detection.enable_ml` | `false` | Requires the optional ml extra |
+There is no `license_detection` section. Which licences upmex reports is decided by the
+evidence osslili returns rather than by a configurable threshold, and the reasoning is
+in `src/upmex/licenses/osslili_subprocess.py`.
 
 ### output
 
 | Key | Default | Meaning |
 |:--|:--|:--|
 | `output.format` | `json` | `json` or `text` |
-| `output.pretty_print` | `true` | Indent JSON |
-| `output.include_raw_metadata` | `false` | Include the unprocessed source |
-| `output.schema_version` | `1.0.0` | Version stamped into the output |
+| `output.pretty_print` | `false` | Indent JSON |
+| `output.include_raw_metadata` | `false` | Also publish the source documents each field was read from. JSON output only; the text format is a summary |
 
-The `-f` and `-p` flags on `extract` take precedence over the file for a single run.
+The `-f` and `--pretty` / `--no-pretty` flags on `extract` take precedence over the file
+for a single run. The version stamped into the output is not a setting: it describes the
+document, so the document decides it.
 
 ### logging
 
@@ -108,9 +106,9 @@ The `-f` and `-p` flags on `extract` take precedence over the file for a single 
 
 The default format is `%(asctime)s - %(name)s - %(levelname)s - %(message)s`.
 
-Note that extractors currently report problems with plain writes to standard output
-rather than through logging, so these settings do not yet control everything you see.
-That is [issue #99](https://github.com/SemClone/upmex/issues/99).
+`--verbose` and `--quiet` take precedence over `logging.level` for a single run. A log
+file that cannot be opened is reported on standard error and the command carries on
+logging to the console.
 
 ## Environment variables
 
@@ -120,27 +118,23 @@ Every variable is prefixed `PME_` and overrides both the defaults and the config
 |:--|:--|
 | `PME_CLEARLYDEFINED_API_KEY` | `api.clearlydefined.api_key` |
 | `PME_ECOSYSTEMS_API_KEY` | `api.ecosystems.api_key` |
+| `PME_PURLDB_API_KEY` | `api.purldb.api_key` |
+| `PME_VULNERABLECODE_API_KEY` | `api.vulnerablecode.api_key` |
 | `PME_API_TIMEOUT` | the timeout of every API |
 | `PME_MAX_FILE_SIZE` | `extraction.max_file_size` |
 | `PME_TEMP_DIR` | `extraction.temp_dir` |
-| `PME_CACHE_DIR` | `extraction.cache_dir` |
-| `PME_CACHE_ENABLED` | `extraction.cache_enabled` |
-| `PME_LICENSE_CONFIDENCE` | `license_detection.confidence_threshold` |
-| `PME_LICENSE_METHODS` | `license_detection.methods` |
-| `PME_ENABLE_ML` | `license_detection.enable_ml` |
 | `PME_OUTPUT_FORMAT` | `output.format` |
 | `PME_LOG_LEVEL` | `logging.level` |
 | `PME_LOG_FILE` | `logging.file` |
 
 ```bash
 export PME_LOG_LEVEL=DEBUG
-export PME_LICENSE_CONFIDENCE=0.9
+export PME_LOG_FILE=/var/log/upmex.log
 upmex extract package.whl
 ```
 
 Values are converted by shape rather than by declared type. `true` and `false` become
-booleans, digits become integers, and a value containing commas becomes a list. So
-`PME_LICENSE_METHODS=regex,dice_sorensen` sets a two element list.
+booleans, digits become integers, and a value containing commas becomes a list.
 
 The prefix is `PME_` rather than `UPMEX_` for historical reasons: the project was called
 `semantic-copycat-upmex` before it was renamed.
@@ -154,7 +148,7 @@ config = Config()
 print(config.get("extraction.max_file_size"))     # 500000000
 print(config.get("api.clearlydefined.timeout"))   # 30
 
-config.set("license_detection.confidence_threshold", 0.9)
+config.set("extraction.max_file_size", 1_000_000_000)
 config.save("upmex.json")
 ```
 

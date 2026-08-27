@@ -18,18 +18,87 @@ from pathlib import Path
 import logging
 
 from upmex import __version__
-from upmex.core.extractor import PackageExtractor
+from upmex.core.extractor import PackageExtractor, refuse_if_too_large
 from upmex.core.models import split_namespace
-from upmex.config import Config
+from upmex.config import Config, path_setting, setting
 from upmex.utils.package_detector import detect_package_type
 from upmex.utils.output_formatter import OutputFormatter
 
-# Configure logging
+# A default so that importing upmex.cli as a library still logs somewhere
+# sensible. The command replaces it once it has read the configuration.
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+
+def _configure_logging(config, verbose, quiet):
+    """Apply logging.level, logging.format and logging.file.
+
+    All three were declared in the configuration and mapped to environment
+    variables, and none was read: the level was fixed at import and only the
+    flags moved it, so PME_LOG_LEVEL=ERROR did nothing and PME_LOG_FILE
+    redirected nothing.
+
+    The flags still win, because someone typing --verbose is asking about this
+    run rather than about every run.
+    """
+    root = logging.getLogger()
+
+    fmt = setting(config, 'logging.format',
+                  '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    formatter = logging.Formatter(fmt)
+    for handler in root.handlers:
+        handler.setFormatter(formatter)
+
+    # Drop the handler a previous call added before adding another. Adding
+    # without removing meant a second run in the same process kept writing to
+    # the first run's file, and a run configured with no file kept writing to
+    # the one before it.
+    for handler in list(root.handlers):
+        if getattr(handler, '_upmex_configured', False):
+            root.removeHandler(handler)
+            handler.close()
+
+    log_file = path_setting(config, 'logging.file', None)
+    if log_file:
+        try:
+            handler = logging.FileHandler(log_file)
+            handler.setFormatter(formatter)
+            handler._upmex_configured = True
+            root.addHandler(handler)
+        except OSError as error:
+            # Say so on stderr and carry on logging to the console. Refusing
+            # to run because a log file could not be opened would be worse.
+            click.echo(f"Warning: cannot log to {log_file}: {error}", err=True)
+
+    if quiet:
+        root.setLevel(logging.ERROR)
+    elif verbose:
+        root.setLevel(logging.DEBUG)
+    else:
+        level = setting(config, 'logging.level', 'INFO')
+        # A name, or a number, which logging accepts too. An unknown name
+        # would otherwise raise and take the command with it, and a number
+        # was silently turned into INFO.
+        if isinstance(level, bool):
+            click.echo(
+                f"Warning: logging.level {level!r} is not a level, using INFO",
+                err=True,
+            )
+            root.setLevel(logging.INFO)
+        elif isinstance(level, int) or str(level).isdigit():
+            root.setLevel(int(level))
+        else:
+            resolved = getattr(logging, str(level).upper(), None)
+            if resolved is None:
+                click.echo(
+                    f"Warning: logging.level {level!r} is not a level, using INFO",
+                    err=True,
+                )
+                resolved = logging.INFO
+            root.setLevel(resolved)
 
 
 @click.group()
@@ -51,11 +120,7 @@ def cli(ctx, config, verbose, quiet):
     else:
         ctx.obj['config'] = Config()
     
-    # Set logging level
-    if quiet:
-        logging.getLogger().setLevel(logging.ERROR)
-    elif verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
+    _configure_logging(ctx.obj['config'], verbose, quiet)
     
     ctx.obj['verbose'] = verbose
     ctx.obj['quiet'] = quiet
@@ -64,8 +129,13 @@ def cli(ctx, config, verbose, quiet):
 @cli.command()
 @click.argument('package_path', type=click.Path(exists=True))
 @click.option('--output', '-o', type=click.Path(), help='Output file path')
-@click.option('--format', '-f', type=click.Choice(['json', 'text']), default='json', help='Output format')
-@click.option('--pretty', '-p', is_flag=True, help='Pretty print output')
+# No defaults here on purpose. A default would win over the configuration
+# file every time, which is how output.format came to be a setting that
+# changed nothing. Absent means "the configuration decides".
+@click.option('--format', '-f', type=click.Choice(['json', 'text']), default=None,
+              help='Output format [config: output.format, default json]')
+@click.option('--pretty/--no-pretty', '-p', default=None,
+              help='Pretty print output [config: output.pretty_print]')
 @click.option('--api', type=click.Choice(['clearlydefined', 'ecosystems', 'purldb', 'vulnerablecode', 'all', 'none']), default='none', help='API enrichment')
 @click.option('--registry', is_flag=True, help='Enable registry mode to fetch missing metadata from package registries')
 @click.pass_context
@@ -83,9 +153,20 @@ def extract(ctx, package_path, output, format, pretty, api, registry):
     """
     config = ctx.obj['config']
     verbose = ctx.obj['verbose']
-    
-    # Update config with CLI options
-    
+
+    # Checked before the work rather than after it. A format the formatter
+    # does not know used to be discovered once extraction and every API call
+    # had finished, throwing all of it away over a typo.
+    chosen_format = format if format is not None else setting(
+        config, 'output.format', 'json')
+    if chosen_format not in ('json', 'text'):
+        click.echo(
+            f"Error: output.format is {chosen_format!r}, which is not "
+            f"'json' or 'text'",
+            err=True,
+        )
+        sys.exit(1)
+
     try:
         # Create extractor with registry mode
         extractor_config = config.to_dict()
@@ -386,8 +467,15 @@ def extract(ctx, package_path, output, format, pretty, api, registry):
             except Exception as e:
                 click.echo(f"Warning: API enrichment failed: {e}", err=True)
         
-        # Format output
-        formatter = OutputFormatter(pretty=pretty)
+        # Format output. The flag wins when given, the configuration when not.
+        format = chosen_format
+        if pretty is None:
+            pretty = setting(config, 'output.pretty_print', False)
+
+        formatter = OutputFormatter(
+            pretty=pretty,
+            include_raw_metadata=setting(config, 'output.include_raw_metadata', False),
+        )
         output_text = formatter.format(metadata, format)
         
         # Write output
@@ -415,6 +503,9 @@ def detect(ctx, package_path, verbose):
         upmex detect -v unknown.tar.gz
     """
     try:
+        # Detecting the type opens the archive, so the limit applies here too.
+        refuse_if_too_large(package_path, ctx.obj['config'])
+
         package_type = detect_package_type(package_path)
         
         if verbose:

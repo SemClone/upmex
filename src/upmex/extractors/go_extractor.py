@@ -117,7 +117,7 @@ class GoExtractor(BaseExtractor):
         
         # Extract copyright information
         import tempfile
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(dir=self.temp_root()) as temp_dir:
             try:
                 with zipfile.ZipFile(str(package_path), 'r') as zf:
                     # Extract limited files for copyright scanning

@@ -190,7 +190,7 @@ def is_reportable(lic, spdx_id=None, source_file=None):
 class OssliliSubprocessDetector:
     """License detector using osslili CLI."""
     
-    def detect_from_file(self, file_path: str, content: Optional[str] = None) -> List[Dict[str, Any]]:
+    def detect_from_file(self, file_path: str, content: Optional[str] = None, temp_root: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Detect licenses from a file using osslili CLI.
         
@@ -213,7 +213,7 @@ class OssliliSubprocessDetector:
             # threw that away, so a package's own LICENSE was read as a passing
             # mention and scored accordingly. Keep the caller's name, inside a
             # directory of our own so nothing collides.
-            tmp_dir = tempfile.mkdtemp()
+            tmp_dir = tempfile.mkdtemp(dir=temp_root)
             try:
                 # '', '.' and '/' have no basename, and '..' is a
                 # directory. Writing to either raises, and the broad except

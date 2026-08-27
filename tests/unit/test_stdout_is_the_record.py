@@ -112,16 +112,18 @@ class TestTheClearlyDefinedSettingsAreRead:
 
     def test_the_shipped_config_file_agrees_with_the_defaults(self):
         """config/default.json is not what Config() reads, so the two can
-        drift, and a reader following the file would configure the 404."""
+        drift, and a reader following the file would configure the 404.
+
+        Compared whole rather than section by section: checking one section
+        let the file keep a package_types block with six settings nothing
+        read, and an output.schema_version that no longer exists.
+        """
         shipped = json.loads(
             (Path(__file__).resolve().parents[2] / "config" / "default.json")
             .read_text()
         )
 
-        for setting in ("base_url", "enabled", "timeout", "api_key"):
-            assert shipped["api"]["clearlydefined"][setting] == Config().get(
-                f"api.clearlydefined.{setting}"
-            ), setting
+        assert shipped == Config.DEFAULT_CONFIG
 
     def test_the_client_uses_the_configured_base_url(self):
         class Configured:
@@ -431,19 +433,31 @@ class TestEveryApiPathKeepsStdoutClean:
 
     def test_only_the_record_is_written_to_stdout(self):
         """Every other echo in the command goes to stderr. Checked on the
-        source because reaching each branch needs the network."""
+        source because reaching each branch needs the network.
+
+        Parsed rather than scanned line by line. A call spread over several
+        lines put its err=True on a line of its own, so the scanner read the
+        opening line as a bare write to stdout, and the same blindness would
+        have missed a real one.
+        """
+        import ast
         import inspect
+        import textwrap
 
         from upmex import cli
 
-        source = inspect.getsource(cli.extract.callback)
-        loose = [
-            line.strip()
-            for line in source.splitlines()
-            if "click.echo(" in line and "err=True" not in line
-        ]
+        tree = ast.parse(textwrap.dedent(inspect.getsource(cli.extract.callback)))
+        loose = []
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if getattr(node.func, "attr", None) != "echo":
+                continue
+            if any(keyword.arg == "err" for keyword in node.keywords):
+                continue
+            loose.append(ast.unparse(node.args[0]) if node.args else "<nothing>")
 
-        assert loose == ["click.echo(output_text)"], loose
+        assert loose == ["output_text"], loose
 
     def test_writing_to_a_file_says_so_on_stderr(self, tmp_path):
         out = tmp_path / "record.json"

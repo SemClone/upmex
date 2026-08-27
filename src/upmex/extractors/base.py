@@ -1,6 +1,7 @@
 """Base extractor class for all package types."""
 
 import logging
+from ..config import path_setting
 import hashlib
 import os
 from abc import ABC, abstractmethod
@@ -43,7 +44,37 @@ class BaseExtractor(ABC):
         # here honours --config rather than reading the defaults. None means
         # nothing was threaded through and the defaults apply.
         self.config = config
-    
+
+    def temp_root(self):
+        """Where this extractor unpacks, from extraction.temp_dir.
+
+        Returned rather than applied to tempfile.tempdir, because that is one
+        value for the whole process: setting it meant one extraction could
+        unpack under another's directory, and a host application that had set
+        it did not get it back.
+        """
+        root = path_setting(self.config, 'extraction.temp_dir', None)
+        if root is None:
+            return None
+
+        if not Path(root).is_dir():
+            logger.warning(
+                "extraction.temp_dir %s is not a directory, using the system "
+                "default", root,
+            )
+            return None
+
+        if not os.access(root, os.W_OK):
+            # Otherwise the first unpack fails inside an extractor, where it
+            # is caught, and the record comes back thin with nothing said.
+            logger.warning(
+                "extraction.temp_dir %s cannot be written to, using the "
+                "system default", root,
+            )
+            return None
+
+        return str(root)
+
     @abstractmethod
     def extract(self, package_path: str) -> PackageMetadata:
         """Extract metadata from a package.
@@ -195,7 +226,8 @@ class BaseExtractor(ABC):
         from ..licenses.unified_detector import detect_licenses
 
         licenses = []
-        detected_list = detect_licenses(filename or "content", text)
+        detected_list = detect_licenses(
+            filename or "content", text, temp_root=self.temp_root())
 
         for license_dict in detected_list:
             license_info = LicenseInfo(
