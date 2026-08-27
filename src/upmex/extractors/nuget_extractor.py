@@ -253,16 +253,8 @@ class NuGetExtractor(BaseExtractor):
             ))
             return
 
-        # Format short values so osslili recognises them as a licence tag
-        if len(declared) < 20 and ':' not in declared:
-            formatted_text = f"License: {declared}"
-        else:
-            formatted_text = declared
-
-        detected = self.detect_licenses_from_text(formatted_text, filename=source)
+        detected = self.detect_licenses_from_declared_name(declared, source)
         if detected:
-            for info in detected:
-                info.file_path = source
             metadata.licenses.extend(detected)
             return
 

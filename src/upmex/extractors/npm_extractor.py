@@ -204,12 +204,7 @@ class NpmExtractor(BaseExtractor):
         not detectable license *text* — we fall back to recording the declared
         value verbatim rather than dropping it.
         """
-        # Format license text for better osslili detection.
-        if len(declared) < 20 and ':' not in declared:
-            formatted_text = f"License: {declared}"
-        else:
-            formatted_text = declared
-        detected = self.detect_licenses_from_text(formatted_text, 'package.json')
+        detected = self.detect_licenses_from_declared_name(declared, 'package.json')
         if detected:
             metadata.licenses.extend(detected)
             return

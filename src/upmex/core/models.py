@@ -84,6 +84,11 @@ class LicenseInfo:
     confidence_level: LicenseConfidenceLevel = LicenseConfidenceLevel.NONE
     detection_method: Optional[str] = None
     file_path: Optional[str] = None
+    # How the detector classified this, carried through so a consumer can tell
+    # a licence the package declares from one a scan merely recognised, and
+    # can find the file that said so.
+    category: Optional[str] = None
+    match_type: Optional[str] = None
 
 
 @dataclass
@@ -161,6 +166,12 @@ class PackageMetadata:
                         "confidence_level": lic.confidence_level.value,
                         "source": lic.detection_method,
                         "file": lic.file_path,
+                        # Carried into the output too. Without these a
+                        # consumer reads an identifier and a number and cannot
+                        # tell a licence the package declares from one a scan
+                        # recognised in a file that mentions it.
+                        "category": lic.category,
+                        "match_type": lic.match_type,
                     } for lic in self.licenses
                 ],
             },

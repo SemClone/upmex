@@ -204,10 +204,7 @@ class PackageExtractor:
                             'can_extract': lambda self, path: False
                         })()
                         
-                        license_infos = temp_extractor.detect_licenses_from_text(
-                            license_str,
-                            filename='ecosystems_api'
-                        )
+                        license_infos = temp_extractor.detect_licenses_from_declared_name(license_str, 'ecosystems_api')
                         if license_infos:
                             metadata.licenses.extend(license_infos)
                 

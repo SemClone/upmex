@@ -72,13 +72,29 @@ class OssliliSubprocessDetector:
                                 for lic in scan_result['license_evidence']:
                                     # Map detected_license to spdx_id for consistency
                                     spdx_id = lic.get('detected_license', lic.get('spdx_id', 'Unknown'))
+                                    # osslili reports the file it read, the
+                                    # category it assigned and how it matched.
+                                    # Overwriting "file" with the path we were
+                                    # handed threw away the only way to check
+                                    # the claim, and for a synthesised
+                                    # document that path is a name we invented.
                                     license_info = {
                                         "name": lic.get('name', spdx_id),
                                         "spdx_id": spdx_id,
                                         "confidence": lic.get('confidence', 0.0),
-                                        "confidence_level": self._get_confidence_level(lic.get('confidence', 0.0)),
+                                        "confidence_level": self._get_confidence_level(
+                                            lic.get('confidence', 0.0),
+                                            lic.get('detection_method', ''),
+                                            lic.get('match_type', ''),
+                                        ),
                                         "source": f"osslili_{lic.get('detection_method', 'unknown')}",
+                                        # The content was written to a temp
+                                        # file for osslili, so its "file" is
+                                        # that path. The name the caller asked
+                                        # about is the real one.
                                         "file": file_path,
+                                        "category": lic.get('category'),
+                                        "match_type": lic.get('match_type'),
                                     }
                                     
                                     # Include high-confidence matches or tag detections
@@ -98,9 +114,19 @@ class OssliliSubprocessDetector:
                                         "name": lic.get('name', lic.get('spdx_id', 'Unknown')),
                                         "spdx_id": lic.get('spdx_id', 'Unknown'),
                                         "confidence": lic.get('confidence', 0.0),
-                                        "confidence_level": self._get_confidence_level(lic.get('confidence', 0.0)),
+                                        "confidence_level": self._get_confidence_level(
+                                            lic.get('confidence', 0.0),
+                                            lic.get('detection_method', ''),
+                                            lic.get('match_type', ''),
+                                        ),
                                         "source": f"osslili_{lic.get('detection_method', 'unknown')}",
+                                        # The content was written to a temp
+                                        # file for osslili, so its "file" is
+                                        # that path. The name the caller asked
+                                        # about is the real one.
                                         "file": file_path,
+                                        "category": lic.get('category'),
+                                        "match_type": lic.get('match_type'),
                                     }
                                     
                                     # Include high-confidence matches or tag detections
@@ -183,9 +209,17 @@ class OssliliSubprocessDetector:
                                     "name": lic.get('name', spdx_id),
                                     "spdx_id": spdx_id,
                                     "confidence": lic.get('confidence', 0.0),
-                                    "confidence_level": self._get_confidence_level(lic.get('confidence', 0.0)),
+                                    "confidence_level": self._get_confidence_level(
+                                        lic.get('confidence', 0.0),
+                                        lic.get('detection_method', ''),
+                                        lic.get('match_type', ''),
+                                    ),
                                     "source": f"osslili_{lic.get('detection_method', 'unknown')}",
+                                    # Scanning a directory, so this really is
+                                    # the file osslili read.
                                     "file": lic.get('file', 'unknown'),
+                                    "category": lic.get('category'),
+                                    "match_type": lic.get('match_type'),
                                 }
                                 
                                 # Include high-confidence matches or tag detections
@@ -211,9 +245,15 @@ class OssliliSubprocessDetector:
                                     "name": lic.get('name', lic.get('spdx_id', 'Unknown')),
                                     "spdx_id": lic.get('spdx_id', 'Unknown'),
                                     "confidence": lic.get('confidence', 0.0),
-                                    "confidence_level": self._get_confidence_level(lic.get('confidence', 0.0)),
+                                    "confidence_level": self._get_confidence_level(
+                                        lic.get('confidence', 0.0),
+                                        lic.get('detection_method', ''),
+                                        lic.get('match_type', ''),
+                                    ),
                                     "source": f"osslili_{lic.get('detection_method', 'unknown')}",
                                     "file": lic.get('source_file', 'unknown'),
+                                    "category": lic.get('category'),
+                                    "match_type": lic.get('match_type'),
                                 }
                                 
                                 # Only include very high-confidence matches
@@ -257,13 +297,28 @@ class OssliliSubprocessDetector:
             
         return {"licenses": licenses, "copyrights": copyrights}
 
-    def _get_confidence_level(self, confidence: float) -> str:
-        """Convert numeric confidence to level string."""
-        if confidence >= 0.95:
+    # A match is exact when the file says which licence it is, not when a
+    # similarity score is close to one. osslili reports which of those it did.
+    EXACT_METHODS = frozenset({"tag", "spdx_identifier"})
+
+    def _get_confidence_level(
+        self,
+        confidence: float,
+        detection_method: str = "",
+        match_type: str = "",
+    ) -> str:
+        """How far this is from certain.
+
+        Exact means the text names the licence: an SPDX identifier or a
+        licence tag. A similarity score does not become exact by being high,
+        and calling 0.988 exact told a consumer that packaging's BSD-2-Clause
+        had been read off a declaration when it had been matched against one.
+        """
+        if detection_method in self.EXACT_METHODS or match_type in self.EXACT_METHODS:
             return "exact"
-        elif confidence >= 0.85:
+        if confidence >= 0.95:
             return "high"
-        elif confidence >= 0.70:
+        elif confidence >= 0.85:
             return "medium"
         else:
             return "low"

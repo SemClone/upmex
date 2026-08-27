@@ -60,7 +60,8 @@ class TestLicenseExpression:
     def test_recognised_identifier(self, tmp_path):
         path = make_nupkg(tmp_path / "p.nupkg", '<license type="expression">MIT</license>')
 
-        assert licenses_of(path) == [("MIT", "osslili_tag")]
+        # A name the package declared, resolved to the identifier it names.
+        assert licenses_of(path) == [("MIT", "declared_name")]
 
     @pytest.mark.parametrize('expression', [
         'MIT OR Apache-2.0',
