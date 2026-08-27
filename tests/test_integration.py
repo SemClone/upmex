@@ -1,6 +1,5 @@
 """Integration tests for upmex."""
 
-import pytest
 from pathlib import Path
 
 

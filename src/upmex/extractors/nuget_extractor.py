@@ -3,8 +3,7 @@
 import zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Dict, Any, List, Optional
-from datetime import datetime
+from typing import Optional
 import logging
 
 from .base import BaseExtractor

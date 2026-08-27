@@ -2,10 +2,8 @@
 
 import json
 import pytest
-from pathlib import Path
 from click.testing import CliRunner
 from upmex.cli import cli
-from upmex.core.models import PackageMetadata, PackageType
 
 
 class TestCLI:

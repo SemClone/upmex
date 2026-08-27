@@ -3,7 +3,7 @@
 import pytest
 from pathlib import Path
 from upmex.extractors.deb_extractor import DebianExtractor
-from upmex.core.models import PackageType, NO_ASSERTION
+from upmex.core.models import NO_ASSERTION
 
 
 class TestDebianExtractor:
@@ -34,15 +34,13 @@ class TestDebianExtractor:
         # but it should not fail
     
     def test_parse_filename(self):
-        """Test filename parsing fallback."""
-        # Create a mock file path
+        """A .deb filename states the name, version and revision, and the
+        extractor reads them when the file itself cannot be opened."""
         metadata = self.extractor.extract("test-package_1.0.0-1_amd64.deb")
-        # Should handle non-existent file gracefully in fallback mode
-    
-    def test_normalize_license_id(self):
-        """Test license normalization."""
-        # Method is not exposed publicly, skip this test
-        pass
+
+        assert metadata.name == "test-package"
+        assert metadata.version == "1.0.0-1"
+
     
     def test_parse_debian_dependencies(self):
         """Test Debian dependency parsing."""

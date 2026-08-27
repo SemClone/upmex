@@ -108,7 +108,7 @@ class OutputFormatter:
                 elif license_info.name:
                     lines.append(f"  - {license_info.name} (confidence: {license_info.confidence:.2%})")
                 else:
-                    lines.append(f"  - Unknown")
+                    lines.append("  - Unknown")
         
         if metadata.dependencies:
             lines.append("Dependencies:")

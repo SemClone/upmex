@@ -1,7 +1,7 @@
 """Unit tests for Ruby gem package extractor."""
 
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 import tarfile
 import gzip
 import yaml

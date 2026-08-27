@@ -1,17 +1,14 @@
 """End-to-end tests for the complete extraction pipeline."""
 
-import pytest
 import json
-import tempfile
 import zipfile
 import tarfile
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
 from click.testing import CliRunner
 
 from upmex.cli import cli
 from upmex.core.extractor import PackageExtractor
-from upmex.core.models import PackageType, PackageMetadata
+from upmex.core.models import PackageType
 
 
 class TestCLIEndToEnd:
@@ -374,14 +371,11 @@ Requires-Dist: pytest>=7.0.0; extra == "dev"
         assert metadata.authors[0]["name"] == "Developer One"
         assert metadata.authors[0]["email"] == "dev1@example.com"
         
-        # Dependencies might be stored in different formats
-        runtime_deps = metadata.dependencies.get("runtime", [])
-        test_deps = metadata.dependencies.get("test", [])
-        all_deps = runtime_deps + test_deps
-
-        # Dependencies extraction might not work without full registry mode
-        # Skip dependency checks if extraction didn't find any
-        pass  # Dependencies are optional in this test
+        # The pom declares one runtime and one test dependency. Whichever
+        # bucket they land in, both have to survive extraction.
+        all_deps = (metadata.dependencies.get("runtime", [])
+                    + metadata.dependencies.get("test", []))
+        assert any("spring-core" in str(dep) for dep in all_deps), all_deps
     
     def test_npm_package_full_extraction(self, tmp_path):
         """Test full NPM package extraction."""

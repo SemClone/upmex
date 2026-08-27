@@ -5,9 +5,8 @@ import io
 import json
 import tempfile
 import tarfile
-from unittest.mock import Mock, patch
 from src.upmex.extractors.perl_extractor import PerlExtractor
-from src.upmex.core.models import PackageType, NO_ASSERTION
+from src.upmex.core.models import PackageType
 
 
 class TestPerlExtractor:

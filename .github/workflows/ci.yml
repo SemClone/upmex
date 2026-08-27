@@ -1,180 +1,196 @@
 name: CI
 
+# One workflow runs the suite. It used to be three (CI, Tests, PR Validation),
+# each installing the package and running the same pytest, so every push cost
+# three runs and one broken test sent three failure notifications.
+
 on:
-  pull_request:
   push:
     branches: [main]
+  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ['3.9', '3.10', '3.11']
+        os: [ubuntu-latest]
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
+        include:
+          # The detector shells out to osslili, and its scoring has differed
+          # between platforms before, so both are covered on the newest version.
+          - os: macos-latest
+            python-version: '3.13'
 
     steps:
       - uses: actions/checkout@v7
 
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
+      - name: Install
         run: |
           python -m pip install --upgrade pip
           pip install -e .
-          pip install pytest ruff
+          pip install pytest pytest-cov
 
-      # Linting moved to separate job to not block tests
+      # A failure here fails the job. The unit and integration runs used to
+      # carry continue-on-error, so the suite could not fail the workflow and
+      # main stayed green for a day while the tests were red.
+      - name: Run tests
+        run: pytest tests/ -v --tb=short --cov=upmex --cov-report=xml
 
-      - name: Run unit tests
-        run: |
-          pytest tests/unit/ -v
-        continue-on-error: true  # Don't block functional tests on unit test failures
+      - name: Upload coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.13'
+        uses: codecov/codecov-action@v7
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
 
-      - name: Run integration tests
-        run: |
-          pytest tests/integration/ -v
-        continue-on-error: true  # Don't block functional tests on integration test failures
-
-      - name: Functional test - Basic extraction
-        run: |
-          echo "Testing basic extraction on all packages..."
-          failed=0
-          for pkg in test-packages/express-4.21.2.tgz test-packages/requests-2.32.3-py3-none-any.whl test-packages/gson-2.10.1.jar test-packages/rails-7.1.5.gem test-packages/serde-1.0.210.crate test-packages/Newtonsoft.Json.13.0.3.nupkg test-packages/hello_2.10-3_amd64.deb test-packages/zsh-5.0.2-34.el7_8.2.x86_64.rpm test-packages/numpy-1.26.4-py312hc5e2394_0.conda test-packages/fmt-10.2.1.tgz test-packages/Capture-Tiny-0.48.tar.gz test-packages/AFNetworking-4.0.1.podspec.json test-packages/build.gradle; do
-            if [ -f "$pkg" ]; then
-              echo "Testing: $(basename $pkg)"
-              if ! upmex extract "$pkg" > /dev/null 2>&1; then
-                echo "  ✗ Failed to extract $(basename $pkg)"
-                failed=1
-              else
-                echo "  ✓ Success"
-              fi
-            fi
-          done
-          if [ $failed -eq 1 ]; then
-            echo "Some extractions failed"
-            exit 1
-          fi
-
-      - name: Functional test - Text format
-        run: |
-          echo "Testing text format output..."
-          upmex extract --format text test-packages/express-4.21.2.tgz > /tmp/npm.txt
-          upmex extract --format text test-packages/requests-2.32.3-py3-none-any.whl > /tmp/python.txt
-          upmex extract --format text test-packages/rails-7.1.5.gem > /tmp/ruby.txt
-          upmex extract --format text test-packages/fmt-10.2.1.tgz > /tmp/conan.txt
-
-          # Verify text output contains expected fields
-          for file in /tmp/npm.txt /tmp/python.txt /tmp/ruby.txt /tmp/conan.txt; do
-            if ! grep -q "Package:" "$file"; then
-              echo "Text output missing Package field in $file"
-              exit 1
-            fi
-            if ! grep -q "Type:" "$file"; then
-              echo "Text output missing Type field in $file"
-              exit 1
-            fi
-          done
-          echo "✓ Text format tests passed"
-
-      - name: Functional test - JSON format
-        run: |
-          echo "Testing JSON format output..."
-          upmex extract test-packages/express-4.21.2.tgz | python -m json.tool > /dev/null
-          upmex extract --pretty test-packages/gson-2.10.1.jar | python -m json.tool > /dev/null
-          echo "✓ JSON format tests passed"
-
-      - name: Functional test - License detection
-        run: |
-          echo "Testing license detection..."
-          license=$(upmex license test-packages/express-4.21.2.tgz 2>/dev/null | head -1)
-          if [[ "$license" != *"MIT"* ]]; then
-            echo "Expected MIT license for express, got: $license"
-            exit 1
-          fi
-
-          license=$(upmex license test-packages/gson-2.10.1.jar 2>/dev/null | head -1)
-          if [[ "$license" != *"Apache-2.0"* ]]; then
-            echo "Expected Apache-2.0 license for gson, got: $license"
-            exit 1
-          fi
-          echo "✓ License detection tests passed"
-
-      - name: Functional test - Package detection
-        run: |
-          echo "Testing package type detection..."
-
-          type=$(upmex detect test-packages/express-4.21.2.tgz 2>/dev/null)
-          if [ "$type" != "npm" ]; then
-            echo "Expected 'npm' for express, got: $type"
-            exit 1
-          fi
-
-          type=$(upmex detect test-packages/rails-7.1.5.gem 2>/dev/null)
-          if [ "$type" != "ruby_gem" ]; then
-            echo "Expected 'ruby_gem' for rails, got: $type"
-            exit 1
-          fi
-
-          type=$(upmex detect test-packages/serde-1.0.210.crate 2>/dev/null)
-          if [ "$type" != "rust_crate" ]; then
-            echo "Expected 'rust_crate' for serde, got: $type"
-            exit 1
-          fi
-          echo "✓ Package detection tests passed"
-
-      - name: Functional test - Output to file
-        run: |
-          echo "Testing output to file..."
-          upmex extract test-packages/gson-2.10.1.jar -o /tmp/output.json
-          if [ ! -f /tmp/output.json ]; then
-            echo "Output file was not created"
-            exit 1
-          fi
-
-          # Verify it's valid JSON
-          python -m json.tool /tmp/output.json > /dev/null
-          echo "✓ Output to file test passed"
-
-      - name: Performance test
-        run: |
-          echo "Testing extraction performance..."
-          start_time=$(date +%s.%N)
-          timeout 5 upmex extract test-packages/guava-33.4.0-jre.jar > /dev/null 2>&1
-          exit_code=$?
-          end_time=$(date +%s.%N)
-
-          if [ $exit_code -eq 124 ]; then
-            echo "✗ Performance test failed: extraction took more than 5 seconds"
-            exit 1
-          fi
-
-          duration=$(echo "$end_time - $start_time" | bc)
-          echo "✓ Performance test passed: extraction took ${duration}s"
-
-  lint:
+  functional:
+    # What the suite cannot check: that the installed console script works on
+    # real packages of every supported type.
     runs-on: ubuntu-latest
-    continue-on-error: true  # Don't fail the workflow if linting fails
-
     steps:
       - uses: actions/checkout@v7
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
+      - uses: actions/setup-python@v7
         with:
-          python-version: '3.11'
+          python-version: '3.13'
 
-      - name: Install ruff
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Every package type extracts
+        run: |
+          failed=0
+          for pkg in test-packages/express-4.21.2.tgz \
+                     test-packages/requests-2.32.3-py3-none-any.whl \
+                     test-packages/gson-2.10.1.jar \
+                     test-packages/rails-7.1.5.gem \
+                     test-packages/serde-1.0.210.crate \
+                     test-packages/Newtonsoft.Json.13.0.3.nupkg \
+                     test-packages/hello_2.10-3_amd64.deb \
+                     test-packages/zsh-5.0.2-34.el7_8.2.x86_64.rpm \
+                     test-packages/numpy-1.26.4-py312hc5e2394_0.conda \
+                     test-packages/fmt-10.2.1.tgz \
+                     test-packages/Capture-Tiny-0.48.tar.gz \
+                     test-packages/AFNetworking-4.0.1.podspec.json \
+                     test-packages/build.gradle; do
+            [ -f "$pkg" ] || continue
+            if upmex extract "$pkg" > /dev/null 2>&1; then
+              echo "ok   $(basename $pkg)"
+            else
+              echo "FAIL $(basename $pkg)"
+              failed=1
+            fi
+          done
+          exit $failed
+
+      - name: Stdout is parseable JSON
+        run: |
+          upmex extract test-packages/express-4.21.2.tgz | python -m json.tool > /dev/null
+          upmex extract --pretty test-packages/gson-2.10.1.jar | python -m json.tool > /dev/null
+
+      - name: A diagnostic does not corrupt the output
+        run: |
+          printf 'x' > /tmp/broken.whl
+          upmex extract /tmp/broken.whl | python -m json.tool > /dev/null
+
+      - name: Text format carries its fields
+        run: |
+          for pkg in express-4.21.2.tgz requests-2.32.3-py3-none-any.whl \
+                     rails-7.1.5.gem fmt-10.2.1.tgz; do
+            out=$(upmex extract --format text "test-packages/$pkg")
+            echo "$out" | grep -q "Package:" || { echo "no Package field for $pkg"; exit 1; }
+            echo "$out" | grep -q "Type:" || { echo "no Type field for $pkg"; exit 1; }
+          done
+
+      - name: Licences are detected
+        run: |
+          license=$(upmex license test-packages/express-4.21.2.tgz 2>/dev/null | head -1)
+          case "$license" in *MIT*) ;; *) echo "express: expected MIT, got $license"; exit 1;; esac
+
+          license=$(upmex license test-packages/gson-2.10.1.jar 2>/dev/null | head -1)
+          case "$license" in *Apache-2.0*) ;; *) echo "gson: expected Apache-2.0, got $license"; exit 1;; esac
+
+      - name: Package types are detected
+        run: |
+          for pair in "express-4.21.2.tgz npm" \
+                      "rails-7.1.5.gem ruby_gem" \
+                      "serde-1.0.210.crate rust_crate"; do
+            set -- $pair
+            got=$(upmex detect "test-packages/$1" 2>/dev/null)
+            [ "$got" = "$2" ] || { echo "$1: expected $2, got $got"; exit 1; }
+          done
+
+      - name: Output lands in the file it was given
+        run: |
+          upmex extract test-packages/gson-2.10.1.jar -o /tmp/output.json
+          python -m json.tool /tmp/output.json > /dev/null
+
+      - name: A large jar extracts inside five seconds
+        run: |
+          status=0
+          timeout 5 upmex extract test-packages/guava-33.4.0-jre.jar > /dev/null 2>&1 || status=$?
+          if [ "$status" -eq 124 ]; then
+            echo "guava took more than five seconds"
+            exit 1
+          fi
+          echo "ok, exit status $status"
+
+  lint:
+    # This one blocks, and it is scoped so that it can. The tree is clean
+    # against pyflakes and the syntax rules, and those are the ones that find
+    # defects rather than opinions: an unused import, a dead assignment, a
+    # name that does not exist. A dropped configuration value hid behind a
+    # dead assignment here once already.
+    #
+    # The wider ruff set and black are deliberately not run. The tree is not
+    # clean against either, and a check that always fails is one nobody reads.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: Install
         run: |
           python -m pip install --upgrade pip
           pip install ruff
 
-      - name: Lint with ruff
+      - name: Ruff
+        run: ruff check src/ tests/ --select F,E9
+
+  documentation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: The files a contributor is promised
         run: |
-          echo "Running linter (informational only)..."
-          ruff check src/ tests/ --exit-zero  # Always exit with 0
+          missing=0
+          for file in README.md LICENSE AUTHORS.md CONTRIBUTING.md pyproject.toml; do
+            if [ -f "$file" ]; then
+              echo "ok      $file"
+            else
+              echo "missing $file"
+              missing=1
+            fi
+          done
+          exit $missing

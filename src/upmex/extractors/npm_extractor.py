@@ -3,7 +3,7 @@
 import logging
 import json
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict
 from .base import BaseExtractor
 from ..core.models import (
     PackageMetadata,

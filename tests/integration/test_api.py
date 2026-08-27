@@ -1,7 +1,6 @@
 """Integration tests for API clients."""
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 import requests
 
 from upmex.api.clearlydefined import ClearlyDefinedAPI

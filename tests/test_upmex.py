@@ -1,83 +1,79 @@
-"""Tests for upmex package."""
+"""Tests about the package itself: it imports, it is where it says it is, and
+it parses.
 
-import pytest
+These used to pass without checking anything. The import test caught
+ImportError and asserted True in both branches, so a package that could not be
+imported still passed. The syntax check walked `<repo>/upmex`, which does not
+exist because the code lives in `src/upmex`, so it parsed no files at all.
+"""
+
+import ast
 import sys
+from importlib import metadata
 from pathlib import Path
 
+import pytest
 
-def test_package_import():
-    """Test that the package can be imported."""
-    try:
+REPO_ROOT = Path(__file__).parent.parent
+PACKAGE_DIR = REPO_ROOT / "src" / "upmex"
+
+
+def _distribution():
+    """Read the installed metadata rather than parsing pyproject, so this
+    works on every version the project claims to support. tomllib is 3.11+."""
+    return metadata.metadata("upmex")
+
+
+def test_the_package_imports():
+    import upmex
+
+    assert upmex.__version__
+
+
+def test_the_version_matches_pyproject():
+    """Two places state the version, and they have to agree."""
+    import upmex
+
+    assert upmex.__version__ == _distribution()["Version"]
+
+
+def test_this_interpreter_is_one_the_project_claims_to_support():
+    declared = _distribution()["Requires-Python"]
+    assert declared.startswith(">="), f"unhandled specifier: {declared}"
+    minimum = tuple(int(part) for part in declared[2:].strip().split("."))
+    assert sys.version_info[: len(minimum)] >= minimum
+
+
+class TestThePackageIsWhereItSaysItIs:
+    def test_the_source_directory_exists(self):
+        assert PACKAGE_DIR.is_dir(), f"{PACKAGE_DIR} is missing"
+
+    def test_the_installed_package_is_that_directory(self):
+        """An editable install, so a test can trust the tree it is reading."""
         import upmex
-        assert True
-    except ImportError:
-        # Package might have different structure
-        assert True
+
+        assert Path(upmex.__file__).parent == PACKAGE_DIR
+
+    def test_pyproject_exists(self):
+        assert (REPO_ROOT / "pyproject.toml").exists()
 
 
-def test_basic_functionality():
-    """Basic test to ensure pytest works."""
-    assert True
-
-
-def test_python_version():
-    """Test Python version compatibility."""
-    assert sys.version_info >= (3, 8)
-
-
-class TestPackageStructure:
-    """Test package structure and configuration."""
-
-    def test_project_root_exists(self):
-        """Test that project root exists."""
-        project_root = Path(__file__).parent.parent
-        assert project_root.exists()
-
-    def test_package_directory_exists(self):
-        """Test that package directory exists."""
-        project_root = Path(__file__).parent.parent
-        package_dir = project_root / "upmex"
-        # Some projects might have different structure
-        assert project_root.exists()
-
-    def test_pyproject_toml_exists(self):
-        """Test that pyproject.toml exists."""
-        project_root = Path(__file__).parent.parent
-        pyproject = project_root / "pyproject.toml"
-        assert pyproject.exists()
-
-
-@pytest.mark.parametrize("required_file", [
-    "README.md",
-    "LICENSE",
-    "pyproject.toml",
-])
+@pytest.mark.parametrize("required_file", ["README.md", "LICENSE", "pyproject.toml"])
 def test_required_files_exist(required_file):
-    """Test that required project files exist."""
-    project_root = Path(__file__).parent.parent
-    file_path = project_root / required_file
-    assert file_path.exists(), f"{required_file} not found"
+    assert (REPO_ROOT / required_file).exists(), f"{required_file} not found"
 
 
-def test_no_syntax_errors():
-    """Test that the package has no syntax errors."""
-    import ast
-    import os
+def test_every_source_file_parses():
+    checked = 0
+    for path in PACKAGE_DIR.rglob("*.py"):
+        if "__pycache__" in path.parts:
+            continue
+        checked += 1
+        try:
+            ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError as error:
+            pytest.fail(f"Syntax error in {path}: {error}")
 
-    project_root = Path(__file__).parent.parent
-    package_dir = project_root / "upmex"
-
-    if package_dir.exists():
-        for root, dirs, files in os.walk(package_dir):
-            # Skip __pycache__ directories
-            dirs[:] = [d for d in dirs if d != '__pycache__']
-
-            for file in files:
-                if file.endswith('.py'):
-                    file_path = Path(root) / file
-                    try:
-                        with open(file_path, 'r', encoding='utf-8') as f:
-                            source = f.read()
-                        ast.parse(source)
-                    except SyntaxError as e:
-                        pytest.fail(f"Syntax error in {file_path}: {e}")
+    # Without this the test passes when it has parsed nothing, which is how it
+    # went unnoticed that it was pointed at a directory that does not exist.
+    assert checked > 20, f"only {checked} files parsed, expected the whole package"

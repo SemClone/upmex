@@ -3,10 +3,7 @@
 import json
 import tempfile
 import os
-from pathlib import Path
-from datetime import datetime
 
-import pytest
 from src.upmex.extractors.cocoapods_extractor import CocoaPodsExtractor
 from src.upmex.core.models import PackageType, NO_ASSERTION
 

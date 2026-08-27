@@ -3,9 +3,7 @@
 import tarfile
 import zipfile
 import tempfile
-import os
 from typing import Dict, List, Optional, Callable
-from pathlib import Path
 
 
 def extract_from_tar(archive_path: str, 

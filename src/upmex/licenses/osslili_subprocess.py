@@ -355,7 +355,6 @@ class OssliliSubprocessDetector:
                     data = {}
 
                 # Debug: Check what we got
-                import sys
                 if 'scan_results' in data and data['scan_results']:
                     for sr in data['scan_results']:
                         if 'copyright_evidence' in sr and sr['copyright_evidence']:

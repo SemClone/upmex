@@ -5,7 +5,6 @@ Unified license detector that uses OSSlili for all license detection.
 import os
 import tempfile
 from typing import List, Dict, Optional, Any
-from pathlib import Path
 import logging
 
 # OSSlili detection is now handled via subprocess only

@@ -7,7 +7,9 @@ name = "upmex"
 version = "1.7.2"
 description = "Universal Package Metadata Extractor - Extract metadata from various package formats"
 readme = "README.md"
-requires-python = ">=3.8"
+# What CI tests. 3.8 was claimed here and never tested, and has
+# been end of life since October 2024.
+requires-python = ">=3.9"
 license = {text = "Apache-2.0"}
 authors = [
     {name = "Oscar Valenzuela B.", email = "oscar.valenzuela.b@gmail.com"}
@@ -25,11 +27,11 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: System :: Archiving :: Packaging",
@@ -110,12 +112,19 @@ exclude_lines = [
 
 [tool.black]
 line-length = 100
-target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+target-version = ['py39', 'py310', 'py311', 'py312', 'py313']
 include = '\.pyi?$'
 
 [tool.ruff]
 line-length = 100
-target-version = "py38"
+target-version = "py39"
+
+[tool.ruff.lint]
+# What CI enforces, and what the tree is clean against: pyflakes, which finds
+# unused imports, dead assignments and undefined names, plus the E9 syntax
+# errors. The wider set below is what an author can run locally; the tree is
+# not clean against it and asking CI to fail on it would only teach everyone
+# to ignore a red check.
 select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
@@ -126,16 +135,16 @@ select = [
     "UP", # pyupgrade
 ]
 ignore = [
-    "E501", # line too long (handled by black)
+    "E501", # line too long
     "B008", # do not perform function calls in argument defaults
     "W191", # indentation contains tabs
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false

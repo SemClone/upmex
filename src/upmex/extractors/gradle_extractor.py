@@ -3,9 +3,9 @@
 import logging
 import re
 from pathlib import Path
-from typing import Dict, Any, Optional, List
+from typing import Dict, Optional, List
 from .base import BaseExtractor
-from ..core.models import PackageMetadata, PackageType, NO_ASSERTION
+from ..core.models import PackageMetadata, PackageType
 
 logger = logging.getLogger(__name__)
 

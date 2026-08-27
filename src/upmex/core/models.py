@@ -1,7 +1,7 @@
 """Data models for package metadata."""
 
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Any, Union
+from typing import List, Dict, Optional, Any
 from datetime import datetime
 from enum import Enum
 

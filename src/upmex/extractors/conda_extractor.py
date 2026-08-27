@@ -3,11 +3,9 @@
 import json
 import tarfile
 import zipfile
-import tempfile
-import os
 import io
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any
 import yaml
 try:
     import zstandard as zstd

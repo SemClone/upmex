@@ -1,14 +1,15 @@
 """Debian package extractor."""
 
-import os
+import logging
 import subprocess
 import tempfile
 import tarfile
-import gzip
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict
 from .base import BaseExtractor
 from ..core.models import PackageMetadata, LicenseInfo, NO_ASSERTION
+
+logger = logging.getLogger(__name__)
 
 
 class DebianExtractor(BaseExtractor):
@@ -117,8 +118,9 @@ class DebianExtractor(BaseExtractor):
             self._extract_license_from_package(package_path, metadata)
             
         except Exception as e:
-            # Silently fall back to archive extraction
-            pass
+            logger.debug(
+                "dpkg-deb read failed, falling back to archive extraction: %s", e
+            )
     
     def _extract_dependencies_from_dpkg(self, dpkg_output: str, metadata: PackageMetadata):
         """Extract dependencies from dpkg output."""
@@ -179,6 +181,14 @@ class DebianExtractor(BaseExtractor):
                     capture_output=True,
                     check=False
                 )
+                if result.returncode != 0:
+                    # Not fatal: the next block tries control.tar.xz. Saying so
+                    # beats leaving the caller to guess from a missing field.
+                    logger.debug(
+                        "ar could not extract control.tar.gz from %s: %s",
+                        package_path,
+                        result.stderr.decode(errors='replace').strip(),
+                    )
                 
                 control_tar = Path(temp_dir) / 'control.tar.gz'
                 if not control_tar.exists():
