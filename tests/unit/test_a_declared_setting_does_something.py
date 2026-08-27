@@ -351,26 +351,41 @@ class TestTempDir:
     """Fifteen extractors unpack into tempfile.TemporaryDirectory() and none
     of them knew about the setting."""
 
-    def test_temporary_work_lands_in_the_configured_directory(self, tmp_path):
+    def _where_the_extraction_unpacked(self, monkeypatch):
+        """Record the parent of every temporary directory made during an
+        extraction, which is the thing the setting is supposed to move.
+        Checking tempfile.tempdir after construction instead would pass even
+        if the extraction itself used the wrong directory."""
         import tempfile
 
+        seen = []
+        real = tempfile.TemporaryDirectory
+
+        class Recording(real):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                seen.append(Path(self.name).parent)
+
+        monkeypatch.setattr(tempfile, "TemporaryDirectory", Recording)
+        return seen
+
+    def test_the_extraction_unpacks_into_the_configured_directory(
+        self, tmp_path, package, monkeypatch
+    ):
         from upmex.core.extractor import PackageExtractor
 
         elsewhere = tmp_path / "somewhere-else"
         elsewhere.mkdir()
-        original = tempfile.tempdir
-        try:
-            PackageExtractor({"extraction": {"temp_dir": str(elsewhere)}})
-            with tempfile.TemporaryDirectory() as created:
-                assert Path(created).parent == elsewhere
-        finally:
-            tempfile.tempdir = original
+        seen = self._where_the_extraction_unpacked(monkeypatch)
 
-    def test_a_library_caller_gets_it_too(self, tmp_path):
+        PackageExtractor({"extraction": {"temp_dir": str(elsewhere)}}).extract(package)
+
+        assert seen, "the extraction made no temporary directory"
+        assert all(parent == elsewhere for parent in seen), seen
+
+    def test_a_library_caller_gets_it_too(self, tmp_path, package, monkeypatch):
         """It used to be applied by the command, so building the extractor
         directly, which is what the documentation shows, did nothing."""
-        import tempfile
-
         from upmex.config import Config
         from upmex.core.extractor import PackageExtractor
 
@@ -380,43 +395,64 @@ class TestTempDir:
         config_file.write_text(
             json.dumps({"extraction": {"temp_dir": str(elsewhere)}})
         )
-        original = tempfile.tempdir
-        try:
-            PackageExtractor(Config(str(config_file)).to_dict())
-            assert tempfile.tempdir == str(elsewhere)
-        finally:
-            tempfile.tempdir = original
+        seen = self._where_the_extraction_unpacked(monkeypatch)
 
-    def test_one_run_does_not_leave_its_directory_to_the_next(self, tmp_path):
-        """tempfile.tempdir is process wide. Setting it only when configured
-        left the previous run's directory in force for a run that asked for
-        nothing, which is the configuration of the run before deciding this
-        one."""
+        PackageExtractor(Config(str(config_file)).to_dict()).extract(package)
+
+        assert seen and all(parent == elsewhere for parent in seen), seen
+
+    def test_one_extractor_does_not_decide_where_another_unpacks(
+        self, tmp_path, package, monkeypatch
+    ):
+        """Applied once at construction, the second extractor built would set
+        the process-wide value and the first would then unpack under it."""
+        from upmex.core.extractor import PackageExtractor
+
+        mine = tmp_path / "mine"
+        mine.mkdir()
+        theirs = tmp_path / "theirs"
+        theirs.mkdir()
+
+        first = PackageExtractor({"extraction": {"temp_dir": str(mine)}})
+        PackageExtractor({"extraction": {"temp_dir": str(theirs)}})
+        seen = self._where_the_extraction_unpacked(monkeypatch)
+
+        first.extract(package)
+
+        assert seen and all(parent == mine for parent in seen), seen
+
+    def test_a_host_application_keeps_its_own_setting(self, tmp_path, package):
+        """tempfile.tempdir belongs to the process, not to upmex."""
         import tempfile
 
         from upmex.core.extractor import PackageExtractor
 
-        elsewhere = tmp_path / "first-run"
-        elsewhere.mkdir()
+        chosen = tmp_path / "the-host-chose-this"
+        chosen.mkdir()
         original = tempfile.tempdir
+        tempfile.tempdir = str(chosen)
         try:
-            PackageExtractor({"extraction": {"temp_dir": str(elsewhere)}})
-            PackageExtractor({})
+            PackageExtractor({"extraction": {"temp_dir": str(tmp_path)}}).extract(package)
 
-            assert tempfile.tempdir is None
+            assert tempfile.tempdir == str(chosen)
         finally:
             tempfile.tempdir = original
 
-    def test_nothing_changes_when_it_is_unset(self, tmp_path):
+    def test_and_keeps_it_when_upmex_is_configured_with_nothing(
+        self, tmp_path, package
+    ):
         import tempfile
 
         from upmex.core.extractor import PackageExtractor
 
+        chosen = tmp_path / "host-choice"
+        chosen.mkdir()
         original = tempfile.tempdir
+        tempfile.tempdir = str(chosen)
         try:
-            PackageExtractor({})
-            with tempfile.TemporaryDirectory() as created:
-                assert Path(created).exists()
+            PackageExtractor({}).extract(package)
+
+            assert tempfile.tempdir == str(chosen)
         finally:
             tempfile.tempdir = original
 
@@ -431,6 +467,31 @@ class TestTempDir:
 
         assert result.exit_code == 0, result.output
         json.loads(result.stdout)
+
+    def test_and_the_extraction_uses_the_system_directory_instead(
+        self, tmp_path, package, monkeypatch, caplog
+    ):
+        """Not the directory that does not exist. Pointing tempfile at a
+        missing path makes every unpack raise, and those are caught, so the
+        record comes back thin with nothing saying why."""
+        import tempfile
+
+        from upmex.core.extractor import PackageExtractor
+
+        missing = tmp_path / "no-such-place"
+        seen = self._where_the_extraction_unpacked(monkeypatch)
+
+        with caplog.at_level(logging.WARNING):
+            PackageExtractor(
+                {"extraction": {"temp_dir": str(missing)}}
+            ).extract(package)
+
+        assert seen, "the extraction made no temporary directory"
+        assert all(parent != missing for parent in seen), seen
+        assert all(
+            parent == Path(tempfile.gettempdir()) for parent in seen
+        ), seen
+        assert "is not a directory" in caplog.text
 
 
 class TestTheLimitAppliesEverywhere:

@@ -3,6 +3,7 @@
 import logging
 import hashlib
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional, Dict, Any
 from ..config import setting
@@ -34,34 +35,40 @@ from ..api.ecosystems import EcosystemsAPI
 logger = logging.getLogger(__name__)
 
 
-def _apply_temp_dir(config):
-    """Apply extraction.temp_dir.
+@contextmanager
+def _temporary_work_in(config):
+    """Put temporary work under extraction.temp_dir for the duration.
 
     Fifteen extractors unpack into tempfile.TemporaryDirectory() and none of
     them knew about the setting, so tempfile itself is pointed at the
-    configured directory and all of them follow. It lives here rather than in
-    the command because a library caller builds this object too, and the
-    setting did nothing for them while the command owned it.
+    configured directory and all of them follow.
 
-    tempfile.tempdir is process wide, so it is set on every construction
-    rather than only when configured. Setting it only when present left one
-    run's directory in force for the next run that did not ask for one.
+    Scoped to the extraction rather than set once, for two reasons.
+    tempfile.tempdir belongs to the process, not to upmex, and a host
+    application that set it deliberately should still have it afterwards. And
+    two extractors configured differently would otherwise share whichever
+    value was set last, so the second one built would decide where the first
+    one unpacks.
     """
-    temp_dir = setting(config, 'extraction.temp_dir', None)
+    configured = setting(config, 'extraction.temp_dir', None)
 
-    if not temp_dir:
-        tempfile.tempdir = None
-        return
-
-    if not Path(temp_dir).is_dir():
+    if configured and not Path(configured).is_dir():
         logger.warning(
             "extraction.temp_dir %s is not a directory, using the system default",
-            temp_dir,
+            configured,
         )
-        tempfile.tempdir = None
+        configured = None
+
+    if not configured:
+        yield
         return
 
-    tempfile.tempdir = str(temp_dir)
+    previous = tempfile.tempdir
+    tempfile.tempdir = str(configured)
+    try:
+        yield
+    finally:
+        tempfile.tempdir = previous
 
 
 class PackageExtractor:
@@ -82,7 +89,6 @@ class PackageExtractor:
             config = Config().to_dict()
         self.config = config
         self.registry_mode = self.config.get('registry_mode', False)
-        _apply_temp_dir(self.config)
         
         # Initialize extractors with registry mode
         self.extractors = {
@@ -105,6 +111,10 @@ class PackageExtractor:
         }
     
     def extract(self, package_path: str) -> PackageMetadata:
+        with _temporary_work_in(self.config):
+            return self._extract(package_path)
+
+    def _extract(self, package_path: str) -> PackageMetadata:
         """Extract metadata from a package file.
         
         Args:
