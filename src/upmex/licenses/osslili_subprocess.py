@@ -12,6 +12,34 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# osslili scores a match and also says what kind of evidence it is. A score
+# alone is not the whole claim: the same MIT text scores 0.95 on one machine
+# and 0.6 on another, because the similarity backend differs. Gating only on
+# the number made the reported licence depend on where upmex ran.
+#
+# category == "declared" is osslili concluding the file declares this licence,
+# which is a statement about the evidence rather than about how close the text
+# matched. Take it, take an exact identifier match, and take a high score.
+# Everything weaker than that stays out.
+EXACT_DETECTION_METHODS = ('tag', 'spdx_identifier')
+HIGH_CONFIDENCE = 0.95
+
+# Often confused with Apache-2.0, and never right when it appears.
+KNOWN_FALSE_POSITIVES = ('Pixar',)
+
+
+def is_reportable(lic, spdx_id=None):
+    """Whether one piece of osslili evidence is strong enough to report."""
+    spdx_id = spdx_id or lic.get('spdx_id') or lic.get('detected_license')
+    if spdx_id in KNOWN_FALSE_POSITIVES:
+        return False
+    return (
+        lic.get('confidence', 0) >= HIGH_CONFIDENCE
+        or lic.get('detection_method', '') in EXACT_DETECTION_METHODS
+        or lic.get('category') == 'declared'
+    )
+
+
 
 class OssliliSubprocessDetector:
     """License detector using osslili CLI."""
@@ -97,13 +125,7 @@ class OssliliSubprocessDetector:
                                         "match_type": lic.get('match_type'),
                                     }
                                     
-                                    # Include high-confidence matches or tag detections
-                                    detection_method = lic.get('detection_method', '')
-                                    if (lic.get('confidence', 0) >= 0.95 or 
-                                        detection_method in ['tag', 'spdx_identifier']):
-                                        # Skip known false positive: Pixar
-                                        if spdx_id == 'Pixar':
-                                            continue
+                                    if is_reportable(lic, spdx_id):
                                         licenses.append(license_info)
                     elif 'results' in data and data['results']:
                         # Fallback to old format
@@ -129,13 +151,7 @@ class OssliliSubprocessDetector:
                                         "match_type": lic.get('match_type'),
                                     }
                                     
-                                    # Include high-confidence matches or tag detections
-                                    detection_method = lic.get('detection_method', '')
-                                    if (lic.get('confidence', 0) >= 0.95 or 
-                                        detection_method in ['tag', 'spdx_identifier']):
-                                        # Skip known false positive: Pixar
-                                        if lic.get('spdx_id') == 'Pixar':
-                                            continue
+                                    if is_reportable(lic):
                                         licenses.append(license_info)
                         
             finally:
@@ -222,13 +238,7 @@ class OssliliSubprocessDetector:
                                     "match_type": lic.get('match_type'),
                                 }
                                 
-                                # Include high-confidence matches or tag detections
-                                detection_method = lic.get('detection_method', '')
-                                if (lic.get('confidence', 0) >= 0.95 or 
-                                    detection_method in ['tag', 'spdx_identifier']):
-                                    # Skip known false positive: Pixar
-                                    if spdx_id == 'Pixar':
-                                        continue
+                                if is_reportable(lic, spdx_id):
                                     licenses.append(license_info)
                 elif 'results' in data and data['results']:
                     # Fallback to old format
@@ -256,12 +266,7 @@ class OssliliSubprocessDetector:
                                     "match_type": lic.get('match_type'),
                                 }
                                 
-                                # Only include very high-confidence matches
-                                # Filter known false positives
-                                if lic.get('confidence', 0) >= 0.95:
-                                    # Skip known false positive: Pixar (often confused with Apache-2.0)
-                                    if lic.get('spdx_id') == 'Pixar':
-                                        continue
+                                if is_reportable(lic):
                                     licenses.append(license_info)
 
                 # Extract copyrights from scan_results - moved to correct indentation level
