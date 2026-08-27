@@ -51,25 +51,26 @@ WEAK_DECLARED_MATCH_TYPES = ('documentation',)
 # the evidence record from a real SPDX-License-Identifier line. An MIT package
 # whose README credits a bundled dependency was reported as Apache-2.0.
 #
-# So inside a document, a licence named inside a sentence proves nothing.
-# What still counts is evidence that the document carries the licence, or
-# states it in a line whose whole purpose is to state it. osslili separates
-# those: a real "SPDX-License-Identifier: MIT" or "License: MIT" line comes
-# back as header_tag, while "...is licensed under the Apache License" comes
-# back as spdx_identifier.
+# So inside a document a licence has to be present, not merely named. Naming
+# is what osslili cannot tell apart from declaring: its SPDX patterns match
+# prose, and its header rule matches "License: X" anywhere in the first thirty
+# lines, mid-sentence included. "It bundles terser, license: BSD-2-Clause, for
+# minification" is reported exactly as a real SPDX-License-Identifier line is.
+# Carrying the text is different, and osslili says so with a match type of its
+# own: a README holding a full MIT licence comes back as text_similarity near
+# 0.98, so the common "licence only in the README" package still resolves.
 #
-# The cost is deliberate. A document holding a full licence text and nothing
-# else is reported as match_type documentation at a score that depends on the
-# machine, the same shape a partial mention produces, so it is refused with
-# the mentions. A package whose only licence statement is prose in its README
-# and which ships no licence file is not read from that prose.
-DOCUMENT_SUFFIXES = ('.md', '.rst', '.adoc', '.txt')
+# The suffixes are the set osslili itself scans as text. Listing fewer left
+# README.markdown and README.asciidoc outside the rule, where the credit
+# sentence this exists to refuse went straight through.
+DOCUMENT_SUFFIXES = (
+    '.md', '.markdown', '.rst', '.adoc', '.asciidoc', '.txt', '.text',
+)
 CARRIES_LICENCE_TEXT = (
     'license_file',
     'license_header',
     'text_similarity',
     'exact_hash',
-    'header_tag',
 )
 
 # LICENSE.txt and LICENCE.md are licence files that happen to have a document
@@ -106,8 +107,14 @@ def is_reportable(lic, spdx_id=None, source_file=None):
     if lic.get('category') in REJECTED_CATEGORIES:
         return False
 
-    if _reads_as_a_document(source_file or lic.get('file')):
-        return lic.get('match_type') in CARRIES_LICENCE_TEXT
+    if _reads_as_a_document(
+            source_file or lic.get('file') or lic.get('source_file')):
+        # The score matters here too. A partial text match lands in a band
+        # osslili only reports when an optional backend is installed, so
+        # accepting it at any score would put back the machine dependence this
+        # rule exists to remove.
+        return (lic.get('match_type') in CARRIES_LICENCE_TEXT
+                and lic.get('confidence', 0) >= HIGH_CONFIDENCE)
 
     if lic.get('detection_method', '') in EXACT_DETECTION_METHODS:
         return True

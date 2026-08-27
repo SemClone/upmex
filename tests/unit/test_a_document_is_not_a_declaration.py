@@ -49,8 +49,10 @@ class TestAMentionIsNotADeclaration:
     def test_a_readme_crediting_a_dependency_reports_nothing(self):
         assert _found("README.md", CREDITS_A_DEPENDENCY) == []
 
-    @pytest.mark.parametrize("name", ["README.md", "CHANGELOG.md", "docs.rst",
-                                      "guide.adoc", "notes.txt"])
+    @pytest.mark.parametrize("name", [
+        "README.md", "README.markdown", "README.text", "README.asciidoc",
+        "CHANGELOG.md", "docs.rst", "guide.adoc", "notes.txt",
+    ])
     def test_in_every_kind_of_document(self, name):
         assert _found(name, CREDITS_A_DEPENDENCY) == []
 
@@ -60,15 +62,65 @@ class TestAMentionIsNotADeclaration:
         assert "Apache-2.0" not in found
 
 
-class TestADocumentCanStillDeclare:
-    """A line whose whole purpose is to state the licence is a declaration,
-    wherever it sits."""
+# The complete text, because a document only counts when it carries the
+# licence, and osslili measures that by how closely the text matches.
+FULL_MIT_TEXT = """MIT License
 
-    def test_an_spdx_identifier_line(self):
-        assert _found("README.md", "SPDX-License-Identifier: MIT\n\nA parser.\n") == ["MIT"]
+Copyright (c) 2024 Example
 
-    def test_a_license_line(self):
-        assert _found("README.md", "License: MIT\n\nA parser.\n") == ["MIT"]
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE."""
+
+
+class TestADocumentThatCarriesTheLicence:
+    """Naming a licence is what osslili cannot tell from declaring one, so
+    the licence has to be present. Carrying the text is a different match
+    type, and that is what counts here."""
+
+    def test_a_readme_holding_the_licence_text_is_read(self):
+        assert _found("README.md", "# mypkg\n\n## License\n\n" + FULL_MIT_TEXT) == ["MIT"]
+
+    def test_in_a_markdown_variant_too(self):
+        assert _found("README.markdown", "# mypkg\n\n## License\n\n" + FULL_MIT_TEXT) == ["MIT"]
+
+    def test_a_bare_spdx_line_is_not_enough_on_its_own(self):
+        """The cost of the rule, stated. osslili reports a real
+        SPDX-License-Identifier line and the sentence "it bundles terser,
+        license: BSD-2-Clause" as the same kind of evidence, so neither can
+        be trusted inside a document. Package metadata carries this case."""
+        assert _found("README.md", "SPDX-License-Identifier: MIT\n\nA parser.\n") == []
+
+    def test_nor_is_a_license_line(self):
+        assert _found("README.md", "License: MIT\n\nA parser.\n") == []
+
+
+class TestTheProseThatLooksLikeAHeader:
+    """osslili matches "License: X" anywhere in the first thirty lines,
+    mid-sentence included, and reports it exactly as a real header."""
+
+    @pytest.mark.parametrize("line", [
+        "It bundles terser, license: BSD-2-Clause, for minification.\n",
+        "| terser | License: BSD-2-Clause |\n",
+        "- lodash, license: MIT\n",
+        "Dependencies: react (License: MIT), terser (License: BSD-2-Clause)\n",
+    ])
+    def test_a_dependency_credit_is_not_the_package_licence(self, line):
+        assert _found("README.md", line) == []
 
 
 class TestALicenceFileIsNeverADocument:
@@ -132,3 +184,21 @@ class TestADegenerateFilename:
 
     def test_a_document_deep_in_a_tree_is_still_a_document(self):
         assert _found("docs/guide/README.md", CREDITS_A_DEPENDENCY) == []
+
+
+class TestLicenceFilesWithASuffixedName:
+    """A dual-licensed project ships LICENSE-MIT.txt and LICENSE-APACHE.txt.
+    Those are licence files with a document suffix, and reading them as
+    documents would refuse the very files that hold the licence."""
+
+    @pytest.mark.parametrize("name", [
+        "LICENSE-MIT.txt", "LICENSE-APACHE.txt", "LICENCE-MIT.md",
+        "license_apache.md", "licenses.txt", "COPYING.LESSER",
+    ])
+    def test_it_is_read(self, name):
+        assert _found(name, "SPDX-License-Identifier: MIT\n") == ["MIT"], name
+
+    @pytest.mark.parametrize("name", ["CHANGELOG.md", "CONTRIBUTING.md",
+                                      "docs/install.rst", "notes.txt"])
+    def test_but_a_document_is_still_a_document(self, name):
+        assert _found(name, "SPDX-License-Identifier: MIT\n") == [], name

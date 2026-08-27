@@ -164,13 +164,45 @@ class TestAMentionIsNotADeclaration:
             README_CREDITING_A_DEPENDENCY[2], source_file="README.md"
         )
 
-    def test_but_a_line_that_exists_to_state_the_licence_is(self):
-        """A real SPDX-License-Identifier or License: line. osslili reports
-        those as header_tag, which is how they are told from prose."""
-        assert is_reportable(
-            {"detected_license": "MIT", "confidence": 1.0,
+    def test_a_header_shaped_line_is_not_rescued_either(self):
+        """osslili reports a real SPDX-License-Identifier line and the
+        sentence "it bundles terser, license: BSD-2-Clause" both as
+        header_tag, so inside a document neither can be trusted."""
+        assert not is_reportable(
+            {"detected_license": "BSD-2-Clause", "confidence": 1.0,
              "detection_method": "tag", "category": "declared",
              "match_type": "header_tag"},
+            source_file="README.md",
+        )
+
+    def test_a_match_type_the_rule_has_not_heard_of_stays_out(self):
+        """The document branch names what it accepts. A blocklist would let
+        every future match type in unexamined."""
+        assert not is_reportable(
+            {"detected_license": "MIT", "confidence": 1.0,
+             "detection_method": "regex", "category": "declared",
+             "match_type": "some_new_thing"},
+            source_file="README.md",
+        )
+
+    @pytest.mark.parametrize("match_type", [
+        "license_file", "license_header", "text_similarity", "exact_hash",
+    ])
+    def test_but_evidence_the_document_carries_it_does(self, match_type):
+        assert is_reportable(
+            {"detected_license": "MIT", "confidence": 0.98,
+             "detection_method": "dice-sorensen", "category": "declared",
+             "match_type": match_type},
+            source_file="README.md",
+        )
+
+    def test_and_not_a_weak_text_match(self):
+        """A partial match lands in a band osslili only reports when an
+        optional backend is installed."""
+        assert not is_reportable(
+            {"detected_license": "MIT", "confidence": 0.55,
+             "detection_method": "dice-sorensen", "category": "declared",
+             "match_type": "text_similarity"},
             source_file="README.md",
         )
 
@@ -283,6 +315,29 @@ class TestTheOldOutputFormat:
         ], key="results")):
             found = OssliliSubprocessDetector().detect_from_file("LICENSE", MIT_TEXT)
         assert found == []
+
+
+class TestTheOldFormatCarriesTheFileUnderAnotherName:
+    """The pre-evidence format names the file source_file, not file. Reading
+    only one key left the document rule silently off for that whole branch."""
+
+    def test_a_mention_in_a_document_is_still_refused(self):
+        with patch("subprocess.run", return_value=_result([
+            {"spdx_id": "Apache-2.0", "confidence": 1.0,
+             "detection_method": "tag", "category": "declared",
+             "match_type": "spdx_identifier", "source_file": "README.md"}
+        ], key="results")):
+            found = OssliliSubprocessDetector().detect_from_directory("/repo")
+        assert found["licenses"] == []
+
+    def test_and_a_licence_file_is_still_read(self):
+        with patch("subprocess.run", return_value=_result([
+            {"spdx_id": "MIT", "confidence": 1.0,
+             "detection_method": "tag", "category": "declared",
+             "match_type": "spdx_identifier", "source_file": "LICENSE"}
+        ], key="results")):
+            found = OssliliSubprocessDetector().detect_from_directory("/repo")
+        assert [lic["spdx_id"] for lic in found["licenses"]] == ["MIT"]
 
 
 class TestADirectoryScanUsesTheSameRule:
