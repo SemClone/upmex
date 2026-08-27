@@ -64,6 +64,14 @@ Third party services used by `--api`. See [Integration]({{ site.baseurl }}/integ
 | `api.ecosystems.base_url` | `https://api.ecosyste.ms/v1` | Service endpoint |
 | `api.ecosystems.timeout` | `30` | Seconds |
 | `api.ecosystems.api_key` | `null` | Optional key |
+| `api.purldb.enabled` | `true` | Whether PurlDB may be used |
+| `api.purldb.base_url` | `https://public.purldb.io` | Service endpoint |
+| `api.purldb.timeout` | `30` | Seconds |
+| `api.purldb.api_key` | `null` | Optional key |
+| `api.vulnerablecode.enabled` | `true` | Whether VulnerableCode may be used |
+| `api.vulnerablecode.base_url` | `https://public.vulnerablecode.io` | Service endpoint |
+| `api.vulnerablecode.timeout` | `30` | Seconds |
+| `api.vulnerablecode.api_key` | `null` | Required for vulnerability lookups |
 
 ### extraction
 

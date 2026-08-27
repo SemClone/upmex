@@ -225,12 +225,17 @@ Create `config.json`:
     "format": "json",
     "pretty_print": true
   },
-  "cache": {
-    "enabled": true,
-    "directory": "~/.cache/upmex"
+  "extraction": {
+    "max_file_size": 500000000
+  },
+  "logging": {
+    "level": "INFO"
   }
 }
 ```
+
+Every setting shown takes effect. `config/default.json` in the repository is the
+full set with its defaults.
 
 ## Output Format
 

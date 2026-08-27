@@ -168,7 +168,7 @@ class DebianExtractor(BaseExtractor):
     def _extract_from_archive(self, package_path: str, metadata: PackageMetadata):
         """Extract metadata by unpacking the DEB archive."""
         try:
-            with tempfile.TemporaryDirectory() as temp_dir:
+            with tempfile.TemporaryDirectory(dir=self.temp_root()) as temp_dir:
                 # DEB files are ar archives containing:
                 # - debian-binary (version)
                 # - control.tar.gz or control.tar.xz (metadata)
@@ -278,7 +278,7 @@ class DebianExtractor(BaseExtractor):
     def _extract_license_from_package(self, package_path: str, metadata: PackageMetadata):
         """Try to extract license information from the package."""
         try:
-            with tempfile.TemporaryDirectory() as temp_dir:
+            with tempfile.TemporaryDirectory(dir=self.temp_root()) as temp_dir:
                 # Extract data.tar.gz to look for copyright file
                 subprocess.run(
                     ['ar', 'x', package_path, 'data.tar.gz'],

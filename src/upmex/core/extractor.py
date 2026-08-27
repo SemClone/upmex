@@ -2,9 +2,6 @@
 
 import logging
 import hashlib
-import tempfile
-import threading
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Optional, Dict, Any
 from ..config import setting
@@ -64,52 +61,6 @@ def refuse_if_too_large(package_path, config):
         )
 
 
-_TEMP_DIR_LOCK = threading.Lock()
-
-
-@contextmanager
-def _temporary_work_in(config):
-    """Put temporary work under extraction.temp_dir for the duration.
-
-    Fifteen extractors unpack into tempfile.TemporaryDirectory() and none of
-    them knew about the setting, so tempfile itself is pointed at the
-    configured directory and all of them follow.
-
-    Scoped to the extraction rather than set once, for two reasons.
-    tempfile.tempdir belongs to the process, not to upmex, and a host
-    application that set it deliberately should still have it afterwards. And
-    two extractors configured differently would otherwise share whichever
-    value was set last, so the second one built would decide where the first
-    one unpacks.
-    """
-    configured = setting(config, 'extraction.temp_dir', None)
-
-    if configured and not Path(configured).is_dir():
-        logger.warning(
-            "extraction.temp_dir %s is not a directory, using the system default",
-            configured,
-        )
-        configured = None
-
-    if not configured:
-        yield
-        return
-
-    # tempfile.tempdir is one value for the whole process, so two threads
-    # extracting at once would otherwise share whichever set it last: one
-    # unpacks under the other's directory, and the one that finishes second
-    # restores the value the first had saved, leaving it set for good. The
-    # lock is only taken when the setting is in use, so the ordinary case
-    # where nobody configures a directory stays fully concurrent.
-    with _TEMP_DIR_LOCK:
-        previous = tempfile.tempdir
-        tempfile.tempdir = str(configured)
-        try:
-            yield
-        finally:
-            tempfile.tempdir = previous
-
-
 class PackageExtractor:
     """Main class for extracting package metadata."""
     
@@ -150,10 +101,6 @@ class PackageExtractor:
         }
     
     def extract(self, package_path: str) -> PackageMetadata:
-        with _temporary_work_in(self.config):
-            return self._extract(package_path)
-
-    def _extract(self, package_path: str) -> PackageMetadata:
         """Extract metadata from a package file.
         
         Args:

@@ -10,6 +10,7 @@ matters most - it fails when a new setting arrives with no reader.
 import ast
 import json
 import logging
+import re
 import sys
 from pathlib import Path
 
@@ -177,6 +178,89 @@ class TestLogging:
 
         assert result.exit_code == 0, result.output
         json.loads(result.stdout)
+
+
+# Things that name a setting without reading it. Each one satisfied the older
+# grep-based sweep, which is how a setting could arrive with a TODO instead of
+# a reader and the suite stay green.
+ATTACKS_THAT_ARE_NOT_READERS = [
+    "# TODO: wire with setting(config, 'output.made_up', False)",
+    '"""Docstring mentioning setting(config, \'output.made_up\')."""',
+    "if False:\n    setting(config, 'output.made_up', None)",
+    "import click\n@click.option('-x', help='[config: output.made_up]')\ndef f(x):\n    pass",
+]
+
+
+class TestTwoExtractionsAtOnce:
+    """No shared state to get wrong, which is the point of passing the
+    directory rather than setting it."""
+
+    def _run_together(self, package, pairs, monkeypatch):
+        import tempfile
+        import threading
+
+        from upmex.core.extractor import PackageExtractor
+
+        seen = []
+        real = tempfile.TemporaryDirectory
+        lock = threading.Lock()
+
+        class Recording(real):
+            def __init__(self, *args, **kwargs):
+                with lock:
+                    seen.append(
+                        (threading.current_thread().name, kwargs.get("dir"))
+                    )
+                super().__init__(*args, **kwargs)
+
+        monkeypatch.setattr(tempfile, "TemporaryDirectory", Recording)
+
+        def run(config):
+            PackageExtractor(config).extract(package)
+
+        threads = [
+            threading.Thread(target=run, args=(config,), name=name)
+            for name, config in pairs
+        ]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        return seen
+
+    def test_neither_takes_the_others_directory(self, tmp_path, package, monkeypatch):
+        mine = tmp_path / "mine"
+        mine.mkdir()
+        theirs = tmp_path / "theirs"
+        theirs.mkdir()
+
+        seen = self._run_together(package, [
+            ("mine", {"extraction": {"temp_dir": str(mine)}}),
+            ("theirs", {"extraction": {"temp_dir": str(theirs)}}),
+        ], monkeypatch)
+
+        expected = {"mine": str(mine), "theirs": str(theirs)}
+        assert seen
+        for name, where in seen:
+            assert where == expected[name], seen
+
+    def test_an_unconfigured_extraction_does_not_inherit_a_configured_one(
+        self, tmp_path, package, monkeypatch
+    ):
+        """The case a lock taken only when the setting is in use still got
+        wrong: the unconfigured extraction skipped the lock, walked in while
+        the other held the global, and unpacked under its directory."""
+        mine = tmp_path / "mine"
+        mine.mkdir()
+
+        seen = self._run_together(package, [
+            ("configured", {"extraction": {"temp_dir": str(mine)}}),
+            ("unconfigured", {}),
+        ], monkeypatch)
+
+        assert seen
+        for name, where in seen:
+            assert where == (str(mine) if name == "configured" else None), seen
 
 
 class TestSchemaVersionIsNotAPreference:
@@ -721,79 +805,52 @@ class TestANumericLogLevel:
         assert logging.getLogger().level == 30
 
 
-class TestTheTemporaryScopeHoldsUnderPressure:
-    def test_an_exception_inside_it_still_restores_the_previous_value(
-        self, tmp_path, package
-    ):
-        """The limit raises from inside the scope, which is the shape that
-        would leave the directory set for the rest of the process."""
-        import tempfile
+class TestTheDocumentationOnlyShowsRealSettings:
+    """A reader copies the example. An example holding a setting that does
+    not exist creates exactly the orphan this change removes, and the README
+    carried a cache block that was never a setting at all."""
 
-        from upmex.core.extractor import PackageExtractor
+    def _example_from(self, path, heading):
+        text = (REPO_ROOT / path).read_text()
+        block = re.search(
+            rf"{heading}.*?```json\n(.*?)```", text, re.DOTALL
+        )
+        assert block, f"no JSON example under {heading} in {path}"
+        return json.loads(block.group(1))
 
-        elsewhere = tmp_path / "scoped"
-        elsewhere.mkdir()
-        original = tempfile.tempdir
-        try:
-            extractor = PackageExtractor({
-                "extraction": {"temp_dir": str(elsewhere), "max_file_size": 10}
-            })
-            with pytest.raises(ValueError):
-                extractor.extract(package)
+    def _keys(self, node, prefix=""):
+        for key, value in node.items():
+            path = f"{prefix}{key}"
+            if isinstance(value, dict):
+                yield from self._keys(value, f"{path}.")
+            else:
+                yield path
 
-            assert tempfile.tempdir == original
-        finally:
-            tempfile.tempdir = original
+    @pytest.mark.parametrize("path,heading", [
+        ("README.md", "### Configuration File"),
+        ("docs/configuration.md", "keeps its default"),
+    ])
+    def test_every_key_in_the_example_is_a_real_setting(self, path, heading):
+        declared = set(_declared_keys(Config.DEFAULT_CONFIG))
 
-    def test_two_threads_do_not_take_each_others_directory(self, tmp_path, package):
-        """tempfile.tempdir is one value for the whole process. Without a lock
-        one thread unpacks under the other's directory, and the one that
-        finishes second restores what the first had saved, leaving it set."""
-        import tempfile
-        import threading
+        for key in self._keys(self._example_from(path, heading)):
+            assert key in declared, f"{path} shows {key}, which is not a setting"
 
-        from upmex.core.extractor import PackageExtractor
+    def test_every_key_in_the_settings_table_is_a_real_setting(self):
+        """The tables in docs/configuration.md, which are what a reader
+        actually consults."""
+        text = (REPO_ROOT / "docs" / "configuration.md").read_text()
+        documented = set(re.findall(r"^\| `([a-z_]+\.[a-z_.]+)` \|", text, re.MULTILINE))
+        declared = set(_declared_keys(Config.DEFAULT_CONFIG))
 
-        directories = {}
-        for name in ("a", "b"):
-            directory = tmp_path / name
-            directory.mkdir()
-            directories[name] = directory
+        assert documented, "no settings table found"
+        assert documented - declared == set(), documented - declared
 
-        original = tempfile.tempdir
-        seen = []
-        real = tempfile.TemporaryDirectory
+    def test_and_every_real_setting_is_documented(self):
+        """The other direction. A setting nobody can find is not much better
+        than one that does nothing."""
+        text = (REPO_ROOT / "docs" / "configuration.md").read_text()
+        documented = set(re.findall(r"^\| `([a-z_]+\.[a-z_.]+)` \|", text, re.MULTILINE))
+        declared = set(_declared_keys(Config.DEFAULT_CONFIG))
 
-        class Recording(real):
-            def __init__(self, *args, **kwargs):
-                # What the extraction is about to unpack into, and who is
-                # doing it. One recorder for both threads, because installing
-                # one per thread is itself a race.
-                seen.append(
-                    (threading.current_thread().name, tempfile.tempdir)
-                )
-                super().__init__(*args, **kwargs)
-
-        def run(name):
-            PackageExtractor(
-                {"extraction": {"temp_dir": str(directories[name])}}
-            ).extract(package)
-
-        tempfile.TemporaryDirectory = Recording
-        try:
-            threads = [
-                threading.Thread(target=run, args=(name,), name=name)
-                for name in ("a", "b")
-            ]
-            for thread in threads:
-                thread.start()
-            for thread in threads:
-                thread.join()
-        finally:
-            tempfile.TemporaryDirectory = real
-            tempfile.tempdir = original
-
-        assert seen, "no extraction unpacked anything"
-        for name, used in seen:
-            assert used == str(directories[name]), seen
-        assert tempfile.tempdir == original
+        assert declared - documented == set(), declared - documented

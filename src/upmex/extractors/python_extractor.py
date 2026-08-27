@@ -60,7 +60,7 @@ class PythonExtractor(BaseExtractor):
             # Extract copyright information
             import tempfile
             import zipfile
-            with tempfile.TemporaryDirectory() as temp_dir:
+            with tempfile.TemporaryDirectory(dir=self.temp_root()) as temp_dir:
                 try:
                     with zipfile.ZipFile(wheel_path, 'r') as z:
                         # Extract limited files for copyright scanning
@@ -109,7 +109,7 @@ class PythonExtractor(BaseExtractor):
             # Extract copyright information
             import tempfile
             import tarfile
-            with tempfile.TemporaryDirectory() as temp_dir:
+            with tempfile.TemporaryDirectory(dir=self.temp_root()) as temp_dir:
                 try:
                     with tarfile.open(sdist_path, 'r:*') as tar:
                         # Extract limited files for copyright scanning
