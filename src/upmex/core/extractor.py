@@ -44,7 +44,9 @@ def refuse_if_too_large(package_path, config):
     if max_file_size is None:
         return
 
-    if not isinstance(max_file_size, int):
+    # bool is a subclass of int, so PME_MAX_FILE_SIZE=true would otherwise
+    # pass for a one byte limit and refuse everything, and false for zero.
+    if not isinstance(max_file_size, int) or isinstance(max_file_size, bool):
         # A value like "500MB" would otherwise reach the comparison below and
         # fail there, once per package, with a message about int and str.
         logger.warning(

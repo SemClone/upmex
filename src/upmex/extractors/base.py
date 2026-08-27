@@ -54,12 +54,14 @@ class BaseExtractor(ABC):
         it did not get it back.
         """
         root = setting(self.config, 'extraction.temp_dir', None)
-        if not root:
+        if root is None or root == '':
             return None
 
+        # Checked before emptiness, because PME_TEMP_DIR=false becomes the
+        # boolean False, which is falsy and would otherwise pass for unset
+        # and say nothing. PME_TEMP_DIR=true becomes True, which would reach
+        # Path() and raise there rather than here.
         if not isinstance(root, (str, os.PathLike)):
-            # PME_TEMP_DIR=true becomes the boolean True, which would reach
-            # Path() and raise there rather than here.
             logger.warning(
                 "extraction.temp_dir is %r, which is not a path; using the "
                 "system default", root,

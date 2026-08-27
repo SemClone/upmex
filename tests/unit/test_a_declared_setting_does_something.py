@@ -183,12 +183,6 @@ class TestLogging:
 # Things that name a setting without reading it. Each one satisfied the older
 # grep-based sweep, which is how a setting could arrive with a TODO instead of
 # a reader and the suite stay green.
-ATTACKS_THAT_ARE_NOT_READERS = [
-    "# TODO: wire with setting(config, 'output.made_up', False)",
-    '"""Docstring mentioning setting(config, \'output.made_up\')."""',
-    "if False:\n    setting(config, 'output.made_up', None)",
-    "import click\n@click.option('-x', help='[config: output.made_up]')\ndef f(x):\n    pass",
-]
 
 
 class TestTwoExtractionsAtOnce:
@@ -1003,3 +997,109 @@ class TestATempDirThatCannotBeUsed:
         target.mkdir()
 
         assert self._root(str(target)) == str(target)
+
+
+class TestAValueThatBecameABoolean:
+    """Environment values are converted by shape, so `true` and `false`
+    become booleans. Both slipped past checks written for numbers and paths,
+    because False is falsy and bool is a subclass of int."""
+
+    def test_a_false_temp_dir_says_so_rather_than_passing_for_unset(self, caplog):
+        from upmex.extractors.npm_extractor import NpmExtractor
+
+        with caplog.at_level(logging.WARNING):
+            root = NpmExtractor(
+                config={"extraction": {"temp_dir": False}}
+            ).temp_root()
+
+        assert root is None
+        assert "not a path" in caplog.text
+
+    def test_a_true_temp_dir_too(self, caplog):
+        from upmex.extractors.npm_extractor import NpmExtractor
+
+        with caplog.at_level(logging.WARNING):
+            root = NpmExtractor(
+                config={"extraction": {"temp_dir": True}}
+            ).temp_root()
+
+        assert root is None
+        assert "not a path" in caplog.text
+
+    def test_an_unset_temp_dir_stays_quiet(self, caplog):
+        """The other half: None means nobody asked, and that is not worth a
+        warning on every extraction."""
+        from upmex.extractors.npm_extractor import NpmExtractor
+
+        with caplog.at_level(logging.WARNING):
+            root = NpmExtractor(config={}).temp_root()
+
+        assert root is None
+        assert "not a path" not in caplog.text
+
+    @pytest.mark.parametrize("value", [True, False])
+    def test_a_boolean_limit_is_not_a_number_of_bytes(self, value, package, caplog):
+        """True would be a one byte limit and refuse every package, false a
+        zero byte limit and refuse them harder."""
+        from upmex.core.extractor import refuse_if_too_large
+
+        with caplog.at_level(logging.WARNING):
+            refuse_if_too_large(package, {"extraction": {"max_file_size": value}})
+
+        assert "not a number of bytes" in caplog.text
+
+    @pytest.mark.parametrize("value", ["true", "false"])
+    def test_through_the_environment_as_well(self, value, tmp_path, package, monkeypatch):
+        monkeypatch.setenv("PME_MAX_FILE_SIZE", value)
+        result = _run(tmp_path, {}, "extract", package)
+
+        assert result.exit_code == 0, result.output
+        json.loads(result.stdout)
+
+
+class TestNothingIsDefinedTwice:
+    """A duplicated definition means the first copy never runs. Splicing
+    these tests together produced seven of them, and the check that caught it
+    only looked at classes and functions, so a duplicated assignment survived
+    another round."""
+
+    @pytest.mark.parametrize("where", ["src/upmex", "tests"])
+    def test_no_top_level_name_is_shadowed(self, where):
+        import ast
+
+        offenders = []
+        for path in (REPO_ROOT / where).rglob("*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
+            seen = set()
+            for node in tree.body:
+                names = []
+                if isinstance(node, ast.Assign):
+                    names = [t.id for t in node.targets if isinstance(t, ast.Name)]
+                elif isinstance(node, (ast.ClassDef, ast.FunctionDef)):
+                    names = [node.name]
+                for name in names:
+                    if name in seen:
+                        offenders.append(f"{path.name}:{node.lineno} {name}")
+                    seen.add(name)
+
+        assert offenders == [], offenders
+
+    def test_no_method_is_shadowed_within_a_class(self):
+        import ast
+
+        offenders = []
+        for path in (REPO_ROOT / "tests").rglob("*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8", errors="replace"))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.ClassDef):
+                    continue
+                seen = set()
+                for item in node.body:
+                    if isinstance(item, ast.FunctionDef):
+                        if item.name in seen:
+                            offenders.append(
+                                f"{path.name}:{item.lineno} {node.name}.{item.name}"
+                            )
+                        seen.add(item.name)
+
+        assert offenders == [], offenders
