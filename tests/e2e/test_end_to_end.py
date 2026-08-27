@@ -183,13 +183,12 @@ Implementation-Version: 1.0.0
         assert result.exit_code == 0
         assert PackageType.JAR.value in result.output
     
-    def test_detect_command_verbose(self, tmp_path):
+    def test_detect_command_verbose(self, tmp_path, separated_runner):
         """Test detect command with verbose output."""
         file_path = tmp_path / "test.whl"
         file_path.write_text("test content")
         
-        runner = CliRunner()
-        result = runner.invoke(cli, ['detect', str(file_path), '--verbose'])
+        result = separated_runner.invoke(cli, ['detect', str(file_path), '--verbose'])
         
         assert result.exit_code == 0
         assert "File: test.whl" in result.stderr

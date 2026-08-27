@@ -2,7 +2,6 @@
 
 import json
 import pytest
-from click.testing import CliRunner
 from upmex.cli import cli
 
 
@@ -10,9 +9,9 @@ class TestCLI:
     """Test CLI commands."""
     
     @pytest.fixture
-    def runner(self):
+    def runner(self, separated_runner):
         """Create a CLI runner."""
-        return CliRunner()
+        return separated_runner
     
     @pytest.fixture
     def sample_package(self, tmp_path):
