@@ -291,3 +291,50 @@ class TestKeywordsComeOutInAnOrder:
         )
 
         assert keywords == sorted(keywords)
+
+
+class TestADirectoryScanPublishesLicencesInAnOrder:
+    """The list goes straight into a Debian package's record. osslili scans
+    concurrently and sorts its evidence by confidence, so two licences of
+    equal confidence keep whatever order the threads finished in."""
+
+    def _scan(self, evidence):
+        from unittest.mock import patch
+
+        from upmex.licenses.osslili_subprocess import OssliliSubprocessDetector
+
+        payload = json.dumps({
+            "scan_results": [{"license_evidence": evidence, "copyright_evidence": []}]
+        })
+
+        class Result:
+            returncode = 0
+            stderr = ""
+            stdout = payload
+
+        with patch("subprocess.run", return_value=Result()):
+            found = OssliliSubprocessDetector().detect_from_directory("/repo")
+        return [lic["spdx_id"] for lic in found["licenses"]]
+
+    def _evidence(self, *pairs):
+        return [
+            {"detected_license": spdx, "confidence": confidence,
+             "detection_method": "tag", "category": "declared",
+             "match_type": "spdx_identifier", "file": f"/repo/LICENSE-{spdx}"}
+            for spdx, confidence in pairs
+        ]
+
+    def test_two_licences_of_equal_confidence_come_out_the_same_way(self):
+        evidence = self._evidence(("MIT", 1.0), ("Apache-2.0", 1.0))
+
+        assert self._scan(evidence) == self._scan(list(reversed(evidence)))
+
+    def test_and_the_better_evidenced_one_leads(self):
+        evidence = self._evidence(("Zlib", 0.96), ("Apache-2.0", 1.0))
+
+        assert self._scan(evidence)[0] == "Apache-2.0"
+
+    def test_however_it_arrives(self):
+        evidence = self._evidence(("Apache-2.0", 1.0), ("Zlib", 0.96))
+
+        assert self._scan(evidence)[0] == "Apache-2.0"

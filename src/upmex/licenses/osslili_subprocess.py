@@ -461,7 +461,23 @@ class OssliliSubprocessDetector:
         except Exception as e:
             logger.debug(f"Osslili subprocess directory detection failed for {dir_path}: {e}")
             
-        return {"licenses": licenses, "copyrights": copyrights}
+        return {
+            # Ordered before publishing. osslili scans concurrently and sorts
+            # its evidence by confidence, so two licences of equal confidence
+            # keep whatever order the threads finished in, and this list is
+            # assigned straight into a package's record by the Debian
+            # extractor. Best evidence first, which is what osslili intends,
+            # and settled beyond that.
+            "licenses": sorted(
+                licenses,
+                key=lambda lic: (
+                    -float(lic.get('confidence') or 0),
+                    str(lic.get('spdx_id') or ''),
+                    str(lic.get('file') or ''),
+                ),
+            ),
+            "copyrights": copyrights,
+        }
 
     # A match is exact when the file says which licence it is, not when a
     # similarity score is close to one. osslili reports which of those it did.
