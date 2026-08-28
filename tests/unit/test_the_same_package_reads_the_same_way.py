@@ -442,3 +442,43 @@ class TestADirectoryScanPublishesLicencesInAnOrder:
 
         assert one["licenses"] == other["licenses"]
         assert one["copyrights"] == other["copyrights"]
+
+    def test_the_same_licence_in_two_scan_results_settles(self):
+        """The deduplication is global but the ordering was per result, so
+        two records for one licence arriving in different scan results still
+        let the arrival order pick which one was published."""
+        mit = {"detected_license": "MIT", "confidence": 1.0,
+               "category": "declared", "file": "/repo/LICENSE"}
+        first = {"license_evidence": [
+            dict(mit, detection_method="tag", match_type="license_file")]}
+        second = {"license_evidence": [
+            dict(mit, detection_method="spdx_identifier",
+                 match_type="spdx_identifier")]}
+
+        assert (
+            self._scan_results([first, second])["licenses"]
+            == self._scan_results([second, first])["licenses"]
+        )
+
+    def test_the_same_statement_in_two_scan_results_settles_too(self):
+        same = {"statement": "Copyright 2024 Same", "holder": "Same",
+                "years": [2024]}
+        first = {"copyright_evidence": [dict(same, file="/repo/a.go")]}
+        second = {"copyright_evidence": [dict(same, file="/repo/b.go")]}
+
+        assert (
+            self._scan_results([first, second])["copyrights"]
+            == self._scan_results([second, first])["copyrights"]
+        )
+
+    def test_and_the_file_published_with_it_is_the_same_one(self):
+        """The identifier never moved. What moved was the record around it."""
+        same = {"statement": "Copyright 2024 Same", "holder": "Same",
+                "years": [2024]}
+        first = {"copyright_evidence": [dict(same, file="/repo/a.go")]}
+        second = {"copyright_evidence": [dict(same, file="/repo/b.go")]}
+
+        one = self._scan_results([first, second])["copyrights"]
+        other = self._scan_results([second, first])["copyrights"]
+
+        assert [c["file"] for c in one] == [c["file"] for c in other]

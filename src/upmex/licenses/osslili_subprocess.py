@@ -401,42 +401,48 @@ class OssliliSubprocessDetector:
                 seen_licenses = set()
                 # Handle both 'scan_results' format (newer) and 'results' format (older)
                 if 'scan_results' in data and data['scan_results']:
-                    for scan_result in data['scan_results']:
-                        if 'license_evidence' in scan_result:
-                            for lic in _strongest_first(scan_result['license_evidence']):
-                                # Map detected_license to spdx_id for consistency
-                                spdx_id = lic.get('detected_license', lic.get('spdx_id', 'Unknown'))
-                                # Judge before deduplicating. osslili sorts
-                                # evidence by score, so keying on the first
-                                # record for a (licence, file) pair let a
-                                # rejected one stand in for an acceptable one
-                                # behind it, and which came first depended on
-                                # the machine.
-                                if not is_reportable(lic, spdx_id):
-                                    continue
-                                key = (spdx_id, lic.get('file', 'unknown'))
-                                if key in seen_licenses:
-                                    continue
-                                seen_licenses.add(key)
-                                
-                                license_info = {
-                                    "name": lic.get('name', spdx_id),
-                                    "spdx_id": spdx_id,
-                                    "confidence": lic.get('confidence', 0.0),
-                                    "confidence_level": self._get_confidence_level(
-                                        lic.get('confidence', 0.0),
-                                        lic.get('detection_method', ''),
-                                        lic.get('match_type', ''),
-                                    ),
-                                    "source": f"osslili_{lic.get('detection_method', 'unknown')}",
-                                    # Scanning a directory, so this really is
-                                    # the file osslili read.
-                                    "file": lic.get('file', 'unknown'),
-                                    "category": lic.get('category'),
-                                    "match_type": lic.get('match_type'),
-                                }
-                                
-                                licenses.append(license_info)
+                    # Flattened across every scan result before ordering,
+                    # because the deduplication below is global. Ordering
+                    # each result on its own said nothing about two records
+                    # for the same licence arriving in different results.
+                    for lic in _strongest_first([
+                            evidence
+                            for scan_result in data['scan_results']
+                            for evidence in scan_result.get('license_evidence', [])
+                    ]):
+                        # Map detected_license to spdx_id for consistency
+                        spdx_id = lic.get('detected_license', lic.get('spdx_id', 'Unknown'))
+                        # Judge before deduplicating. osslili sorts
+                        # evidence by score, so keying on the first
+                        # record for a (licence, file) pair let a
+                        # rejected one stand in for an acceptable one
+                        # behind it, and which came first depended on
+                        # the machine.
+                        if not is_reportable(lic, spdx_id):
+                            continue
+                        key = (spdx_id, lic.get('file', 'unknown'))
+                        if key in seen_licenses:
+                            continue
+                        seen_licenses.add(key)
+                        
+                        license_info = {
+                            "name": lic.get('name', spdx_id),
+                            "spdx_id": spdx_id,
+                            "confidence": lic.get('confidence', 0.0),
+                            "confidence_level": self._get_confidence_level(
+                                lic.get('confidence', 0.0),
+                                lic.get('detection_method', ''),
+                                lic.get('match_type', ''),
+                            ),
+                            "source": f"osslili_{lic.get('detection_method', 'unknown')}",
+                            # Scanning a directory, so this really is
+                            # the file osslili read.
+                            "file": lic.get('file', 'unknown'),
+                            "category": lic.get('category'),
+                            "match_type": lic.get('match_type'),
+                        }
+                        
+                        licenses.append(license_info)
                 elif 'results' in data and data['results']:
                     # Fallback to old format
                     for result_item in data['results']:
@@ -474,25 +480,25 @@ class OssliliSubprocessDetector:
                 # Extract copyrights from scan_results
                 seen_copyrights = set()
                 if 'scan_results' in data and data['scan_results']:
-                    logger.debug(f"DEBUG: Processing {len(data['scan_results'])} scan results for copyrights")
-                    for scan_result in data['scan_results']:
-                        if 'copyright_evidence' in scan_result:
-                            logger.debug(f"DEBUG: Found {len(scan_result['copyright_evidence'])} copyright items")
-                            for copyright_item in _statements_first(
-                                    scan_result['copyright_evidence']):
-                                statement = copyright_item.get('statement', '')
-                                logger.debug(f"DEBUG: Processing copyright: statement='{statement}'")
-                                if statement and statement not in seen_copyrights:
-                                    seen_copyrights.add(statement)
-                                    copyright_info = {
-                                        "statement": statement,
-                                        "holder": copyright_item.get('holder', ''),
-                                        "years": copyright_item.get('years', []),
-                                        "file": copyright_item.get('file', 'unknown'),
-                                        "confidence": copyright_item.get('confidence', 1.0)
-                                    }
-                                    copyrights.append(copyright_info)
-                                    logger.debug(f"DEBUG: Added copyright: {copyright_info}")
+                    # Flattened for the same reason as the licences above.
+                    for copyright_item in _statements_first([
+                            evidence
+                            for scan_result in data['scan_results']
+                            for evidence in scan_result.get('copyright_evidence', [])
+                    ]):
+                        statement = copyright_item.get('statement', '')
+                        logger.debug(f"DEBUG: Processing copyright: statement='{statement}'")
+                        if statement and statement not in seen_copyrights:
+                            seen_copyrights.add(statement)
+                            copyright_info = {
+                                "statement": statement,
+                                "holder": copyright_item.get('holder', ''),
+                                "years": copyright_item.get('years', []),
+                                "file": copyright_item.get('file', 'unknown'),
+                                "confidence": copyright_item.get('confidence', 1.0)
+                            }
+                            copyrights.append(copyright_info)
+                            logger.debug(f"DEBUG: Added copyright: {copyright_info}")
 
             # TODO: OSSlili v1.5.0 doesn't detect "Copyright (c)" format - FIXED in v1.5.1
             # Issue filed: https://github.com/oscarvalenzuelab/osslili/issues/32
