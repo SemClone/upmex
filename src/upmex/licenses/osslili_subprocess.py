@@ -187,6 +187,43 @@ def is_reportable(lic, spdx_id=None, source_file=None):
 
 
 
+def _strongest_first(evidence):
+    """Order raw licence evidence before anything picks a winner from it.
+
+    Deduplicating first and keeping whichever record arrived first meant the
+    published source and match_type came from whichever of two equally
+    confident records the scan happened to finish first, even though the
+    licence itself did not move.
+    """
+    def strength(item):
+        return (
+            -float(item.get('confidence') or 0),
+            str(item.get('detected_license') or item.get('spdx_id') or ''),
+            str(item.get('match_type') or ''),
+            str(item.get('detection_method') or ''),
+            str(item.get('file') or ''),
+        )
+
+    return sorted(evidence, key=strength)
+
+
+def _statements_first(evidence):
+    """Order raw copyright evidence for the same reason.
+
+    A caller of detect_from_directory got osslili's arrival order, and where
+    two records held the same statement the one whose file was published
+    depended on which thread finished first.
+    """
+    def claim(item):
+        return (
+            str(item.get('statement') or ''),
+            str(item.get('holder') or ''),
+            str(item.get('file') or ''),
+        )
+
+    return sorted(evidence, key=claim)
+
+
 class OssliliSubprocessDetector:
     """License detector using osslili CLI."""
     
@@ -366,7 +403,7 @@ class OssliliSubprocessDetector:
                 if 'scan_results' in data and data['scan_results']:
                     for scan_result in data['scan_results']:
                         if 'license_evidence' in scan_result:
-                            for lic in scan_result['license_evidence']:
+                            for lic in _strongest_first(scan_result['license_evidence']):
                                 # Map detected_license to spdx_id for consistency
                                 spdx_id = lic.get('detected_license', lic.get('spdx_id', 'Unknown'))
                                 # Judge before deduplicating. osslili sorts
@@ -441,7 +478,8 @@ class OssliliSubprocessDetector:
                     for scan_result in data['scan_results']:
                         if 'copyright_evidence' in scan_result:
                             logger.debug(f"DEBUG: Found {len(scan_result['copyright_evidence'])} copyright items")
-                            for copyright_item in scan_result['copyright_evidence']:
+                            for copyright_item in _statements_first(
+                                    scan_result['copyright_evidence']):
                                 statement = copyright_item.get('statement', '')
                                 logger.debug(f"DEBUG: Processing copyright: statement='{statement}'")
                                 if statement and statement not in seen_copyrights:
@@ -476,7 +514,17 @@ class OssliliSubprocessDetector:
                     str(lic.get('file') or ''),
                 ),
             ),
-            "copyrights": copyrights,
+            # Ordered for the same reason, so a caller of this function
+            # gets the same list twice rather than osslili's arrival order.
+            # Package extraction reorders them again by holder; this is what
+            # a direct caller sees.
+            "copyrights": sorted(
+                copyrights,
+                key=lambda c: (
+                    str(c.get('statement') or ''),
+                    str(c.get('holder') or ''),
+                ),
+            ),
         }
 
     # A match is exact when the file says which licence it is, not when a

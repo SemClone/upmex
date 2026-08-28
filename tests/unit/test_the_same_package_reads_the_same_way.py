@@ -316,6 +316,29 @@ class TestADirectoryScanPublishesLicencesInAnOrder:
             found = OssliliSubprocessDetector().detect_from_directory("/repo")
         return [lic["spdx_id"] for lic in found["licenses"]]
 
+    def _scan_whole(self, evidence, copyrights=()):
+        """Every published field, not the identifier alone. Comparing only
+        the identifier missed that the source and match_type came from
+        whichever equally confident record arrived first."""
+        from unittest.mock import patch
+
+        from upmex.licenses.osslili_subprocess import OssliliSubprocessDetector
+
+        payload = json.dumps({
+            "scan_results": [{
+                "license_evidence": evidence,
+                "copyright_evidence": list(copyrights),
+            }]
+        })
+
+        class Result:
+            returncode = 0
+            stderr = ""
+            stdout = payload
+
+        with patch("subprocess.run", return_value=Result()):
+            return OssliliSubprocessDetector().detect_from_directory("/repo")
+
     def _evidence(self, *pairs):
         return [
             {"detected_license": spdx, "confidence": confidence,
@@ -338,3 +361,84 @@ class TestADirectoryScanPublishesLicencesInAnOrder:
         evidence = self._evidence(("Apache-2.0", 1.0), ("Zlib", 0.96))
 
         assert self._scan(evidence)[0] == "Apache-2.0"
+
+    def test_the_whole_record_settles_not_only_the_identifier(self):
+        """Two equally confident records for one licence in one file. The
+        identifier never moved; the source and match_type published alongside
+        it did, because the dedupe kept whichever arrived first."""
+        evidence = [
+            {"detected_license": "MIT", "confidence": 1.0,
+             "detection_method": "tag", "category": "declared",
+             "match_type": "license_file", "file": "/repo/LICENSE"},
+            {"detected_license": "MIT", "confidence": 1.0,
+             "detection_method": "spdx_identifier", "category": "declared",
+             "match_type": "spdx_identifier", "file": "/repo/LICENSE"},
+        ]
+
+        assert (
+            self._scan_whole(evidence)["licenses"]
+            == self._scan_whole(list(reversed(evidence)))["licenses"]
+        )
+
+    def test_and_the_copyrights_a_direct_caller_gets_settle_too(self):
+        """Package extraction reorders them again, so only someone calling
+        this function sees this order. They should still see one order."""
+        copyrights = [
+            {"statement": "Copyright 2024 Same", "holder": "Same",
+             "years": [2024], "file": "/repo/a.go"},
+            {"statement": "Copyright 2024 Same", "holder": "Same",
+             "years": [2024], "file": "/repo/b.go"},
+            {"statement": "Copyright 2009 Other", "holder": "Other",
+             "years": [2009], "file": "/repo/c.go"},
+        ]
+
+        assert (
+            self._scan_whole([], copyrights)["copyrights"]
+            == self._scan_whole([], list(reversed(copyrights)))["copyrights"]
+        )
+
+    def _scan_results(self, results):
+        """osslili returns a list of scan results. Sorting the evidence
+        inside each one settles that one; the order of the list itself is a
+        second place the arrival order can show through."""
+        from unittest.mock import patch
+
+        from upmex.licenses.osslili_subprocess import OssliliSubprocessDetector
+
+        class Result:
+            returncode = 0
+            stderr = ""
+            stdout = json.dumps({"scan_results": list(results)})
+
+        with patch("subprocess.run", return_value=Result()):
+            return OssliliSubprocessDetector().detect_from_directory("/repo")
+
+    def test_the_order_of_the_scan_results_themselves_does_not_show(self):
+        first = {
+            "license_evidence": [
+                {"detected_license": "MIT", "confidence": 1.0,
+                 "detection_method": "tag", "category": "declared",
+                 "match_type": "spdx_identifier", "file": "/repo/a/LICENSE"},
+            ],
+            "copyright_evidence": [
+                {"statement": "Copyright 2024 A", "holder": "A",
+                 "years": [2024], "file": "/repo/a/x.go"},
+            ],
+        }
+        second = {
+            "license_evidence": [
+                {"detected_license": "Apache-2.0", "confidence": 1.0,
+                 "detection_method": "tag", "category": "declared",
+                 "match_type": "spdx_identifier", "file": "/repo/b/LICENSE"},
+            ],
+            "copyright_evidence": [
+                {"statement": "Copyright 2009 B", "holder": "B",
+                 "years": [2009], "file": "/repo/b/y.go"},
+            ],
+        }
+
+        one = self._scan_results([first, second])
+        other = self._scan_results([second, first])
+
+        assert one["licenses"] == other["licenses"]
+        assert one["copyrights"] == other["copyrights"]
