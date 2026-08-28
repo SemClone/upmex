@@ -11,6 +11,7 @@ survived a cap of ten and which holder was listed first.
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -28,7 +29,10 @@ def _record(package):
     return json.dumps({
         "copyright": metadata.copyright,
         "authors": [author.get("name") for author in (metadata.authors or [])],
-        "licenses": sorted(lic.spdx_id for lic in (metadata.licenses or [])),
+        # Not sorted. The order licences come out in is part of the record,
+        # so sorting here would hide exactly the kind of change this is for.
+        "licenses": [lic.spdx_id for lic in (metadata.licenses or [])],
+        "keywords": metadata.keywords,
     })
 
 
@@ -189,3 +193,101 @@ class TestNothingIsLostToTheCap:
         assert len(summaries) == 1, summaries
         only = summaries.pop()
         assert len(only.split(";")) <= MAX_COPYRIGHT_STATEMENTS
+
+
+class TestTheOrderIsTotal:
+    """Two records that tie on every key would otherwise hold whatever order
+    they arrived in, which is the order this exists to replace."""
+
+    def test_identical_claims_collapse_to_one(self):
+        same = {"statement": "Copyright 2024 Same", "holder": "Same"}
+        records = [dict(same, file="/tmp/a.go"), dict(same, file="/tmp/b.go")]
+
+        settled = _in_a_settled_order(records)
+
+        assert len(settled) == 1
+
+    def test_so_reversing_the_input_changes_nothing(self):
+        same = {"statement": "Copyright 2024 Same", "holder": "Same"}
+        records = [dict(same, file="/tmp/a.go"), dict(same, file="/tmp/b.go")]
+
+        assert (
+            [r["statement"] for r in _in_a_settled_order(records)]
+            == [r["statement"] for r in _in_a_settled_order(list(reversed(records)))]
+        )
+
+    def test_a_holder_with_two_statements_still_keeps_both(self):
+        records = _statements(("Same", 2023), ("Same", 2024))
+
+        assert len(_in_a_settled_order(records)) == 2
+
+
+class TestWhatTheOrderingSignalActuallyIs:
+    """Named plainly because it is a heuristic, not a measurement. osslili
+    reports each statement once however many files carry it, so the number of
+    files a holder appears in is not in the record."""
+
+    def test_it_counts_distinct_statements_not_files(self):
+        records = [
+            {"statement": "Copyright 2024 One Liner", "holder": "One Liner",
+             "file": "/tmp/a.go"},
+            {"statement": "Copyright 2009 Many Years", "holder": "Many Years",
+             "file": "/tmp/b.go"},
+            {"statement": "Copyright 2010 Many Years", "holder": "Many Years",
+             "file": "/tmp/c.go"},
+        ]
+
+        assert _in_a_settled_order(records)[0]["holder"] == "Many Years"
+
+    def test_and_every_holder_is_reported_whatever_the_order(self):
+        records = [
+            {"statement": "Copyright 2024 One Liner", "holder": "One Liner",
+             "file": "/tmp/a.go"},
+            {"statement": "Copyright 2009 Many Years", "holder": "Many Years",
+             "file": "/tmp/b.go"},
+            {"statement": "Copyright 2010 Many Years", "holder": "Many Years",
+             "file": "/tmp/c.go"},
+        ]
+
+        holders = {r["holder"] for r in _in_a_settled_order(records)}
+
+        assert holders == {"One Liner", "Many Years"}
+
+
+class TestKeywordsComeOutInAnOrder:
+    """A set's order depends on the hash seed, and this list is published."""
+
+    def test_the_same_build_file_gives_the_same_order(self):
+        """Run in separate processes with different hash seeds, because a
+        set's order is fixed within one process and only moves between them.
+        Comparing three calls in the same process cannot see this at all."""
+        import subprocess
+        import sys
+
+        script = (
+            "import sys; sys.path.insert(0, 'src');"
+            "from upmex.extractors.gradle_extractor import GradleExtractor;"
+            "print(GradleExtractor()._extract_keywords("
+            "'tags = [\"web\", \"api\", \"cli\", \"server\", \"json\", \"tool\"]', False))"
+        )
+
+        orders = set()
+        for seed in ("0", "1", "42", "12345"):
+            result = subprocess.run(
+                [sys.executable, "-c", script],
+                cwd=REPO_ROOT, capture_output=True, text=True,
+                env={**os.environ, "PYTHONHASHSEED": seed},
+            )
+            assert result.returncode == 0, result.stderr
+            orders.add(result.stdout.strip())
+
+        assert len(orders) == 1, orders
+
+    def test_and_it_is_sorted(self, tmp_path):
+        from upmex.extractors.gradle_extractor import GradleExtractor
+
+        keywords = GradleExtractor()._extract_keywords(
+            'tags = ["web", "api", "cli"]\n', False
+        )
+
+        assert keywords == sorted(keywords)

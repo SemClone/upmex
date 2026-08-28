@@ -42,31 +42,44 @@ def _in_a_settled_order(copyrights):
     reported a different author from one run to the next and its record could
     not be compared with itself.
 
-    Ordered by how much of the package each holder accounts for, then by the
-    statement. Sorting on the statement alone is stable but says the package
-    belongs to whoever comes first alphabetically, which for a Go module put
-    a vendored "Copyright 2009 The Go Authors" ahead of the people who wrote
-    it. A holder named across many files is the one whose package this is.
+    Ordered by how many distinct copyright statements name each holder, then
+    by holder and statement. Sorting on the statement alone is stable but
+    says the package belongs to whoever comes first alphabetically, which for
+    a Go module put a vendored "Copyright 2009 The Go Authors" ahead of the
+    people who wrote it.
+
+    Distinct statements, not files: osslili reports each statement once
+    however many files carry it, so the number of files a holder appears in
+    is not in the record and cannot be counted. What this measures is how
+    many years a holder has been claiming copyright here, which a long-lived
+    project accumulates and a vendored file rarely does. It is a heuristic
+    for which holder the package belongs to, and it is only used to order
+    them; every holder is reported either way.
 
     Not ordered by the file. That is the one part of the record that is not
-    stable: osslili reports each distinct statement once and attaches
-    whichever file reached it first, so the same statement comes back against
-    gin_test.go on one run and utils_test.go on the next.
+    stable: osslili attaches whichever file reached a statement first, so the
+    same statement comes back against gin_test.go on one run and
+    utils_test.go on the next.
     """
-    holdings = Counter(
-        str(copyright_info.get('holder') or '')
-        for copyright_info in copyrights
-    )
-
-    def by_weight(copyright_info):
-        holder = str(copyright_info.get('holder') or '')
-        return (
-            -holdings[holder],
-            holder,
+    # Records identical in holder and statement are the same claim, and
+    # nothing downstream can tell them apart. Dropping them here is what
+    # makes the order total: leaving them in, two records that tie on every
+    # key hold whatever order they arrived in.
+    distinct = {}
+    for copyright_info in copyrights:
+        key = (
+            str(copyright_info.get('holder') or ''),
             str(copyright_info.get('statement') or ''),
         )
+        distinct.setdefault(key, copyright_info)
 
-    return sorted(copyrights, key=by_weight)
+    statements_per_holder = Counter(holder for holder, _ in distinct)
+
+    def by_weight(item):
+        (holder, statement), _ = item
+        return (-statements_per_holder[holder], holder, statement)
+
+    return [record for _, record in sorted(distinct.items(), key=by_weight)]
 
 
 class BaseExtractor(ABC):
