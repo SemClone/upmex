@@ -444,10 +444,15 @@ class OssliliSubprocessDetector:
                         
                         licenses.append(license_info)
                 elif 'results' in data and data['results']:
-                    # Fallback to old format
-                    for result_item in data['results']:
-                        if 'licenses' in result_item:
-                            for lic in result_item['licenses']:
+                    # Ordered before the deduplication for the same
+                    # reason as the current format above. Reachable only
+                    # with an osslili old enough to emit it, and wrong in
+                    # the same way without this.
+                    for lic in _strongest_first([
+                            evidence
+                            for result_item in data['results']
+                            for evidence in result_item.get('licenses', [])
+                    ]):
                                 # Create unique key to avoid duplicates
                                 if not is_reportable(lic):
                                     continue

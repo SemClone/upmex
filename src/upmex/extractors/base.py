@@ -42,19 +42,22 @@ def _in_a_settled_order(copyrights):
     reported a different author from one run to the next and its record could
     not be compared with itself.
 
-    Ordered by how many distinct copyright statements name each holder, then
-    by holder and statement. Sorting on the statement alone is stable but
-    says the package belongs to whoever comes first alphabetically, which for
-    a Go module put a vendored "Copyright 2009 The Go Authors" ahead of the
-    people who wrote it.
+    Ordered by how many years each holder has been claiming copyright here,
+    then by holder and statement. Sorting on the statement alone is stable
+    but says the package belongs to whoever comes first alphabetically, which
+    for a Go module put a vendored "Copyright 2009 The Go Authors" ahead of
+    the people who wrote it.
 
-    Distinct statements, not files: osslili reports each statement once
-    however many files carry it, so the number of files a holder appears in
-    is not in the record and cannot be counted. What this measures is how
-    many years a holder has been claiming copyright here, which a long-lived
-    project accumulates and a vendored file rarely does. It is a heuristic
-    for which holder the package belongs to, and it is only used to order
-    them; every holder is reported either way.
+    Years, not statements: a project writing "Copyright 2013-2023" makes one
+    statement covering eleven years, and counting statements ranked it below
+    a third-party file carrying two. osslili expands a range, so the years
+    are there to count.
+
+    Not files, which would be the better signal: osslili reports each
+    statement once however many files carry it, so the number of files a
+    holder appears in is not in the record. This is a heuristic for whose
+    package this is, it is used only to order the holders, and every one of
+    them is reported either way.
 
     Not ordered by the file. That is the one part of the record that is not
     stable: osslili attaches whichever file reached a statement first, so the
@@ -73,11 +76,24 @@ def _in_a_settled_order(copyrights):
         )
         distinct.setdefault(key, copyright_info)
 
+    years_per_holder = {}
+    for (holder, _), record in distinct.items():
+        years = record.get('years') or []
+        years_per_holder.setdefault(holder, set()).update(
+            year for year in years if isinstance(year, int)
+        )
     statements_per_holder = Counter(holder for holder, _ in distinct)
 
     def by_weight(item):
         (holder, statement), _ = item
-        return (-statements_per_holder[holder], holder, statement)
+        return (
+            -len(years_per_holder.get(holder, ())),
+            # A record with no years at all falls back to how many separate
+            # claims the holder makes, which is what this counted before.
+            -statements_per_holder[holder],
+            holder,
+            statement,
+        )
 
     return [record for _, record in sorted(distinct.items(), key=by_weight)]
 

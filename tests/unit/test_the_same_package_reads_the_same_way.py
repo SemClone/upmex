@@ -482,3 +482,161 @@ class TestADirectoryScanPublishesLicencesInAnOrder:
         other = self._scan_results([second, first])["copyrights"]
 
         assert [c["file"] for c in one] == [c["file"] for c in other]
+
+
+class TestTheRecordDoesNotMoveWithTheHashSeed:
+    """The test above extracts twice inside one pytest process, which shares
+    one hash seed, so anything ordered by a set looks settled to it.
+
+    Replacing the author merge with a loop over a set of holders passed all
+    700 tests and still gave gin four different author orders across four
+    seeds. That is the bug this file is named for, green suite and all.
+    """
+
+    def _record_under(self, seed, package):
+        import subprocess
+        import sys
+
+        script = (
+            "import sys, json, warnings, logging;"
+            "warnings.filterwarnings('ignore'); logging.disable(logging.CRITICAL);"
+            "sys.path.insert(0, 'src');"
+            "from upmex.core.extractor import PackageExtractor;"
+            f"m = PackageExtractor().extract({str(package)!r});"
+            "print(json.dumps({"
+            "'copyright': m.copyright,"
+            "'authors': [a.get('name') for a in (m.authors or [])],"
+            "'licenses': [l.spdx_id for l in (m.licenses or [])],"
+            "'keywords': m.keywords}))"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=REPO_ROOT, capture_output=True, text=True,
+            env={**os.environ, "PYTHONHASHSEED": str(seed)},
+        )
+        assert result.returncode == 0, result.stderr
+        return result.stdout.strip()
+
+    @pytest.mark.parametrize("package", [
+        # The one that was unstable, and one with several copyright holders.
+        "gin-v1.10.0.zip",
+        "cobra-v1.8.1.zip",
+    ])
+    def test_four_seeds_give_one_record(self, package):
+        path = PACKAGES / package
+        records = {self._record_under(seed, path) for seed in (0, 1, 5, 7)}
+
+        assert len(records) == 1, records
+
+
+class TestTheHolderWithTheLongestClaimLeads:
+    """Counting statements ranked a project writing one line covering eleven
+    years below a third-party file carrying two. osslili expands a range, so
+    the years are there to count."""
+
+    def test_a_range_outweighs_two_separate_claims(self):
+        records = [
+            {"statement": "Copyright 2013-2023 The Project",
+             "holder": "The Project", "years": list(range(2013, 2024))},
+            {"statement": "Copyright 2009 Third Party",
+             "holder": "Third Party", "years": [2009]},
+            {"statement": "Copyright 2010 Third Party",
+             "holder": "Third Party", "years": [2010]},
+        ]
+
+        assert _in_a_settled_order(records)[0]["holder"] == "The Project"
+
+    def test_however_the_records_arrive(self):
+        records = [
+            {"statement": "Copyright 2009 Third Party",
+             "holder": "Third Party", "years": [2009]},
+            {"statement": "Copyright 2010 Third Party",
+             "holder": "Third Party", "years": [2010]},
+            {"statement": "Copyright 2013-2023 The Project",
+             "holder": "The Project", "years": list(range(2013, 2024))},
+        ]
+
+        assert _in_a_settled_order(records)[0]["holder"] == "The Project"
+
+    def test_a_holder_claiming_more_years_leads(self):
+        records = [
+            {"statement": "Copyright 2009 Brief", "holder": "Brief",
+             "years": [2009]},
+            {"statement": "Copyright 2018 Long", "holder": "Long",
+             "years": [2018]},
+            {"statement": "Copyright 2019 Long", "holder": "Long",
+             "years": [2019]},
+        ]
+
+        assert _in_a_settled_order(records)[0]["holder"] == "Long"
+
+    def test_records_with_no_years_fall_back_to_counting_claims(self):
+        """Named so that the alphabet disagrees with the claim count. With
+        names where they agree, dropping the fallback entirely still passes."""
+        records = [
+            {"statement": "Copyright Alpha", "holder": "Alpha"},
+            {"statement": "Copyright A Zed", "holder": "Zed"},
+            {"statement": "Copyright B Zed", "holder": "Zed"},
+        ]
+
+        assert _in_a_settled_order(records)[0]["holder"] == "Zed"
+
+    def test_and_a_holder_with_years_still_beats_one_with_more_claims(self):
+        """The years come first, so one dated claim outranks two undated
+        ones however many there are."""
+        records = [
+            {"statement": "Copyright 2009 Dated", "holder": "Dated",
+             "years": [2009]},
+            {"statement": "Copyright A Undated", "holder": "Undated"},
+            {"statement": "Copyright B Undated", "holder": "Undated"},
+        ]
+
+        assert _in_a_settled_order(records)[0]["holder"] == "Dated"
+
+    def test_and_a_real_package_reads_the_way_it_should(self):
+        """cobra states one range and nothing else, so counting statements
+        gave it no weight at all."""
+        metadata = PackageExtractor().extract(str(PACKAGES / "cobra-v1.8.1.zip"))
+
+        assert metadata.authors
+        assert metadata.authors[0]["name"] == "The Cobra Authors"
+
+
+class TestTheOlderOutputFormatSettlesToo:
+    """Reachable only with an osslili old enough to emit it, and wrong in the
+    same way without ordering."""
+
+    def _scan(self, licences):
+        from unittest.mock import patch
+
+        from upmex.licenses.osslili_subprocess import OssliliSubprocessDetector
+
+        class Result:
+            returncode = 0
+            stderr = ""
+            stdout = json.dumps({"results": [{"licenses": list(licences)}]})
+
+        with patch("subprocess.run", return_value=Result()):
+            return OssliliSubprocessDetector().detect_from_directory("/repo")
+
+    def test_equal_evidence_comes_out_the_same_way(self):
+        licences = [
+            {"spdx_id": "MIT", "confidence": 1.0, "detection_method": "tag",
+             "source_file": "/repo/LICENSE"},
+            {"spdx_id": "MIT", "confidence": 1.0,
+             "detection_method": "spdx_identifier", "source_file": "/repo/LICENSE"},
+        ]
+
+        assert self._scan(licences) == self._scan(list(reversed(licences)))
+
+
+class TestADirectoryIsWalkedInAnOrder:
+    """os.listdir returns whatever the filesystem gives, which is stable on
+    one machine and not guaranteed between them."""
+
+    def test_the_perl_extractor_does_not_walk_unordered(self):
+        source = (REPO_ROOT / "src" / "upmex" / "extractors"
+                  / "perl_extractor.py").read_text()
+
+        assert "sorted(os.listdir(" in source
+        assert source.count("os.listdir(") == source.count("sorted(os.listdir(")
