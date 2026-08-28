@@ -187,6 +187,43 @@ def is_reportable(lic, spdx_id=None, source_file=None):
 
 
 
+def _strongest_first(evidence):
+    """Order raw licence evidence before anything picks a winner from it.
+
+    Deduplicating first and keeping whichever record arrived first meant the
+    published source and match_type came from whichever of two equally
+    confident records the scan happened to finish first, even though the
+    licence itself did not move.
+    """
+    def strength(item):
+        return (
+            -float(item.get('confidence') or 0),
+            str(item.get('detected_license') or item.get('spdx_id') or ''),
+            str(item.get('match_type') or ''),
+            str(item.get('detection_method') or ''),
+            str(item.get('file') or ''),
+        )
+
+    return sorted(evidence, key=strength)
+
+
+def _statements_first(evidence):
+    """Order raw copyright evidence for the same reason.
+
+    A caller of detect_from_directory got osslili's arrival order, and where
+    two records held the same statement the one whose file was published
+    depended on which thread finished first.
+    """
+    def claim(item):
+        return (
+            str(item.get('statement') or ''),
+            str(item.get('holder') or ''),
+            str(item.get('file') or ''),
+        )
+
+    return sorted(evidence, key=claim)
+
+
 class OssliliSubprocessDetector:
     """License detector using osslili CLI."""
     
@@ -364,47 +401,58 @@ class OssliliSubprocessDetector:
                 seen_licenses = set()
                 # Handle both 'scan_results' format (newer) and 'results' format (older)
                 if 'scan_results' in data and data['scan_results']:
-                    for scan_result in data['scan_results']:
-                        if 'license_evidence' in scan_result:
-                            for lic in scan_result['license_evidence']:
-                                # Map detected_license to spdx_id for consistency
-                                spdx_id = lic.get('detected_license', lic.get('spdx_id', 'Unknown'))
-                                # Judge before deduplicating. osslili sorts
-                                # evidence by score, so keying on the first
-                                # record for a (licence, file) pair let a
-                                # rejected one stand in for an acceptable one
-                                # behind it, and which came first depended on
-                                # the machine.
-                                if not is_reportable(lic, spdx_id):
-                                    continue
-                                key = (spdx_id, lic.get('file', 'unknown'))
-                                if key in seen_licenses:
-                                    continue
-                                seen_licenses.add(key)
-                                
-                                license_info = {
-                                    "name": lic.get('name', spdx_id),
-                                    "spdx_id": spdx_id,
-                                    "confidence": lic.get('confidence', 0.0),
-                                    "confidence_level": self._get_confidence_level(
-                                        lic.get('confidence', 0.0),
-                                        lic.get('detection_method', ''),
-                                        lic.get('match_type', ''),
-                                    ),
-                                    "source": f"osslili_{lic.get('detection_method', 'unknown')}",
-                                    # Scanning a directory, so this really is
-                                    # the file osslili read.
-                                    "file": lic.get('file', 'unknown'),
-                                    "category": lic.get('category'),
-                                    "match_type": lic.get('match_type'),
-                                }
-                                
-                                licenses.append(license_info)
+                    # Flattened across every scan result before ordering,
+                    # because the deduplication below is global. Ordering
+                    # each result on its own said nothing about two records
+                    # for the same licence arriving in different results.
+                    for lic in _strongest_first([
+                            evidence
+                            for scan_result in data['scan_results']
+                            for evidence in scan_result.get('license_evidence', [])
+                    ]):
+                        # Map detected_license to spdx_id for consistency
+                        spdx_id = lic.get('detected_license', lic.get('spdx_id', 'Unknown'))
+                        # Judge before deduplicating. osslili sorts
+                        # evidence by score, so keying on the first
+                        # record for a (licence, file) pair let a
+                        # rejected one stand in for an acceptable one
+                        # behind it, and which came first depended on
+                        # the machine.
+                        if not is_reportable(lic, spdx_id):
+                            continue
+                        key = (spdx_id, lic.get('file', 'unknown'))
+                        if key in seen_licenses:
+                            continue
+                        seen_licenses.add(key)
+                        
+                        license_info = {
+                            "name": lic.get('name', spdx_id),
+                            "spdx_id": spdx_id,
+                            "confidence": lic.get('confidence', 0.0),
+                            "confidence_level": self._get_confidence_level(
+                                lic.get('confidence', 0.0),
+                                lic.get('detection_method', ''),
+                                lic.get('match_type', ''),
+                            ),
+                            "source": f"osslili_{lic.get('detection_method', 'unknown')}",
+                            # Scanning a directory, so this really is
+                            # the file osslili read.
+                            "file": lic.get('file', 'unknown'),
+                            "category": lic.get('category'),
+                            "match_type": lic.get('match_type'),
+                        }
+                        
+                        licenses.append(license_info)
                 elif 'results' in data and data['results']:
-                    # Fallback to old format
-                    for result_item in data['results']:
-                        if 'licenses' in result_item:
-                            for lic in result_item['licenses']:
+                    # Ordered before the deduplication for the same
+                    # reason as the current format above. Reachable only
+                    # with an osslili old enough to emit it, and wrong in
+                    # the same way without this.
+                    for lic in _strongest_first([
+                            evidence
+                            for result_item in data['results']
+                            for evidence in result_item.get('licenses', [])
+                    ]):
                                 # Create unique key to avoid duplicates
                                 if not is_reportable(lic):
                                     continue
@@ -437,31 +485,58 @@ class OssliliSubprocessDetector:
                 # Extract copyrights from scan_results
                 seen_copyrights = set()
                 if 'scan_results' in data and data['scan_results']:
-                    logger.debug(f"DEBUG: Processing {len(data['scan_results'])} scan results for copyrights")
-                    for scan_result in data['scan_results']:
-                        if 'copyright_evidence' in scan_result:
-                            logger.debug(f"DEBUG: Found {len(scan_result['copyright_evidence'])} copyright items")
-                            for copyright_item in scan_result['copyright_evidence']:
-                                statement = copyright_item.get('statement', '')
-                                logger.debug(f"DEBUG: Processing copyright: statement='{statement}'")
-                                if statement and statement not in seen_copyrights:
-                                    seen_copyrights.add(statement)
-                                    copyright_info = {
-                                        "statement": statement,
-                                        "holder": copyright_item.get('holder', ''),
-                                        "years": copyright_item.get('years', []),
-                                        "file": copyright_item.get('file', 'unknown'),
-                                        "confidence": copyright_item.get('confidence', 1.0)
-                                    }
-                                    copyrights.append(copyright_info)
-                                    logger.debug(f"DEBUG: Added copyright: {copyright_info}")
+                    # Flattened for the same reason as the licences above.
+                    for copyright_item in _statements_first([
+                            evidence
+                            for scan_result in data['scan_results']
+                            for evidence in scan_result.get('copyright_evidence', [])
+                    ]):
+                        statement = copyright_item.get('statement', '')
+                        logger.debug(f"DEBUG: Processing copyright: statement='{statement}'")
+                        if statement and statement not in seen_copyrights:
+                            seen_copyrights.add(statement)
+                            copyright_info = {
+                                "statement": statement,
+                                "holder": copyright_item.get('holder', ''),
+                                "years": copyright_item.get('years', []),
+                                "file": copyright_item.get('file', 'unknown'),
+                                "confidence": copyright_item.get('confidence', 1.0)
+                            }
+                            copyrights.append(copyright_info)
+                            logger.debug(f"DEBUG: Added copyright: {copyright_info}")
 
             # TODO: OSSlili v1.5.0 doesn't detect "Copyright (c)" format - FIXED in v1.5.1
             # Issue filed: https://github.com/oscarvalenzuelab/osslili/issues/32
         except Exception as e:
             logger.debug(f"Osslili subprocess directory detection failed for {dir_path}: {e}")
             
-        return {"licenses": licenses, "copyrights": copyrights}
+        return {
+            # Ordered before publishing. osslili scans concurrently and sorts
+            # its evidence by confidence, so two licences of equal confidence
+            # keep whatever order the threads finished in, and this list is
+            # assigned straight into a package's record by the Debian
+            # extractor. Best evidence first, which is what osslili intends,
+            # and settled beyond that.
+            "licenses": sorted(
+                licenses,
+                key=lambda lic: (
+                    -float(lic.get('confidence') or 0),
+                    str(lic.get('spdx_id') or ''),
+                    str(lic.get('file') or ''),
+                ),
+            ),
+            # Ordered for the same reason, so a caller of this function
+            # gets the same list twice rather than osslili's arrival order.
+            # Package extraction reorders them again by holder; this is what
+            # a direct caller sees.
+            "copyrights": sorted(
+                copyrights,
+                key=lambda c: (
+                    str(c.get('statement') or ''),
+                    str(c.get('holder') or ''),
+                ),
+            ),
+        }
 
     # A match is exact when the file says which licence it is, not when a
     # similarity score is close to one. osslili reports which of those it did.

@@ -1,6 +1,7 @@
 """Base extractor class for all package types."""
 
 import logging
+from collections import Counter
 from ..config import path_setting
 import hashlib
 import os
@@ -25,6 +26,76 @@ from ..utils.author_parser import parse_author_string, parse_author_list
 from ..utils.archive_utils import find_file_in_archive, extract_from_tar, extract_from_zip
 
 logger = logging.getLogger(__name__)
+
+
+# How many statements the joined copyright summary carries. The list of
+# authors is not capped: that one has to be complete.
+MAX_COPYRIGHT_STATEMENTS = 10
+
+
+def _in_a_settled_order(copyrights):
+    """Put copyright records in an order that does not change between runs.
+
+    osslili extracts them concurrently, so the same directory comes back in a
+    different order each time. That order decided which statements survived
+    the cap below and which holder was listed first, so the same package
+    reported a different author from one run to the next and its record could
+    not be compared with itself.
+
+    Ordered by how many years each holder has been claiming copyright here,
+    then by holder and statement. Sorting on the statement alone is stable
+    but says the package belongs to whoever comes first alphabetically, which
+    for a Go module put a vendored "Copyright 2009 The Go Authors" ahead of
+    the people who wrote it.
+
+    Years, not statements: a project writing "Copyright 2013-2023" makes one
+    statement covering eleven years, and counting statements ranked it below
+    a third-party file carrying two. osslili expands a range, so the years
+    are there to count.
+
+    Not files, which would be the better signal: osslili reports each
+    statement once however many files carry it, so the number of files a
+    holder appears in is not in the record. This is a heuristic for whose
+    package this is, it is used only to order the holders, and every one of
+    them is reported either way.
+
+    Not ordered by the file. That is the one part of the record that is not
+    stable: osslili attaches whichever file reached a statement first, so the
+    same statement comes back against gin_test.go on one run and
+    utils_test.go on the next.
+    """
+    # Records identical in holder and statement are the same claim, and
+    # nothing downstream can tell them apart. Dropping them here is what
+    # makes the order total: leaving them in, two records that tie on every
+    # key hold whatever order they arrived in.
+    distinct = {}
+    for copyright_info in copyrights:
+        key = (
+            str(copyright_info.get('holder') or ''),
+            str(copyright_info.get('statement') or ''),
+        )
+        distinct.setdefault(key, copyright_info)
+
+    years_per_holder = {}
+    for (holder, _), record in distinct.items():
+        years = record.get('years') or []
+        years_per_holder.setdefault(holder, set()).update(
+            year for year in years if isinstance(year, int)
+        )
+    statements_per_holder = Counter(holder for holder, _ in distinct)
+
+    def by_weight(item):
+        (holder, statement), _ = item
+        return (
+            -len(years_per_holder.get(holder, ())),
+            # A record with no years at all falls back to how many separate
+            # claims the holder makes, which is what this counted before.
+            -statements_per_holder[holder],
+            holder,
+            statement,
+        )
+
+    return [record for _, record in sorted(distinct.items(), key=by_weight)]
 
 
 class BaseExtractor(ABC):
@@ -313,36 +384,43 @@ class BaseExtractor(ABC):
 
             result = detect_licenses_and_copyrights_from_directory(directory_path)
             if isinstance(result, dict) and 'copyrights' in result:
-                copyrights = result['copyrights']
+                copyrights = _in_a_settled_order(result['copyrights'])
 
-                # Combine unique copyright statements
+                # Every holder, not the first ten of them. The list of people
+                # a package credits is the part that has to be complete; the
+                # joined string below is a summary and can be cut short.
+                seen_holders = set()
+                for copyright_info in copyrights:
+                    holder = copyright_info.get('holder', '')
+                    if not (merge_with_authors and metadata and holder):
+                        continue
+                    if holder in seen_holders:
+                        continue
+                    seen_holders.add(holder)
+                    existing_names = {
+                        author.get('name', '').lower()
+                        for author in metadata.authors
+                    }
+                    if holder.lower() not in existing_names:
+                        metadata.authors.append({
+                            'name': holder,
+                            'source': 'copyright'
+                        })
+
                 unique_statements = []
                 seen_statements = set()
-                seen_holders = set()
-
-                for copyright_info in copyrights[:10]:  # Limit to first 10 to avoid huge strings
+                for copyright_info in copyrights:
                     statement = copyright_info.get('statement', '')
-                    holder = copyright_info.get('holder', '')
-
                     if statement and statement not in seen_statements:
                         unique_statements.append(statement)
                         seen_statements.add(statement)
 
-                    # If merge_with_authors is enabled and we have metadata, add holders as authors
-                    if merge_with_authors and metadata and holder and holder not in seen_holders:
-                        seen_holders.add(holder)
-                        # Check if holder is not already in authors
-                        existing_names = {author.get('name', '').lower() for author in metadata.authors}
-                        if holder.lower() not in existing_names:
-                            # Add copyright holder as author
-                            metadata.authors.append({
-                                'name': holder,
-                                'source': 'copyright'
-                            })
-
-                # Join statements with semicolons
                 if unique_statements:
-                    return '; '.join(unique_statements)
+                    # Cut after deduplicating and ordering, so the same
+                    # statements survive every time. Cutting first meant a
+                    # package with eleven of them dropped a different one on
+                    # each run.
+                    return '; '.join(unique_statements[:MAX_COPYRIGHT_STATEMENTS])
         except Exception as e:
             # Copyright extraction is optional, but the reason it failed is
             # not: discarding it left no way to tell a missing statement from

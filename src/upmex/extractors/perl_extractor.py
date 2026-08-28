@@ -54,7 +54,7 @@ class PerlExtractor(BaseExtractor):
                 tar.extractall(temp_dir)
             
             # Find the extracted directory
-            extracted_dirs = [d for d in os.listdir(temp_dir) 
+            extracted_dirs = [d for d in sorted(os.listdir(temp_dir)) 
                             if os.path.isdir(os.path.join(temp_dir, d))]
             
             if extracted_dirs:
@@ -79,7 +79,7 @@ class PerlExtractor(BaseExtractor):
                 zip_ref.extractall(temp_dir)
             
             # Find the extracted directory
-            extracted_dirs = [d for d in os.listdir(temp_dir) 
+            extracted_dirs = [d for d in sorted(os.listdir(temp_dir)) 
                             if os.path.isdir(os.path.join(temp_dir, d))]
             
             if extracted_dirs:
@@ -400,7 +400,7 @@ class PerlExtractor(BaseExtractor):
             else:
                 # Check pattern match
                 base_pattern = pattern.replace('.*', '')
-                for file_name in os.listdir(package_dir):
+                for file_name in sorted(os.listdir(package_dir)):
                     if file_name.startswith(base_pattern):
                         file_path = os.path.join(package_dir, file_name)
                         if os.path.isfile(file_path):

@@ -297,4 +297,7 @@ class GradleExtractor(BaseExtractor):
                 tags = re.findall(r'["\']([^"\']+)["\']', tags_str)
                 keywords.extend(tags)
         
-        return list(set(keywords)) if keywords else []
+        # Ordered, because a set's order depends on the hash seed and this
+        # list is published. The same build file gave different keyword
+        # orders in different processes.
+        return sorted(set(keywords)) if keywords else []
