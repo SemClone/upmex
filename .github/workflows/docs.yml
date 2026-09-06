@@ -13,6 +13,10 @@ on:
     paths:
       - 'docs/**'
 
+# The job only reads the repo to build the site; nothing here writes back.
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build the site
