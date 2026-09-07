@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- A gem's homepage is treated as its repository only when the host is a forge, rather than when the URL text contains one. `'github.com' in url` also matched `evil-github.com.example.net`, and matched the host appearing in a path or a query string on any host at all.
+
 ## [1.8.0] - 2026-09-07
 
 ### Fixed
