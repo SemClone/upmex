@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 from .base import BaseExtractor
 from ..api.maven_central import MavenCentralAPI
+from ..config import int_setting
+from ..licenses import license_url as license_url_module
 from ..core.models import (
     LicenseConfidenceLevel,
     LicenseInfo,
@@ -482,6 +484,57 @@ class JavaExtractor(BaseExtractor):
             ]
         return payload
 
+    def _licenses_from_url(self, license_url: str) -> List[LicenseInfo]:
+        """Identify the licence a declared <url> points at.
+
+        Two steps, neither of which asks a detector to recognise an address.
+        The URL is looked up in the table of canonical licence addresses first,
+        because those cannot mean anything else and answering from the table
+        costs no request. Otherwise, and only in registry mode, what the URL
+        serves is fetched and that text is identified.
+
+        Args:
+            license_url: The <url> a POM's <license> declared
+
+        Returns:
+            Licences the URL identifies, or an empty list
+        """
+        spdx_id = license_url_module.canonical_spdx_id(license_url)
+        if spdx_id:
+            return [LicenseInfo(
+                spdx_id=spdx_id,
+                name=spdx_id,
+                confidence=1.0,
+                confidence_level=LicenseConfidenceLevel.HIGH,
+                detection_method='declared',
+                category='declared',
+                match_type='license_url',
+            )]
+
+        # Fetching reaches the network, which is what registry mode governs.
+        # Without it the declaration is still reported, as the prose the POM
+        # wrote -- the caller asked for no lookups, not for a worse answer
+        # invented locally.
+        if not self.registry_mode:
+            return []
+
+        timeout = int_setting(self.config, 'api.license_url.timeout',
+                              license_url_module.DEFAULT_TIMEOUT)
+        text = license_url_module.fetch_license_text(license_url, timeout=timeout)
+        if not text:
+            return []
+
+        detected = self.detect_licenses_from_text(
+            text, filename=license_url_module.licence_filename(license_url)
+        )
+
+        # A fetched page can quote a licence other than the one it serves, so
+        # only evidence about the whole document is allowed to name it.
+        return [
+            info for info in detected
+            if license_url_module.is_strong_evidence(info.match_type, info.confidence)
+        ]
+
     def _detect_pom_licenses(self,
                              licenses_elem: Any,
                              ns: Dict[str, str],
@@ -495,6 +548,9 @@ class JavaExtractor(BaseExtractor):
         osslili can classify. So the declared <url> is tried as a second signal,
         and a declaration osslili cannot classify at all is recorded verbatim
         rather than dropped — as the npm extractor does for its declared field.
+
+        The URL is resolved by what it names or by what it serves, never by its
+        spelling: see upmex.licenses.license_url.
 
         Args:
             licenses_elem: The POM's <licenses> element
@@ -522,10 +578,7 @@ class JavaExtractor(BaseExtractor):
                     filename=filename
                 )
                 if not detected and license_url:
-                    detected = self.detect_licenses_from_text(
-                        f"License: {license_url}",
-                        filename=filename
-                    )
+                    detected = self._licenses_from_url(license_url)
 
                 if detected:
                     for info in detected:

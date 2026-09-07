@@ -64,6 +64,7 @@ Third party services used by `--api`. See [Integration]({{ site.baseurl }}/integ
 | `api.ecosystems.base_url` | `https://packages.ecosyste.ms/api/v1` | Service endpoint |
 | `api.ecosystems.timeout` | `30` | Seconds |
 | `api.ecosystems.api_key` | `null` | Optional key |
+| `api.license_url.timeout` | `10` | Seconds. Fetching what a package's declared licence URL serves, so the licence is identified from its own text rather than from its address |
 | `api.purldb.enabled` | `true` | Whether PurlDB may be used |
 | `api.purldb.base_url` | `https://public.purldb.io` | Service endpoint |
 | `api.purldb.timeout` | `30` | Seconds |

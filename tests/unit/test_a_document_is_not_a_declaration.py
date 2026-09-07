@@ -215,19 +215,21 @@ class TestLicenceFilesWithASuffixedName:
 
 
 
-class TestWhatThisRuleGivesUp:
-    """Stated as a test so it is a decision on the record rather than a
-    surprise: a package whose only licence statement is prose in its README,
-    with no licence file and nothing in its metadata."""
+class TestAReadmeCarryingTheWholeLicence:
+    """A package whose only licence statement is in its README, with no licence
+    file and nothing in its metadata.
 
-    def test_a_readme_carrying_the_licence_is_read_when_that_file_is_scanned(self):
+    This used to be given up on: scanning a directory, osslili measured a short
+    window around the word "license", so a bare mention scored the same as a
+    document carrying the entire licence and both had to be refused. It now
+    scores the whole file, which separates them, so the licence is read and the
+    mention still is not. Kept as a test in both directions because the rule
+    only holds while that separation does."""
+
+    def test_it_is_read_when_that_file_is_scanned(self):
         assert _found("README.md", "# mypkg\n\n## License\n\n" + FULL_MIT_TEXT) == ["MIT"]
 
-    def test_but_not_when_the_directory_is_scanned(self):
-        """Scanning a directory, osslili measures a short window around the
-        word "license" rather than the whole file, and a bare mention scores
-        the same as a document carrying the entire licence. Nothing separates
-        them, so both are refused."""
+    def test_it_is_read_when_the_directory_is_scanned(self):
         directory = tempfile.mkdtemp()
         try:
             with open(os.path.join(directory, "README.md"), "w") as handle:
@@ -236,11 +238,23 @@ class TestWhatThisRuleGivesUp:
         finally:
             shutil.rmtree(directory, ignore_errors=True)
 
+        assert sorted({lic["spdx_id"] for lic in found["licenses"]}) == ["MIT"]
+
+    def test_but_a_readme_that_only_mentions_one_is_not(self):
+        """The distinction the whole rule rests on: crediting a dependency's
+        licence is not the same as carrying one."""
+        directory = tempfile.mkdtemp()
+        try:
+            with open(os.path.join(directory, "README.md"), "w") as handle:
+                handle.write(CREDITS_A_DEPENDENCY)
+            found = OssliliSubprocessDetector().detect_from_directory(directory)
+        finally:
+            shutil.rmtree(directory, ignore_errors=True)
+
         assert found["licenses"] == []
 
     def test_and_a_licence_file_alongside_it_is_still_read(self):
-        """Which is why the loss is narrow: the shape needs no licence file
-        anywhere, and almost every package has one."""
+        """A mention in the README does not displace the real licence file."""
         directory = tempfile.mkdtemp()
         try:
             with open(os.path.join(directory, "README.md"), "w") as handle:

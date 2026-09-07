@@ -40,7 +40,11 @@ dependencies = [
     "requests>=2.28.0",
     "click>=8.0.0",
     "typing-extensions>=4.0.0;python_version<'3.10'",
-    "osslili>=1.5.5",
+    # 1.8.0 scores a whole file in a directory scan rather than a window
+    # around the word "license", which is what separates a README carrying a
+    # licence from one merely mentioning a dependency's. upmex reports the
+    # first and refuses the second, so it needs that separation to exist.
+    "osslili>=1.8.0",
     "toml>=0.10.0",
     "zstandard>=0.19.0",
 ]

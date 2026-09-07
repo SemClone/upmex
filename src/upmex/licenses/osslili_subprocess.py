@@ -136,18 +136,36 @@ LICENCE_NAME_STEMS = (
 )
 
 
-def _reads_as_a_document(source_file):
-    """A file whose subject is prose, not licence text."""
+def _named_as_a_licence(source_file):
+    """Is this file named as the licence itself?
+
+    Answered from the name alone, which is what a name can settle. osslili
+    classifies by name too and does not always agree: it reads the plural
+    licenses.txt as documentation, where LICENSE.txt is a licence file. Both
+    hold the licence, so where the two disagree about a file named this
+    plainly, this is the one to believe.
+    """
     if not source_file:
         return False
     name = PurePath(str(source_file).replace('\\', '/')).name
     stem = PurePath(name).stem.lower()
-    suffix = PurePath(name).suffix.lower()
 
     if any(word in stem for word in LICENCE_WORDS):
+        return True
+    return stem in LICENCE_NAME_STEMS
+
+
+def _reads_as_a_document(source_file):
+    """A file whose subject is prose, not licence text."""
+    if not source_file:
         return False
-    if stem in LICENCE_NAME_STEMS:
+    if _named_as_a_licence(source_file):
         return False
+
+    name = PurePath(str(source_file).replace('\\', '/')).name
+    stem = PurePath(name).stem.lower()
+    suffix = PurePath(name).suffix.lower()
+
     if suffix in DOCUMENT_SUFFIXES:
         return True
     # No suffix at all, so the name is all there is to go on.
@@ -179,8 +197,12 @@ def is_reportable(lic, spdx_id=None, source_file=None):
     if lic.get('detection_method', '') in EXACT_DETECTION_METHODS:
         return True
 
-    if (lic.get('category') == 'declared'
-            and lic.get('match_type') not in WEAK_DECLARED_MATCH_TYPES):
+    source = source_file or lic.get('file') or lic.get('source_file')
+    if lic.get('category') == 'declared' and (
+            lic.get('match_type') not in WEAK_DECLARED_MATCH_TYPES
+            # osslili calls licenses.txt documentation, which would drop a
+            # package's own licence over the plural in its filename.
+            or _named_as_a_licence(source)):
         return True
 
     return lic.get('confidence', 0) >= HIGH_CONFIDENCE
