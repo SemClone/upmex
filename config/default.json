@@ -18,6 +18,9 @@
       "timeout": 30,
       "api_key": null
     },
+    "license_url": {
+      "timeout": 10
+    },
     "ecosystems": {
       "enabled": true,
       "base_url": "https://packages.ecosyste.ms/api/v1",

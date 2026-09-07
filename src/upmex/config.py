@@ -91,6 +91,11 @@ class Config:
                 "timeout": 30,
                 "api_key": None  # Set via PME_VULNERABLECODE_API_KEY env var
             },
+            # Fetching what a declared licence URL serves, so the licence is
+            # identified from its own text rather than from its address.
+            "license_url": {
+                "timeout": 10,
+            },
             "ecosystems": {
                 "enabled": True,
                 "base_url": "https://packages.ecosyste.ms/api/v1",
