@@ -138,6 +138,16 @@ class _TextExtractor(HTMLParser):
 
     SKIPPED = ('script', 'style', 'head', 'nav', 'footer')
 
+    # Tags that end a line when a browser renders them. Without this the text
+    # of "<p>the Apache</p><p>License</p>" comes out as "the ApacheLicense",
+    # welding the last word of every block to the first of the next -- which
+    # is a licence that no longer matches the licence it is.
+    BREAKING = (
+        'p', 'br', 'div', 'li', 'ul', 'ol', 'tr', 'td', 'th', 'table',
+        'section', 'article', 'header', 'blockquote', 'pre', 'hr',
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    )
+
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self._parts = []
@@ -146,10 +156,18 @@ class _TextExtractor(HTMLParser):
     def handle_starttag(self, tag, attrs):
         if tag in self.SKIPPED:
             self._skipping += 1
+        elif tag in self.BREAKING:
+            self._parts.append('\n')
+
+    def handle_startendtag(self, tag, attrs):
+        if tag in self.BREAKING:
+            self._parts.append('\n')
 
     def handle_endtag(self, tag):
         if tag in self.SKIPPED and self._skipping:
             self._skipping -= 1
+        elif tag in self.BREAKING:
+            self._parts.append('\n')
 
     def handle_data(self, data):
         if not self._skipping:

@@ -194,6 +194,24 @@ class TestHtmlPages:
         assert "Version 2.0" in text
         assert "color:red" not in text
 
+    def test_blocks_do_not_weld_their_words_together(self):
+        """Without a break at a block boundary the last word of one runs into
+        the first of the next, and a licence stops matching the licence it
+        is."""
+        text = license_url.html_to_text("<p>the Apache</p><p>License</p>")
+        assert "ApacheLicense" not in text
+        assert "the Apache" in text and "License" in text
+
+    @pytest.mark.parametrize("markup,joined", [
+        ("<li>one</li><li>two</li>", "onetwo"),
+        ("<div>one</div><div>two</div>", "onetwo"),
+        ("one<br/>two", "onetwo"),
+        ("<td>one</td><td>two</td>", "onetwo"),
+        ("<h2>one</h2><p>two</p>", "onetwo"),
+    ])
+    def test_every_block_boundary_breaks(self, markup, joined):
+        assert joined not in license_url.html_to_text(markup)
+
     def test_a_plain_licence_is_recognised_as_not_markup(self):
         assert not license_url.looks_like_html(MIT_LICENCE)
 
