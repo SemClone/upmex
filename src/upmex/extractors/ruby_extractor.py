@@ -5,12 +5,35 @@ import gzip
 import yaml
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 import logging
 
 from .base import BaseExtractor
 from ..core.models import NO_ASSERTION, PackageMetadata, PackageType
 
 logger = logging.getLogger(__name__)
+
+# A gemspec's homepage is only treated as the repository when it points at one
+# of these. Matched on the host, not on the text of the URL: "github.com" as a
+# substring is also present in evil-github.com.example.net, and in a path or a
+# query string on any host at all.
+FORGE_HOSTS = ('github.com', 'gitlab.com')
+
+
+def points_at_a_forge(url: Optional[str]) -> bool:
+    """Is this URL a repository on a forge we recognise?"""
+    if not url:
+        return False
+
+    try:
+        host = (urlparse(url).hostname or '').lower()
+    except ValueError:
+        return False
+
+    if host.startswith('www.'):
+        host = host[4:]
+
+    return host in FORGE_HOSTS
 
 
 # Custom YAML loader that ignores Ruby-specific tags
@@ -104,11 +127,11 @@ class RubyExtractor(BaseExtractor):
                                     metadata.repository = gem_metadata['source_code_uri']
                                 elif gem_metadata.get('homepage_uri'):
                                     repo_url = gem_metadata['homepage_uri']
-                                    if 'github.com' in repo_url or 'gitlab.com' in repo_url:
+                                    if points_at_a_forge(repo_url):
                                         metadata.repository = repo_url
                                 
                         if metadata.repository == NO_ASSERTION and metadata.homepage != NO_ASSERTION:
-                            if 'github.com' in metadata.homepage or 'gitlab.com' in metadata.homepage:
+                            if points_at_a_forge(metadata.homepage):
                                 metadata.repository = metadata.homepage
                         
                         # Extract authors
