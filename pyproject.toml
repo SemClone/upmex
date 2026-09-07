@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "upmex"
-version = "1.7.2"
+version = "1.8.0"
 description = "Universal Package Metadata Extractor - Extract metadata from various package formats"
 readme = "README.md"
 # What CI tests. 3.8 was claimed here and never tested, and has
